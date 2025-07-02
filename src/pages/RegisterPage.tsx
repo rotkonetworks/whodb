@@ -10,9 +10,7 @@ import {
   WalletIcon,
   UserCheck,
   LinkIcon,
-  CheckCircle,
   Loader2,
-  AlertTriangle,
   Edit,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -25,7 +23,9 @@ import { useWallet } from "@/contexts/wallet-context"
 import { useUser } from "@/contexts/user-context" // For fetching profile to edit
 import { useVerification } from "@/contexts/verification-context"
 import { BalanceCheck } from "@/components/balance-check"
-import { IdentityFieldsForm, type IdentityData } from "@/components/identity-fields-form" // Import IdentityData
+import { type IdentityData } from "@/components/identity-fields-form" // Import IdentityData
+import { SimpleIdentityForm } from "@/components/simple-identity-form" // New simple form
+import { IdentityVerificationForm } from "@/components/identity-verification-form" // New verification form
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NetworkSelection } from "@/components/network-selection-register"
 import { AuthProviderButton } from "@/components/auth-provider-button"
@@ -144,12 +144,17 @@ export default function RegisterPage() {
     }
 
     if (accountStore.address) {
-      setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
+      // If we have an identity set, go to verification, otherwise go to identity form
+      if (identity?.status === verifyStatuses.IdentitySet || identity?.status === verifyStatuses.JudgementRequested || identity?.status === verifyStatuses.FeePaid) {
+        setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
+      } else {
+        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
+      }
     } else {
       setCurrentStep(STEP_NUMBERS.pickAccount)
       return
     }
-  }, [network, connectedWallets])
+  }, [network, connectedWallets, accountStore.address, identity?.status])
 
   useEffect(() => {// Set up profile/idenity data based on URL parameters or logged in user
     // Wait for user data to be loaded before doing anything.
@@ -350,12 +355,26 @@ export default function RegisterPage() {
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
-    const filledFields = getAllFilledFields(identityData)
-    if (identityData.displayName.trim() === "" && filledFields.filter((f) => f !== "displayName").length === 0)
-      return false
+    // For the fillIdentityInfo step, we only need displayName + at least one other field
+    // No verification required at this step
+    const hasDisplayName = identityData.displayName.trim() !== ""
+    const otherFields = Object.entries(identityData)
+      .filter(([key, value]) => key !== "displayName" && value && value.trim() !== "")
+    const hasOtherFields = otherFields.length > 0
+    
+    return hasDisplayName && hasOtherFields
+  }, [identityData])
 
-    for (const fieldName of filledFields) {
-      if (fieldName === "displayName") continue
+  const canProceedFromVerificationStep = useMemo(() => {
+    // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
+    const filledFields = getAllFilledFields(identityData)
+    const verifiableFields = filledFields.filter(f => f !== "displayName")
+    
+    // If no verifiable fields, can proceed (display name only)
+    if (verifiableFields.length === 0) return true
+    
+    // All verifiable fields must be verified
+    for (const fieldName of verifiableFields) {
       const status = getFieldStatus(fieldName)
       if (!status || status.status !== "verified") {
         return false
@@ -369,21 +388,28 @@ export default function RegisterPage() {
       handleNetworkSelect(_network)
     }
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) {
-      const unverifiedFilledFields = getAllFilledFields(identityData)
-        .filter((fieldName) => {
-          if (fieldName === "displayName") return false
-          const status = getFieldStatus(fieldName)
-          return status?.status !== "verified"
-        })
-        .map((fieldName) => fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/([A-Z])/g, " $1"))
-
-      if (unverifiedFilledFields.length > 0) {
-        toast.error(`Please verify all filled fields before continuing: ${unverifiedFilledFields.join(", ")}.`)
-      } else if (
-        identityData.displayName.trim() === "" &&
-        getAllFilledFields(identityData).filter((f) => f !== "displayName").length === 0
-      ) {
-        toast.error("Please provide a Display Name or fill and verify at least one other field.")
+      // For fillIdentityInfo, we only need displayName + at least one other field
+      // No verification required at this step
+      if (identityData.displayName.trim() === "") {
+        toast.error("Please provide a Display Name.")
+      } else if (getAllFilledFields(identityData).filter((f) => f !== "displayName").length === 0) {
+        toast.error("Please fill at least one other field besides Display Name.")
+      }
+      return
+    }
+    if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) {
+      // For reviewAndSubmit, all filled fields (except displayName) must be verified
+      const filledFields = getAllFilledFields(identityData)
+      const unverifiedFields = filledFields.filter(fieldName => {
+        if (fieldName === "displayName") return false
+        const status = getFieldStatus(fieldName)
+        return !status || status.status !== "verified"
+      })
+      
+      if (unverifiedFields.length > 0) {
+        const fieldNames = unverifiedFields
+          .map(fieldName => fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/([A-Z])/g, " $1"))
+        toast.error(`Please verify all fields before continuing: ${fieldNames.join(", ")}.`)
       }
       return
     }
@@ -534,6 +560,7 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
+    if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !walletAddress) return false
     return true
   }
@@ -688,128 +715,65 @@ export default function RegisterPage() {
 
             {currentStep === STEP_NUMBERS.fillIdentityInfo && (
               <>
-                {/* Identity Status Display */}
-                <div className="mb-6">
-                  <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
-                      <UserCheck className="w-5 h-5 mr-2 text-pink-400" />
-                      On-chain Identity Status
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <div className={`
-                        px-3 py-1 rounded-full text-sm font-medium
-                        ${identity.status === verifyStatuses.NoIdentity ? 'bg-red-500/20 text-red-300' :
-                          identity.status === verifyStatuses.IdentitySet ? 'bg-orange-500/20 text-orange-300' :
-                            identity.status === verifyStatuses.JudgementRequested ? 'bg-yellow-500/20 text-yellow-300' :
-                              identity.status === verifyStatuses.FeePaid ? 'bg-blue-500/20 text-blue-300' :
-                                identity.status === verifyStatuses.IdentityVerified ? 'bg-green-500/20 text-green-300' :
-                                  'bg-gray-500/20 text-gray-300'}
-                      `}>
-                        {identity.status === verifyStatuses.NoIdentity ? 'No Identity' :
-                          identity.status === verifyStatuses.IdentitySet ? 'Identity Set' :
-                            identity.status === verifyStatuses.JudgementRequested ? 'Judgement Requested' :
-                              identity.status === verifyStatuses.FeePaid ? 'Fee Paid - Ready for Verification' :
-                                identity.status === verifyStatuses.IdentityVerified ? 'Identity Verified' :
-                                  'Unknown'}
-                      </div>
-                      {identity.status === verifyStatuses.FeePaid && (
-                        <div className="flex items-center text-blue-300 text-sm">
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Challenge verification enabled
-                        </div>
-                      )}
-                    </div>
-                    {identity.status !== verifyStatuses.FeePaid && identity.status !== verifyStatuses.IdentityVerified && (
-                      <p className="text-gray-400 text-sm mt-2">
-                        {identity.status === verifyStatuses.NoIdentity ?
-                          'Set your identity information below and submit to the blockchain.' :
-                          identity.status === verifyStatuses.IdentitySet ?
-                            'Request judgement after filling and verifying your information.' :
-                            identity.status === verifyStatuses.JudgementRequested ?
-                              'Pay the verification fee to enable field verification challenges.' :
-                              'Complete the verification process.'
-                        }
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <IdentityFieldsForm
+                {/* Simple Identity Setting Form - No Verification */}
+                <SimpleIdentityForm
                   initialData={identityData}
                   onSubmit={() => { }}
                   isSubmitting={isSubmittingIdentity}
                   isEditMode={isEditMode}
                   onDataChange={handleIdentityDataFormChange}
-                  canVerifyFields={identity.status === verifyStatuses.FeePaid}
                   supportedFields={supportedFields}
+                  identityStatus={identity?.status || verifyStatuses.NoIdentity}
                 />
               </>
             )}
 
             {currentStep === STEP_NUMBERS.reviewAndSubmit && walletAddress && (
-              <Card className="bg-gray-800/50 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white text-xl">
-                    <ListChecks className="w-6 h-6 mr-3 text-pink-400" />
-                    Review Your Information
-                  </CardTitle>
-                  <CardDescription className="text-gray-400 text-sm">
-                    Confirm details before submitting to the {networkDisplayName} blockchain. This action may incur
-                    network fees.
-                    {isNetworkEncrypted && " Data on this network will be signed for privacy."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50">
-                    <p>
-                      <strong className="text-gray-300">Network:</strong>{" "}
-                      <span className="text-white font-medium">
-                        {networkDisplayName} {isNetworkEncrypted && "(Private)"}
-                      </span>
-                    </p>
-                    <p>
-                      <strong className="text-gray-300">Wallet Address:</strong>{" "}
-                      <span className="text-white font-medium font-mono break-all">{walletAddress}</span>
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50">
-                    <p>
-                      <strong className="text-gray-300">Display Name:</strong>{" "}
-                      <span className="text-white font-medium">{identityData.displayName || "(Not provided)"}</span>
-                    </p>
-                    {Object.entries(identityData).map(([key, value]) => {
-                      if (key !== "displayName" && value) {
-                        const fieldStatus = getFieldStatus(key)
-                        return (
-                          <p key={key} className="flex justify-between items-center">
-                            <span>
-                              <strong className="text-gray-300 capitalize">{key.replace(/([A-Z])/g, " $1")}:</strong>{" "}
-                              <span className="text-white font-medium">{value.toString()}</span>
-                            </span>
-                            {fieldStatus?.status === "verified" ? (
-                              <CheckCircle className="w-4 h-4 text-green-400 ml-2" />
-                            ) : fieldStatus?.status === "pending" ? (
-                              <Loader2 className="w-4 h-4 text-yellow-400 animate-spin ml-2" />
-                            ) : fieldStatus?.status === "failed" ? (
-                              <AlertTriangle className="w-4 h-4 text-red-400 ml-2" />
-                            ) : null}
-                          </p>
-                        )
-                      }
-                      return null
-                    })}
-                  </div>
-                  <Button
-                    onClick={handleReviewAndSubmit}
-                    disabled={isSubmittingIdentity}
-                    className="w-full btn-primary text-white mt-6 py-3 text-base"
-                  >
-                    {isSubmittingIdentity
-                      ? `${isEditMode ? "Updating" : "Submitting"} to Blockchain...`
-                      : `${isEditMode ? "Confirm & Submit Update" : "Confirm & Submit Identity"}`}
-                  </Button>
-                </CardContent>
-              </Card>
+              <>
+                {/* Identity Verification Form - All verification happens here */}
+                <IdentityVerificationForm
+                  identityData={identityData}
+                  identityStatus={identity?.status || verifyStatuses.Unknown}
+                  supportedFields={supportedFields}
+                  canVerifyFields={identity?.status === verifyStatuses.FeePaid}
+                />
+                
+                <Card className="bg-gray-800/50 border-gray-700 mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-white text-xl">
+                      <ListChecks className="w-6 h-6 mr-3 text-pink-400" />
+                      Review & Submit
+                    </CardTitle>
+                    <CardDescription className="text-gray-400 text-sm">
+                      Verify all your information above, then submit to the {networkDisplayName} blockchain.
+                      {isNetworkEncrypted && " Data on this network will be signed for privacy."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50">
+                      <p>
+                        <strong className="text-gray-300">Network:</strong>{" "}
+                        <span className="text-white font-medium">
+                          {networkDisplayName} {isNetworkEncrypted && "(Private)"}
+                        </span>
+                      </p>
+                      <p>
+                        <strong className="text-gray-300">Wallet Address:</strong>{" "}
+                        <span className="text-white font-medium font-mono break-all">{walletAddress}</span>
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleReviewAndSubmit}
+                      disabled={isSubmittingIdentity || !canProceedFromVerificationStep}
+                      className="w-full btn-primary text-white mt-6 py-3 text-base"
+                    >
+                      {isSubmittingIdentity
+                        ? `${isEditMode ? "Updating" : "Submitting"} to Blockchain...`
+                        : `${isEditMode ? "Confirm & Submit Update" : "Confirm & Submit Identity"}`}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {currentStep === STEP_NUMBERS.linkExternalAccounts && (
