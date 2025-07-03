@@ -392,10 +392,13 @@ export default function RegisterPage() {
       // No verification required at this step
       if (identityData.displayName.trim() === "") {
         toast.error("Please provide a Display Name.")
+        return
       } else if (getAllFilledFields(identityData).filter((f) => f !== "displayName").length === 0) {
         toast.error("Please fill at least one other field besides Display Name.")
+        return
       }
-      return
+      /* const tx = typedApi.tx.Identity.set_identity({
+        info: { */
     }
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) {
       // For reviewAndSubmit, all filled fields (except displayName) must be verified
@@ -430,7 +433,7 @@ export default function RegisterPage() {
 
   const [openDialog, setOpenDialog] = useState<DialogMode>(null)
 
-  const handleReviewAndSubmit = async () => {
+  const onSetIdentity = async () => {
     if (!walletAddress || !typedApi) return
 
     setIsSubmittingIdentity(true)
@@ -725,6 +728,18 @@ export default function RegisterPage() {
                   supportedFields={supportedFields}
                   identityStatus={identity?.status || verifyStatuses.NoIdentity}
                 />
+                <Button
+                  onClick={onSetIdentity}
+                  disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
+                  className="w-full btn-primary mt-6"
+                  >
+                    {isSubmittingIdentity
+                      ? "Submitting Identity Data..."
+                      : identity.status === verifyStatuses.NoIdentity
+                        ? "Submit Identity Data"
+                        : "Update Identity Data"
+                    }
+                  </Button>
               </>
             )}
 
@@ -763,7 +778,7 @@ export default function RegisterPage() {
                       </p>
                     </div>
                     <Button
-                      onClick={handleReviewAndSubmit}
+                      //onClick={handleReviewAndSubmit}
                       disabled={isSubmittingIdentity || !canProceedFromVerificationStep}
                       className="w-full btn-primary text-white mt-6 py-3 text-base"
                     >
