@@ -33,7 +33,6 @@ export interface IdentityData {
 interface SimpleIdentityFormProps {
   initialData: IdentityData
   onSubmit: (data: IdentityData) => void
-  isSubmitting: boolean
   isEditMode: boolean
   onDataChange: (data: IdentityData) => void
   supportedFields?: string[]
@@ -43,7 +42,6 @@ interface SimpleIdentityFormProps {
 export function SimpleIdentityForm({
   initialData,
   onSubmit,
-  isSubmitting,
   isEditMode,
   onDataChange,
   supportedFields = [],
@@ -220,7 +218,7 @@ export function SimpleIdentityForm({
     <form onSubmit={handleFormSubmit} className="space-y-8">
       {/* Identity Status Info */}
       <IdentityStatusInfo status={identityStatus} />
-      
+
       <div className="flex items-start p-3 mb-6 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
         <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
         <span>

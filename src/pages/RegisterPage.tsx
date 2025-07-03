@@ -41,6 +41,7 @@ import { AccountSelector } from "@/components/ui/account-selector"
 import { SS58String } from "polkadot-api"
 import { verifyStatuses } from "@/types/Identity"
 import { Binary } from "polkadot-api"
+import BigNumber from "bignumber.js"
 
 const GoogleIcon = () => <Mail className="w-5 h-5" />
 const MatrixIcon = () => (
@@ -76,22 +77,17 @@ export default function RegisterPage() {
     accounts,
     identity,
     fetchIdAndJudgement,
-    prepareClearIdentityTx,
     challenges,
-    isChallengeWsConnected,
-    challengeLoading,
-    subscribeToChallenges,
-    openTxDialog,
     formatAmount,
     isTxBusy,
     supportedFields,
     typedApi,
-    sendPGPVerification
+    sendPGPVerification,
+    signSubmitAndWatch,
   } = polkadotApiContext
 
   const {
     isConnected: isWalletConnected,
-    connect: connectWallet,
     isConnecting: isWalletConnecting,
   } = useWallet()
 
@@ -435,9 +431,6 @@ export default function RegisterPage() {
 
   const onSetIdentity = async () => {
     if (!walletAddress || !typedApi) return
-
-    setIsSubmittingIdentity(true)
-    const action = isEditMode ? "Updating" : "Submitting"
 
     try {
       // Prepare transaction data

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useMemo, useCallback } from "react"
 import { VerifiableFormField } from "@/components/verifiable-form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import {
@@ -20,6 +20,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { useVerification } from "@/contexts/verification-context"
 import { verifyStatuses } from "@/types/Identity"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 
 export interface IdentityData {
   displayName: string
@@ -45,14 +46,15 @@ export function IdentityVerificationForm({
   supportedFields = [],
   canVerifyFields = false,
 }: IdentityVerificationFormProps) {
-  const { getFieldStatus, getVerifiedFields } = useVerification()
+  const { getVerifiedFields } = useVerification()
+  const { challengeError, challengeLoading } = usePolkadotApi()
 
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
       'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint'
     ]
-    
+
     // Only show fields that are actually filled
     return supportedSet.filter(field => {
       const fieldMapping: Record<string, keyof IdentityData> = {
@@ -87,8 +89,8 @@ export function IdentityVerificationForm({
       icon: <Mail className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "satoshi@example.com",
       type: "email",
-      verificationInstructions: { 
-        method: "code" as const, 
+      verificationInstructions: {
+        method: "code" as const,
         contactAddress: import.meta.env.VITE_VERIFICATION_EMAIL || "verify@whodb.com",
         details: `Send verification code via email. You'll receive a unique code to enter for verification.`
       }
@@ -98,7 +100,7 @@ export function IdentityVerificationForm({
       icon: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "https://bitcoin.org",
       type: "url",
-      verificationInstructions: { 
+      verificationInstructions: {
         method: "dns-challenge" as const,
         details: `Add a TXT record to your domain's DNS with the provided challenge string. Format: TXT record for _whodb-verification.yourdomain.com`
       }
@@ -108,8 +110,8 @@ export function IdentityVerificationForm({
       icon: <Twitter className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "@satoshi",
       type: "text",
-      verificationInstructions: { 
-        method: "code" as const, 
+      verificationInstructions: {
+        method: "code" as const,
         contactAddress: import.meta.env.VITE_VERIFICATION_TWITTER || "@whodb_verify",
         details: `Send the verification code as a direct message to ${import.meta.env.VITE_VERIFICATION_TWITTER || "@whodb_verify"} on Twitter/X.`
       }
@@ -119,7 +121,7 @@ export function IdentityVerificationForm({
       icon: <Github className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "satoshi-nakamoto",
       type: "text",
-      verificationInstructions: { 
+      verificationInstructions: {
         method: "challenge-url" as const,
         details: `You'll receive a GitHub challenge URL from our API. Visit the URL and follow the OAuth authentication process to verify your GitHub account.`
       }
@@ -129,8 +131,8 @@ export function IdentityVerificationForm({
       icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "@satoshi:matrix.org",
       type: "text",
-      verificationInstructions: { 
-        method: "code" as const, 
+      verificationInstructions: {
+        method: "code" as const,
         contactAddress: import.meta.env.VITE_VERIFICATION_MATRIX || "@verify:whodb.org",
         details: `Send the verification code as a message to ${import.meta.env.VITE_VERIFICATION_MATRIX || "@verify:whodb.org"} on Matrix.`
       }
@@ -140,7 +142,7 @@ export function IdentityVerificationForm({
       icon: <Key className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
       type: "text",
-      verificationInstructions: { 
+      verificationInstructions: {
         method: "gpg-challenge" as const,
         details: `GPG Challenge Verification Steps:
 1. Copy the challenge text provided
@@ -166,7 +168,7 @@ export function IdentityVerificationForm({
         label={config.label}
         icon={config.icon}
         value={identityData[formFieldKey]}
-        onChange={() => {}} // Read-only in verification step
+        onChange={() => { }} // Read-only in verification step
         placeholder={config.placeholder}
         type={config.type}
         verificationInstructions={config.verificationInstructions}
@@ -221,7 +223,7 @@ export function IdentityVerificationForm({
     <div className="space-y-8">
       {/* Identity Status Info */}
       <IdentityStatusInfo status={identityStatus} />
-      
+
       {/* Identity Status Display */}
       <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-4">
         <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
