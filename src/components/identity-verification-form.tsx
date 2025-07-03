@@ -245,14 +245,34 @@ export function IdentityVerificationForm({
       </div>
 
       {/* Status-based instructions */}
-      {identityStatus < verifyStatuses.FeePaid && (
-        <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
-          <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
-          <span>
-            Verification challenges are not yet available. You need to request judgement and pay the verification fee first.
-          </span>
-        </div>
-      )}
+      {identityStatus < verifyStatuses.FeePaid 
+        ? (
+          <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
+            <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
+            <span>
+              Verification challenges are not yet available. You need to request judgement and pay the verification fee first.
+            </span>
+          </div>
+        )
+        : (challengeLoading 
+          ? (
+            <div className="flex items-start p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
+              <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
+              <span>
+                Connecting to verification service to enable challenges...
+              </span>
+            </div>
+          )
+          : challengeError ? (
+            <div className="flex items-start p-3 text-sm text-red-300 bg-red-900/20 border border-red-500/30 rounded-md">
+              <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-red-400" />
+              <span>
+                Error connecting to verification service: {challengeError.message}
+              </span>
+            </div>
+          ) : null
+        )
+      }
 
       {identityStatus >= verifyStatuses.FeePaid && !canVerifyFields && (
         <div className="flex items-start p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
