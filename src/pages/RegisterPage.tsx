@@ -29,6 +29,7 @@ import { IdentityVerificationForm } from "@/components/identity-verification-for
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NetworkSelection } from "@/components/network-selection-register"
 import { AuthProviderButton } from "@/components/auth-provider-button"
+import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile" // For fetching profile by ID
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
@@ -116,6 +117,11 @@ export default function RegisterPage() {
 
   const [hoveredAccount, setHoveredAccount] = useState<string | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<SS58String | null>(null)
+
+  // Transaction dialog state
+  const [estimatedCosts, setEstimatedCosts] = useState<any>({})
+  const [txToConfirm, setTxToConfirm] = useState<any>(null)
+  const [currentDialogMode, setCurrentDialogMode] = useState<DialogMode>(null)
 
   const editIdParam = searchParams.get("editId")
   const flowParam = searchParams.get("flow")
@@ -427,6 +433,56 @@ export default function RegisterPage() {
     }
   }
 
+  // Transaction dialog handlers
+  const closeTxDialog = useCallback(() => {
+    setOpenDialog(null)
+    setEstimatedCosts({})
+    setTxToConfirm(null)
+    setCurrentDialogMode(null)
+  }, [])
+
+  const submitTransaction = useCallback(async () => {
+    if (!txToConfirm) {
+      toast.error("No transaction to submit.")
+      return
+    }
+    if (!walletAddress || !typedApi) {
+      toast.error("No wallet connected.")
+      return
+    }
+
+    setIsSubmittingIdentity(true)
+
+    try {
+      let action = ""
+      let nextStep = currentStep
+
+      // Determine action based on dialog mode
+      if (currentDialogMode === "setIdentity") {
+        action = isEditMode ? "Updating" : "Submitting"
+        nextStep = STEP_NUMBERS.reviewAndSubmit
+      } else if (currentDialogMode === "requestJudgement") {
+        action = "Requesting judgement for"
+        // Stay on same step to complete verification
+      }
+
+      await signSubmitAndWatch({
+        call: txToConfirm,
+        name: `${action} identity`,
+      })
+      
+      // Close the dialog
+      closeTxDialog()
+
+
+
+    } catch (error: any) {
+      console.error("Transaction submission error:", error)
+      toast.error(`Failed to submit transaction: ${error.message}`)
+      setIsSubmittingIdentity(false)
+    }
+  }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
+
   const [openDialog, setOpenDialog] = useState<DialogMode>(null)
 
   const onSetIdentity = async () => {
@@ -496,21 +552,47 @@ export default function RegisterPage() {
         fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
       }
 
-      // Open transaction dialog
-      openTxDialog({
-        mode: "setIdentity",
-        tx,
-        estimatedCosts
-      })
+      // Set dialog state for transaction confirmation
+      setEstimatedCosts(estimatedCosts)
+      setTxToConfirm(tx)
+      setCurrentDialogMode("setIdentity")
 
-      toast.info(`${action} identity on ${networkDisplayName}...`)
-      if (isNetworkEncrypted) {
-        toast.info("Your data will be signed for privacy on this network.", { duration: 4000 })
-      }
+      // Open transaction dialog
+      setOpenDialog("setIdentity")
+
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
-      setIsSubmittingIdentity(false)
+    }
+  }
+
+  const onRequestJudgement = async () => {
+    if (!walletAddress || !typedApi) return
+
+    try {
+      // Create the request judgement transaction
+      const registrarIndex = 0 // This should be dynamic based on your registrar
+      const tx = (typedApi.tx.Identity as any).request_judgement({
+        reg_index: registrarIndex,
+        max_fee: BigInt(1000000000000) // This should be dynamic based on registrar fee
+      })
+
+      // Estimate costs
+      const estimatedCosts = {
+        fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
+      }
+
+      // Set dialog state for transaction confirmation
+      setEstimatedCosts(estimatedCosts)
+      setTxToConfirm(tx)
+      setCurrentDialogMode("requestJudgement")
+
+      // Open transaction dialog
+      setOpenDialog("requestJudgement")
+
+    } catch (error: any) {
+      console.error("Transaction preparation error:", error)
+      toast.error(`Failed to prepare transaction: ${error.message}`)
     }
   }
 
@@ -589,6 +671,44 @@ export default function RegisterPage() {
     <ConnectionDialog open={openDialog === "connectWallets"}
       onClose={() => { setOpenDialog(null) }}
       dark={isDark === "dark"}
+    />
+    <ConfirmActionDialog
+      openDialog={openDialog}
+      closeTxDialog={closeTxDialog}
+      openTxDialog={(args) => {
+        if (args.mode) {
+          setOpenDialog(args.mode)
+          setEstimatedCosts(args.estimatedCosts)
+          setTxToConfirm(args.tx)
+        } else {
+          closeTxDialog()
+        }
+      }}
+      submitTransaction={submitTransaction}
+      estimatedCosts={estimatedCosts}
+      txToConfirm={txToConfirm}
+      xcmParams={{} as any} // Simplified for now
+      teleportExpanded={false}
+      setTeleportExpanded={() => {}} // Simplified for now
+      displayedAccounts={accounts}
+      chainStore={{
+        id: network || "",
+        name: networkDisplayName,
+        tokenSymbol: "DOT", // This should be dynamic based on network
+        tokenDecimals: 10, // This should be dynamic based on network
+      } as any}
+      accountStore={{
+        address: walletAddress || "",
+        encodedAddress: walletAddress || "",
+      } as any}
+      relayAndParachains={[]} // Simplified for now
+      fromBalance={new BigNumber(0)} // Simplified for now
+      balance={new BigNumber(0)} // Simplified for now
+      minimunTeleportAmount={new BigNumber(0)} // Simplified for now
+      formatAmount={formatAmount}
+      config={{} as any} // Simplified for now
+      identity={identity || { status: verifyStatuses.NoIdentity, deposit: BigInt(0) } as any}
+      isTxBusy={isTxBusy}
     />
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       <header className="border-b border-pink-500/30 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-20">
@@ -715,7 +835,6 @@ export default function RegisterPage() {
                 <SimpleIdentityForm
                   initialData={identityData}
                   onSubmit={() => { }}
-                  isSubmitting={isSubmittingIdentity}
                   isEditMode={isEditMode}
                   onDataChange={handleIdentityDataFormChange}
                   supportedFields={supportedFields}
