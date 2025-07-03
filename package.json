@@ -4,11 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite --host",
     "build": "vite build",
-    "dev": "vite",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "start": "vite preview",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint src/",
+    "lint:fix": "eslint --fix src/",
+    "setup": "bash scripts/setup.sh",
+    "generate-metadata": "bunx polkadot-api@latest update",
+    "predev": "bun run generate-metadata",
+    "prebuild": "bun run generate-metadata",
+    "vercel-build": "bun run generate-metadata"
   },
   "dependencies": {
     "@auth/core": "latest",
