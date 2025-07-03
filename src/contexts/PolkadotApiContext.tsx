@@ -30,6 +30,7 @@ import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 import { accountStore as _accountStore } from "@/store/AccountStore";
 
 import BigNumber from "bignumber.js";
+import { ChallengeStore } from "@/store/challengesStore";
 
 // Context interface definition
 interface PolkadotApiContextType {
@@ -84,8 +85,8 @@ interface PolkadotApiContextType {
   chainConstants: any;
   
   // Challenges
-  challenges: any;
-  challengeError: any;
+  challenges: ChallengeStore;
+  challengeError: string | null;
   isChallengeWsConnected: boolean;
   challengeLoading: boolean;
   subscribeToChallenges: () => void;
