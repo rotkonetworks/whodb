@@ -3,7 +3,6 @@
 import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react" // Added useCallback
 import { toast } from "sonner"
-import { v4 as uuidv4 } from "uuid"
 
 interface FieldVerification {
   field: string
@@ -106,41 +105,17 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
       return websocketChallenge.code
     }
 
-    // Fallback for when WebSocket challenges are not available (should not happen in normal flow)
-    toast.info(`Initiating verification for ${label}...`)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    let payload: string | null = null
-    if (methodType === "code") {
-      payload = Math.floor(100000 + Math.random() * 900000).toString()
-    } else if (methodType === "challenge" || methodType === "gpg-challenge" || methodType === "dns-challenge") {
-      payload =
-        methodType === "dns-challenge"
-          ? `whodb-${uuidv4().substring(0, 8)}`
-          : `whodb-verification-challenge: ${uuidv4()} @ ${new Date().toISOString()}`
-    } else if (methodType === "challenge-url") {
-      // For GitHub, this would be the OAuth URL from the API
-      payload = `https://api.whodb.com/verify/github?challenge=${uuidv4()}&field=${field}`
-    }
-
-    setVerifications((prev) =>
-      prev.map((v) =>
-        v.field === field
-          ? { ...v, status: "pending", verificationMethod: label, verificationPayload: payload || undefined }
-          : v,
-      ),
-    )
-
-    setVerifyingFields((prev) => {
-      const next = new Set(prev)
-      next.delete(field)
-      return next
-    })
-
-    if (methodType !== "oauth") {
-      toast.success(`Verification for ${label} is pending. Please follow the instructions.`)
-    }
-    return payload
+    window.setTimeout(() => {
+      if (!challenges[field] || !challenges[field].code) {
+        toast.error(`No verification challenge available for ${label}. Please try again later.`)
+        setVerifyingFields((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(field)
+          return newSet
+        })
+      }
+    }, 10000)
+    return null
   }
 
   const confirmVerification = async (field: string, signedChallenge?: string): Promise<boolean> => {
