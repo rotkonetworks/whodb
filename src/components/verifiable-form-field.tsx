@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { verifyStatuses } from "@/types/Identity"
 
 interface VerifiableFormFieldProps {
   fieldId: "email" | "matrix" | "twitter" | "website" | "github" | "pgpFingerprint"
@@ -139,6 +141,8 @@ export function VerifiableFormField({
     )
   }
 
+  const { identity } = usePolkadotApi()
+
   return (
     <div className="space-y-2 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
       <div className="flex items-center justify-between">
@@ -158,7 +162,7 @@ export function VerifiableFormField({
           className="bg-gray-700 border-pink-500/30 text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
           disabled={isInputDisabled || isVerifyingThisField}
         />
-        {renderVerificationButton()}
+        {identity.status === verifyStatuses.FeePaid && renderVerificationButton()}
       </div>
 
       {fieldStatus?.status === "pending" && challengeOrCode && (
