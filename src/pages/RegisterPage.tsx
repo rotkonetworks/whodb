@@ -620,7 +620,6 @@ export default function RegisterPage() {
     .map(([key, networkInfo]) => ({
       id: key,
       name: networkInfo.name,
-      description: networkInfo.description || "",
       // TODO Add actual icons for each network
       icon: (
         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${networkInfo.iconStyle}`}>
@@ -890,13 +889,21 @@ export default function RegisterPage() {
                       </p>
                     </div>
                     <Button
-                      //onClick={handleReviewAndSubmit}
-                      disabled={isSubmittingIdentity || !canProceedFromVerificationStep}
+                      onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => {}}
+                      disabled={
+                        (identity?.status === verifyStatuses.IdentitySet && false) || // Can request judgement
+                        (identity?.status !== verifyStatuses.IdentitySet && !canProceedFromVerificationStep) // Need verification
+                      }
                       className="w-full btn-primary text-white mt-6 py-3 text-base"
                     >
-                      {isSubmittingIdentity
-                        ? `${isEditMode ? "Updating" : "Submitting"} to Blockchain...`
-                        : `${isEditMode ? "Confirm & Submit Update" : "Confirm & Submit Identity"}`}
+                      {identity?.status === verifyStatuses.IdentitySet
+                        ? "Request Judgement & Pay Fee"
+                        : identity?.status === verifyStatuses.FeePaid
+                          ? "Complete All Verifications Above"
+                          : identity?.status === verifyStatuses.IdentityVerified
+                            ? "Identity Fully Verified!"
+                            : "Complete Verification Steps"
+                      }
                     </Button>
                   </CardContent>
                 </Card>
@@ -954,7 +961,7 @@ export default function RegisterPage() {
                     {walletAddress?.substring(0, 10)}...{walletAddress?.substring(walletAddress.length - 10)}
                   </span>
                 </p>
-                <Link href={`/profile/${editingProfileId || walletAddress || "me"}`}>
+                <Link to={`/profile/${editingProfileId || walletAddress || "me"}`}>
                   View Your Profile
                 </Link>
               </div>
@@ -964,7 +971,7 @@ export default function RegisterPage() {
           <div className="mt-8 flex justify-between items-center">
             <Button
               onClick={handlePreviousStep}
-              disabled={currentStep === 1 || isSubmittingIdentity || isLinkingAccount}
+              disabled={currentStep === 1 || isSubmittingIdentity}
               variant="ghost"
               className="text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-50 px-4 py-2 rounded-md"
             >
