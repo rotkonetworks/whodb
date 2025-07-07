@@ -235,6 +235,8 @@ const useChallengeWebSocket = (
   const hasSubscribed = useRef(false);
   const reconnectTimeout = useRef<number | null>(null);
   const isReconnecting = useRef(false);
+  const connectionAttempts = useRef(0);
+  const lastConnectionAttempt = useRef(0);
 
   // Keep track of pending promises for responses
   const pendingRequests = useRef<Map<string, {
@@ -299,15 +301,25 @@ const useChallengeWebSocket = (
   const subscribe = useCallback(() => {
     if (!hasSubscribed.current && ws.current?.readyState === WebSocket.OPEN && account && network) {
       hasSubscribed.current = true;
-      sendMessage({
-        type: 'SubscribeAccountState',
+      console.log(`Subscribing to account state for ${account} on ${network}`);
+
+      // Send message directly without using sendMessage to avoid dependency issues
+      const message = {
+        version: '1.0',
+        type: 'SubscribeAccountState' as const,
         payload: { account, network },
-      }).catch(err => {
-        setError(err.message);
+      };
+
+      try {
+        ws.current.send(JSON.stringify(message));
+        console.log('Subscription message sent');
+      } catch (err) {
+        console.error('Subscription failed:', err);
+        setError(err instanceof Error ? err.message : 'Subscription failed');
         hasSubscribed.current = false; // Reset on error to allow retry
-      });
+      }
     }
-  }, [sendMessage, account, network]);
+  }, [account, network]);
 
   // Note union of types for event.data. it's done because AccountStateMessage does not have `payload` field.
   type ChallengeMessageType = WebSocketMessage | AccountStateMessage;
@@ -423,6 +435,8 @@ const useChallengeWebSocket = (
 
     isReconnecting.current = false;
     hasSubscribed.current = false;
+    connectionAttempts.current = 0; // Reset connection attempts
+    lastConnectionAttempt.current = 0; // Reset throttling
 
     // Clean up pending requests
     cleanupPendingRequests();
@@ -445,8 +459,31 @@ const useChallengeWebSocket = (
 
   // Set up WebSocket connection
   const connect = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastConnectionAttempt.current;
+
+    // Debounce connection attempts - minimum 1 second between attempts
+    if (timeSinceLastAttempt < 1000) {
+      console.log("Connection attempt throttled, too soon since last attempt");
+      return;
+    }
+
     // Prevent multiple concurrent connection attempts
     if (isReconnecting.current || (ws.current && ws.current.readyState === WebSocket.CONNECTING)) {
+      console.log("Connection attempt prevented - already connecting");
+      return;
+    }
+
+    lastConnectionAttempt.current = now;
+    connectionAttempts.current += 1;
+
+    // Exponential backoff for multiple failed attempts
+    const backoffDelay = Math.min(1000 * Math.pow(2, Math.min(connectionAttempts.current - 1, 5)), 30000);
+    if (connectionAttempts.current > 1 && timeSinceLastAttempt < backoffDelay) {
+      console.log(`Connection backoff: waiting ${backoffDelay}ms before attempt ${connectionAttempts.current}`);
+      reconnectTimeout.current = window.setTimeout(() => {
+        connect();
+      }, backoffDelay - timeSinceLastAttempt);
       return;
     }
 
@@ -456,6 +493,7 @@ const useChallengeWebSocket = (
       reconnectTimeout.current = null;
     }
 
+    console.log(`Attempting WebSocket connection #${connectionAttempts.current} to ${url}`);
     setLoading(true);
     setIsConnected(false);
     setError(null);
@@ -475,38 +513,56 @@ const useChallengeWebSocket = (
       ws.current = new WebSocket(url);
 
       ws.current.onopen = () => {
-        console.log({ callBack: "onopen" });
+        console.log({ callBack: "onopen", attempt: connectionAttempts.current });
         setIsConnected(true);
         setError(null);
         setLoading(false);
         isReconnecting.current = false;
         hasSubscribed.current = false; // Reset subscription flag for new connection
+        connectionAttempts.current = 0; // Reset connection attempts on successful connection
 
-        // Subscribe immediately after connection
-        subscribe();
+        // Subscribe immediately after connection - call subscribe directly to avoid closure issues
+        if (account && network) {
+          const message = {
+            version: '1.0',
+            type: 'SubscribeAccountState' as const,
+            payload: { account, network },
+          };
+
+          try {
+            ws.current?.send(JSON.stringify(message));
+            hasSubscribed.current = true;
+            console.log('Auto-subscription message sent on connection open');
+          } catch (err) {
+            console.error('Auto-subscription failed:', err);
+          }
+        }
       };
 
       ws.current.onclose = (event) => {
-        console.log({ callBack: "onclose", code: event.code });
+        console.log({ callBack: "onclose", code: event.code, attempt: connectionAttempts.current });
         setIsConnected(false);
         hasSubscribed.current = false;
         isReconnecting.current = false;
 
         // Only attempt reconnection for abnormal closures and if not manually disconnected
         if (event.code !== 1000 && event.code !== 1001) {
+          const reconnectDelay = Math.min(5000 * Math.pow(1.5, Math.min(connectionAttempts.current, 5)), 30000);
+          console.log(`Scheduling reconnection in ${reconnectDelay}ms`);
           reconnectTimeout.current = window.setTimeout(() => {
             if (!isReconnecting.current) {
               console.log("Attempting to reconnect...");
               connect();
             }
-          }, 5000);
+          }, reconnectDelay);
         } else {
           setLoading(false);
+          connectionAttempts.current = 0; // Reset on clean close
         }
       };
 
       ws.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        console.error("WebSocket error:", error, "attempt:", connectionAttempts.current);
         setError('WebSocket connection failed');
         isReconnecting.current = false;
         setLoading(false);
@@ -519,25 +575,34 @@ const useChallengeWebSocket = (
       isReconnecting.current = false;
       setLoading(false);
     }
-  }, [url, handleMessage, subscribe]);
+  }, [url]); // Only depend on url to prevent recreation
 
   // Initialize connection when URL changes
   useEffect(() => {
     if (url) {
-      connect();
-    }
+      // Debounce the initial connection to prevent rapid calls
+      const timeoutId = setTimeout(() => {
+        connect();
+      }, 100);
 
-    return () => {
-      disconnect();
-    };
-  }, [url]); // Only depend on URL changes
+      return () => {
+        clearTimeout(timeoutId);
+        disconnect();
+      };
+    }
+  }, [url, connect, disconnect]); // Include connect and disconnect in deps
 
   // Subscribe when connection is ready and we have account/network
   useEffect(() => {
     if (isConnected && account && network && !hasSubscribed.current) {
-      subscribe();
+      // Add a small delay to ensure connection is fully established
+      const timeoutId = setTimeout(() => {
+        subscribe();
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isConnected, account, network, subscribe]);
+  }, [isConnected, account, network]); // Remove subscribe from deps to prevent recreation
 
   return {
     connect,
