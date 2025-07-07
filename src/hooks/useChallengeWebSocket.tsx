@@ -186,10 +186,10 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
             status = done ? ChallengeStatus.Passed : ChallengeStatus.Pending;
           }
 
-          _challenges[key] = {
+          _challenges[key as keyof ChallengeStore] = {
             type: "matrixChallenge",
             status,
-            code: !done && pendingChallenges[key],
+            code: !done ? pendingChallenges[key] : undefined,
           };
         })
       if (_.isEqual(challenges, _challenges)) {
@@ -231,6 +231,11 @@ const useChallengeWebSocket = (
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Track if we've already subscribed for this connection
+  const hasSubscribed = useRef(false);
+  const reconnectTimeout = useRef<number | null>(null);
+  const isReconnecting = useRef(false);
+
   // Keep track of pending promises for responses
   const pendingRequests = useRef<Map<string, {
     resolve: (value: unknown) => void;
@@ -239,6 +244,15 @@ const useChallengeWebSocket = (
   }>>(new Map());
 
   const generateRequestId = () => Math.random().toString(36).substring(7);
+
+  // Clean up all pending requests
+  const cleanupPendingRequests = useCallback(() => {
+    for (const [, { reject, timeout }] of pendingRequests.current.entries()) {
+      clearTimeout(timeout);
+      reject(new Error('WebSocket disconnected'));
+    }
+    pendingRequests.current.clear();
+  }, []);
 
   const sendMessage = useCallback((message: WebSocketMessage): Promise<void> => {
     setLoading(true);
@@ -264,7 +278,11 @@ const useChallengeWebSocket = (
         }
       }, 30000);
 
-      pendingRequests.current.set(requestId, { resolve, reject, timeout });
+      pendingRequests.current.set(requestId, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeout
+      });
       ws.current.send(JSON.stringify(versionedMessage));
     });
   }, []);
@@ -277,12 +295,18 @@ const useChallengeWebSocket = (
     });
   }, [sendMessage]);
 
-  // Subscribe to account state
+  // Subscribe to account state - only once per connection
   const subscribe = useCallback(() => {
-    sendMessage({
-      type: 'SubscribeAccountState',
-      payload: { account, network },
-    }).catch(err => setError(err.message));
+    if (!hasSubscribed.current && ws.current?.readyState === WebSocket.OPEN && account && network) {
+      hasSubscribed.current = true;
+      sendMessage({
+        type: 'SubscribeAccountState',
+        payload: { account, network },
+      }).catch(err => {
+        setError(err.message);
+        hasSubscribed.current = false; // Reset on error to allow retry
+      });
+    }
   }, [sendMessage, account, network]);
 
   // Note union of types for event.data. it's done because AccountStateMessage does not have `payload` field.
@@ -304,8 +328,7 @@ const useChallengeWebSocket = (
                   type: 'success',
                   message: 'PGP key verified successfully!',
                 });
-                // Trigger a refresh of account state
-                subscribe();
+                // Don't trigger another subscription here - let the backend send updates
               } else {
                 // Handle other string messages
                 addNotification({
@@ -359,10 +382,11 @@ const useChallengeWebSocket = (
           }
 
           setChallengeState(prev => ({
-            ...prev,
+            account: prev?.account || account,
+            network: message.network,
+            hashed_info: prev?.hashed_info || '',
             verification_state: { fields: verificationStateFields },
             pending_challenges: pendingChallenges,
-            network: message.network
           }));
           setLoading(false);
           break;
@@ -391,84 +415,129 @@ const useChallengeWebSocket = (
   }, [addNotification, subscribe]);
 
   const disconnect = useCallback(() => {
-    // Important. Socket explicitly checked if open. so it won't get closed before ones that are
-    //  connecting. ws.current in dependency array ensures updating on unmount. Otherwise, it's a
-    //  mess to work with it, as too many connections may be opened in vain, or expected events
-    //  may not really be fired as expected.
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.onopen = null
-      ws.current.onerror = null
-      ws.current.onmessage = null
-      ws.current.close();
-      // ws.current = null and any remaining cleanup happens on close handling.
+    // Clear reconnection timeout
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
     }
-    if (ws.current?.readyState > WebSocket.OPEN) {
-      ws.current = null
+
+    isReconnecting.current = false;
+    hasSubscribed.current = false;
+
+    // Clean up pending requests
+    cleanupPendingRequests();
+
+    // Close WebSocket if it exists and is open
+    if (ws.current) {
+      if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
+        ws.current.onopen = null;
+        ws.current.onerror = null;
+        ws.current.onmessage = null;
+        ws.current.onclose = null;
+        ws.current.close();
+      }
+      ws.current = null;
     }
+
     setLoading(false);
     setIsConnected(false);
-    // 1 Absolutely nothing, to avoid infinite loop. It's a bit tricky, but it works. No more deps!
-  }, []);
+  }, [cleanupPendingRequests]);
 
   // Set up WebSocket connection
   const connect = useCallback(() => {
+    // Prevent multiple concurrent connection attempts
+    if (isReconnecting.current || (ws.current && ws.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+
     setLoading(true);
     setIsConnected(false);
-    ws.current = new WebSocket(url);
+    setError(null);
+    hasSubscribed.current = false;
+    isReconnecting.current = true;
 
-    ws.current.onopen = () => {
-      console.log({ callBack: "onopen" })
-      setIsConnected(true);
-      setError(null);
-    };
-    ws.current.onclose = (event) => {
-      console.log({ callBack: "onclose", code: event.code })
-      setIsConnected(false);
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (!ws.current || ws.current.readyState === WebSocket.CLOSED) {
-          connect();
+    // Close existing connection if any
+    if (ws.current) {
+      ws.current.onopen = null;
+      ws.current.onerror = null;
+      ws.current.onmessage = null;
+      ws.current.onclose = null;
+      ws.current.close();
+    }
+
+    try {
+      ws.current = new WebSocket(url);
+
+      ws.current.onopen = () => {
+        console.log({ callBack: "onopen" });
+        setIsConnected(true);
+        setError(null);
+        setLoading(false);
+        isReconnecting.current = false;
+        hasSubscribed.current = false; // Reset subscription flag for new connection
+
+        // Subscribe immediately after connection
+        subscribe();
+      };
+
+      ws.current.onclose = (event) => {
+        console.log({ callBack: "onclose", code: event.code });
+        setIsConnected(false);
+        hasSubscribed.current = false;
+        isReconnecting.current = false;
+
+        // Only attempt reconnection for abnormal closures and if not manually disconnected
+        if (event.code !== 1000 && event.code !== 1001) {
+          reconnectTimeout.current = window.setTimeout(() => {
+            if (!isReconnecting.current) {
+              console.log("Attempting to reconnect...");
+              connect();
+            }
+          }, 5000);
+        } else {
+          setLoading(false);
         }
-      }, 5000);
-    };
-    ws.current.onerror = (error) => {
-      console.error(error)
-      setError('WebSocket error occurred');
-    };
-    ws.current.onmessage = handleMessage;
-  }, [url, handleMessage]);
+      };
 
+      ws.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setError('WebSocket connection failed');
+        isReconnecting.current = false;
+        setLoading(false);
+      };
+
+      ws.current.onmessage = handleMessage;
+    } catch (error) {
+      console.error("Failed to create WebSocket:", error);
+      setError('Failed to create WebSocket connection');
+      isReconnecting.current = false;
+      setLoading(false);
+    }
+  }, [url, handleMessage, subscribe]);
+
+  // Initialize connection when URL changes
   useEffect(() => {
-    console.log({ ws: ws.current, state: ws.current?.readyState })
-    if (ws.current?.readyState === WebSocket.CONNECTING) {
-      setIsConnected(false)
-      setLoading(true)
-      return;
-    }
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      setIsConnected(true)
-      return;
-    }
-    if (!ws.current?.readyState || ws.current?.readyState > WebSocket.OPEN) {
-      connect()
-      setIsConnected(false)
-      setLoading(true)
+    if (url) {
+      connect();
     }
 
-    return disconnect;
-    // DITTO 1
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, ws.current?.readyState]);
+    return () => {
+      disconnect();
+    };
+  }, [url]); // Only depend on URL changes
 
+  // Subscribe when connection is ready and we have account/network
   useEffect(() => {
-    if (ws.current?.readyState === WebSocket.OPEN && account && network) {
-      console.log({ ws: ws.current, state: ws.current?.readyState, account, callback: "sendMessage<effect>" });
-      // Subscribe to account state on connection
+    if (isConnected && account && network && !hasSubscribed.current) {
       subscribe();
     }
-    // DITTO 1
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, network, ws.current?.readyState])
+  }, [isConnected, account, network, subscribe]);
 
   return {
     connect,
