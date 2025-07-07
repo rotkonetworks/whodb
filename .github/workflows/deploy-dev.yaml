@@ -1,10 +1,10 @@
 name: Build and Deploy Dev
 
 env:
-  SERVER_USER: 'w3reg'
-  SERVER_IP: '135.181.202.179'
-  DEPLOY_PATH: '/home/w3reg/dev.w3reg.org'
-  NODE_VERSION: '18'
+  SERVER_USER: "w3reg"
+  SERVER_IP: "135.181.202.179"
+  DEPLOY_PATH: "/home/w3reg/dev.whodb.org"
+  NODE_VERSION: "18"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
   VITE_APP_DEFAULT_WS_URL: "wss://dev.rotko.net/people-rococo"
   VITE_APP_DEFAULT_WS_URL_RELAY: "wss://dev.rotko.net/rococo"
@@ -14,7 +14,7 @@ env:
   VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO: 0
   VITE_APP_AVAILABLE_CHAINS: polkadot_people,ksmcc3_people,paseo_people,rococo_people
   VITE_APP_DEFAULT_CHAIN: paseo_people
-  MODE: 'development'
+  MODE: "development"
   # we using staging api
 
 on:
@@ -37,7 +37,7 @@ jobs:
 
       - name: Build the application
         env:
-          BUILD_TARGET: 'production'
+          BUILD_TARGET: "production"
           VITE_APP_CHALLENGES_API_URL: wss://dapi.w3reg.org
         run: |
           nix-shell --command "bash scripts/setup.sh"
@@ -69,6 +69,6 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
-            echo "NGINX_PORT=43999" > .env
+            echo "NGINX_PORT=45999" > .env
             docker compose up --build -d web-nginx
           EOF
