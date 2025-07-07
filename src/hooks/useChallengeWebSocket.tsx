@@ -3,8 +3,8 @@ import _ from 'lodash';
 import { SS58String } from 'polkadot-api';
 import { useEffect, useCallback, useState, useRef } from 'react';
 
-import { ChallengeStatus, ChallengeStore } from '~/store/challengesStore';
-import { IdentityInfo, verifyStatuses } from '~/types/Identity';
+import { ChallengeStatus, ChallengeStore } from '@/store/challengesStore';
+import { IdentityInfo, verifyStatuses } from '@/types/Identity';
 
 import { AlertPropsOptionalKey } from './useAlerts';
 
@@ -85,28 +85,28 @@ type AccountStateMessage = {
   verification_state: VerificationStateNew;
 }
 
-type WebSocketMessage = { 
-    type: 'SubscribeAccountState'; 
-    payload: SubscribeAccountState 
-  } | { 
-    type: 'NotifyAccountState'; 
-    payload: NotifyAccountState 
+type WebSocketMessage = {
+  type: 'SubscribeAccountState';
+  payload: SubscribeAccountState
+} | {
+  type: 'NotifyAccountState';
+  payload: NotifyAccountState
+} | {
+  type: 'VerifyPGPKey';
+  payload: VerifyPGPKey;
+} | {
+  type: 'JsonResult';
+  payload: {
+    type: "ok",
+    message: ResponsePayload | string
   } | {
-    type: 'VerifyPGPKey';
-    payload: VerifyPGPKey;
-  } | { 
-    type: 'JsonResult'; 
-    payload: { 
-      type: "ok", 
-      message: ResponsePayload | string
-    } | { 
-      type: "err", 
-      message: string 
-    } 
-  } | {
-    type: "error",
-    message: string,
-  };
+    type: "err",
+    message: string
+  }
+} | {
+  type: "error",
+  message: string,
+};
 
 interface UseIdentityWebSocketProps {
   url: string;
@@ -133,17 +133,17 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
   identity: { info: IdentityInfo, status: verifyStatuses };
   addNotification: (alert: AlertPropsOptionalKey) => void;
 }) => {
-  const challengeWebSocket = useChallengeWebSocket({ 
-    url, 
-    account: address,  
-    network: network.split("_")[0], 
+  const challengeWebSocket = useChallengeWebSocket({
+    url,
+    account: address,
+    network: network.split("_")[0],
     addNotification,
   });
   const { challengeState, error, isConnected } = challengeWebSocket
 
   const [challenges, setChallenges] = useState<ChallengeStore>({});
   useEffect(() => {
-    setChallenges({}) 
+    setChallenges({})
   }, [url, address, network])
 
   const idWsDeps = [challengeState, error, address, identity.status, network]
@@ -209,11 +209,11 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, idWsDeps)
 
-  return { 
-    challenges, 
-    error: error, 
-    isConnected, 
-    loading: challengeWebSocket.loading, 
+  return {
+    challenges,
+    error: error,
+    isConnected,
+    loading: challengeWebSocket.loading,
     subscribe: challengeWebSocket.subscribe,
     connect: challengeWebSocket.connect,
     disconnect: challengeWebSocket.disconnect,
@@ -230,9 +230,9 @@ const useChallengeWebSocket = (
   const [error, setError] = useState<string | null>(null);
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Keep track of pending promises for responses
-  const pendingRequests = useRef<Map<string, { 
+  const pendingRequests = useRef<Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
     timeout: number;
@@ -291,7 +291,7 @@ const useChallengeWebSocket = (
   const handleMessage = useCallback((event: MessageEvent<ChallengeMessageType>) => {
     try {
       const message = JSON.parse(event.data as never) as ChallengeMessageType;
-      console.log({message})
+      console.log({ message })
 
       switch (message.type) {
         case 'JsonResult':
@@ -336,11 +336,11 @@ const useChallengeWebSocket = (
             });
           }
           break;
-          
+
         case 'AccountState': {
           const verificationStateFields: Record<string, boolean> = {};
           const pendingChallenges: [string, string][] = [];
-          
+
           // Extract verification states and pending challenges from the new format
           if (message.verification_state?.challenges) {
             Object.entries(message.verification_state.challenges)
@@ -358,7 +358,7 @@ const useChallengeWebSocket = (
               });
           }
 
-          setChallengeState(prev => ({ 
+          setChallengeState(prev => ({
             ...prev,
             verification_state: { fields: verificationStateFields },
             pending_challenges: pendingChallenges,

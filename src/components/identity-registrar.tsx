@@ -95,14 +95,14 @@ export function IdentityRegistrarComponent() {
       return;
     }
     const accountData = getWalletAccount(decodedAddress)
-      ?? ([1, 2, 4, 8, 32, 33].includes(decodedAddress.length) 
+      ?? ([1, 2, 4, 8, 32, 33].includes(decodedAddress.length)
         ? {
           address: urlParams.address,
           encodedAddress: encodeAddress(decodedAddress, chainStore.ss58Format),
-        } 
+        }
         : null
       )
-    ;
+      ;
     console.log({ accountData });
     if (accountData) {
       // Clear accountStore first to ensure props missing in accountData aren't kept
@@ -242,7 +242,7 @@ export function IdentityRegistrarComponent() {
   //#region Transactions
   const getNonce = useCallback(async (api: TypedApi<ChainDescriptorOf<ChainId>>, address: SS58String) => {
     try {
-      return (await (api.query.System.Account as ApiStorage).getValue(address, {at: "best"})).nonce
+      return (await (api.query.System.Account as ApiStorage).getValue(address, { at: "best" })).nonce
     } catch (error) {
       console.error(error)
       return null
@@ -264,7 +264,7 @@ export function IdentityRegistrarComponent() {
     // Awaiting for async function, so ignore this rule
     // eslint-disable-next-line no-async-promise-executor
   ) => new Promise(async (
-    resolve: (txStateUpdate: TxStateUpdate) => void, 
+    resolve: (txStateUpdate: TxStateUpdate) => void,
     reject: (err: Error) => void
   ) => {
     const { call, name } = params;
@@ -319,7 +319,7 @@ export function IdentityRegistrarComponent() {
         txHash = txStateUpdate.txHash;
         // TODO Add result type as below
         // Define type for transaction state updates
-        
+
         const _txStateUpdate: TxStateUpdate = {
           found: txStateUpdate["found"] || false,
           ok: txStateUpdate["ok"] || false,
@@ -792,7 +792,7 @@ export function IdentityRegistrarComponent() {
       otherChains={relayAndParachains}
       fromBalance={fromBalance}
       toBalance={balance}
-      
+
       isTxBusy={isTxBusy}
       formatAmount={formatAmount}
       getTeleportCall={({ amount }: {

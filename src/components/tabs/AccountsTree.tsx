@@ -64,11 +64,10 @@ function AccountNode({
 }: AccountNodeProps) {
   return (
     <div className={`relative ${isRoot ? '' : 'ml-1 pt-2 xs:ml-2 pl-2 xs:pl-4 border-l border-secondary'}`}>
-      <div className={`p-3 rounded-lg flex flex-row flex-wrap items-center justify-end gap-2 ${
-        node.isCurrentAccount 
-          ? 'bg-primary/20 border border-primary' 
+      <div className={`p-3 rounded-lg flex flex-row flex-wrap items-center justify-end gap-2 ${node.isCurrentAccount
+          ? 'bg-primary/20 border border-primary'
           : 'bg-transparent border-secondary border-[0.5px]'
-      }`}>
+        }`}>
         <div className="flex flex-row flex-wrap max-w-full shrink grow-1">
           <div className="flex flex-col items-start justify-between xs:justify-end self-start max-w-full">
             <div className="font-semibold max-w-full">
@@ -97,8 +96,8 @@ function AccountNode({
 
         {hasWalletConnected && <div className="flex flex-row gap-2 self-end">
           {!isRoot && node.isCurrentAccount && (
-            <Button 
-              size="icon" 
+            <Button
+              size="icon"
               variant="secondary"
               className="h-10 w-10 rounded-full"
               title="Quit subaccount"
@@ -129,8 +128,8 @@ function AccountNode({
             </Button>
           )}
           {node.isDirectSubOfCurrentAccount && onRemove && (
-            <Button 
-              size="icon" 
+            <Button
+              size="icon"
               variant="secondary"
               className="h-10 w-10 rounded-full"
               onClick={() => onRemove(node)}
@@ -146,10 +145,10 @@ function AccountNode({
           )}
         </div>}
       </div>
-      
-      {node.subs && node.subs.length > 0 
-        && (node.subs.map((subaccount) => <AccountNode 
-          key={subaccount.address} 
+
+      {node.subs && node.subs.length > 0
+        && (node.subs.map((subaccount) => <AccountNode
+          key={subaccount.address}
           node={subaccount}
           isRemoving={isRemoving}
           onRemove={onRemove}
@@ -157,7 +156,7 @@ function AccountNode({
           onQuit={onQuit}
           formatAmount={formatAmount}
           hasWalletConnected={hasWalletConnected}
-        /> ))
+        />))
       }
     </div>
   );
@@ -178,7 +177,7 @@ type AccountsTreeProps = {
 };
 
 export function AccountsTree({
-  accountTreeProps: {tree: accountTreeData, loading},
+  accountTreeProps: { tree: accountTreeData, loading },
   chainStore,
   currentAddress,
   api,
@@ -220,21 +219,21 @@ export function AccountsTree({
   // Find the current account node and check if it's a subaccount
   const currentAccountNode = useMemo(() => {
     if (!accountTreeData) return null;
-    
+
     // Helper function to find the node with isCurrentAccount flag
     const findCurrentAccountNode = (node: AccountTreeNode): AccountTreeNode | null => {
       if (node.isCurrentAccount) return node;
-      
+
       if (node.subs) {
         for (const sub of node.subs) {
           const found = findCurrentAccountNode(sub);
           if (found) return found;
         }
       }
-      
+
       return null;
     };
-    
+
     return findCurrentAccountNode(accountTreeData);
   }, [accountTreeData]);
 
@@ -263,9 +262,9 @@ export function AccountsTree({
 
   // Prepare transaction to add a subaccount
   const addSubaccount = async (address: SS58String, name: string) => prepareAccountModTx({
-    subs: [...prepareRawSetSubs(currentAccountNode), [address, { 
-      type: `Raw${name.length}`, 
-      value: Binary.fromText(name) 
+    subs: [...prepareRawSetSubs(currentAccountNode), [address, {
+      type: `Raw${name.length}`,
+      value: Binary.fromText(name)
     }]],
     address,
     mode: "addSubaccount"
@@ -280,9 +279,9 @@ export function AccountsTree({
   const editSubAccount = async (node: AccountTreeNode) => prepareAccountModTx({
     subs: prepareRawSetSubs(currentAccountNode).map(sub => {
       if (sub[0] === node.address) {
-        return [node.address, { 
-          type: `Raw${node.name.length}`, 
-          value: Binary.fromText(node.name) 
+        return [node.address, {
+          type: `Raw${node.name.length}`,
+          value: Binary.fromText(node.name)
         }];
       }
       return sub;
@@ -294,13 +293,13 @@ export function AccountsTree({
   // Prepare transaction to remove a subaccount
   const quitSubaccount = async () => {
     if (!api || !currentAddress) return;
-    
+
     try {
       setRemovingSubaccount(currentAddress);
-      
+
       const tx = api.tx.Identity.quit_sub(undefined);
       const fees = await tx.getEstimatedFees(currentAddress, { at: "best" });
-      
+
       openTxDialog({
         mode: "quitSub",
         tx,
@@ -365,9 +364,9 @@ export function AccountsTree({
 
   const currentAccountHasIdentity = !!identity.info;
 
-  const formattAmount = useFormatAmount({ 
-    tokenDecimals: chainStore.tokenDecimals, 
-    symbol: chainStore.tokenSymbol, 
+  const formattAmount = useFormatAmount({
+    tokenDecimals: chainStore.tokenDecimals,
+    symbol: chainStore.tokenSymbol,
     decimals: 3,
   });
 
@@ -398,9 +397,9 @@ export function AccountsTree({
             </div>
           ) : (
             <div className="account-tree">
-              <AccountNode 
-                node={accountTreeData} 
-                isRoot 
+              <AccountNode
+                node={accountTreeData}
+                isRoot
                 isRemoving={removingSubaccount}
                 onRemove={removeSubAccount}
                 onRename={handleEditClick}
@@ -418,7 +417,7 @@ export function AccountsTree({
           <CardHeader>
             <CardTitle>{isEditMode ? "Edit Subaccount" : "Add Subaccount"}</CardTitle>
             <CardDescription>
-              {isEditMode 
+              {isEditMode
                 ? `Update the name of subaccount ${selectedNode.name || selectedNode.address}`
                 : `Link another account as a subaccount of ${currentAccountNode.name || currentAccountNode.address}`
               }
@@ -428,18 +427,18 @@ export function AccountsTree({
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <Label htmlFor="subaccount" className="sr-only">Subaccount Address</Label>
-                {isEditMode 
-                  ?<Input
+                {isEditMode
+                  ? <Input
                     id="subaccount"
                     value={selectedAddress || ""}
                     disabled={true}
                     placeholder="Account address"
                   />
-                  :<AccountSelector
+                  : <AccountSelector
                     id="subaccount"
                     accounts={walletAccounts}
                     address={selectedAddress}
-                    handleAddressChange={setSelectedAddress}
+                    onAddressSelect={setSelectedAddress}
                     disabled={addingSubaccount}
                   />
                 }
@@ -469,23 +468,23 @@ export function AccountsTree({
               </div>
               <div className="flex gap-2">
                 <Button variant="primary"
-                  onClick={isEditMode 
-                    ?() => {
+                  onClick={isEditMode
+                    ? () => {
                       if (selectedNode) {
                         // Update the node name before calling editSubAccount
-                        const updatedNode = {...selectedNode, name: selectedName};
+                        const updatedNode = { ...selectedNode, name: selectedName };
                         editSubAccount(updatedNode);
                         resetForm();
                       }
                     }
-                    :() => {
+                    : () => {
                       if (selectedAddress && selectedName) {
                         addSubaccount(selectedAddress, selectedName);
                         resetForm();
                       }
                     }
-                  } 
-                  disabled={(!selectedAddress && !isEditMode) || !selectedName || !!selectedNameError 
+                  }
+                  disabled={(!selectedAddress && !isEditMode) || !selectedName || !!selectedNameError
                     || !currentAccountHasIdentity || addingSubaccount || !!removingSubaccount
                   }
                   className="gap-2 flex-1"
@@ -495,11 +494,11 @@ export function AccountsTree({
                   }
                   {isEditMode ? "Update Name" : "Add Subaccount"}
                 </Button>
-                
-                {isEditMode && <Button variant="secondary" onClick={resetForm} 
+
+                {isEditMode && <Button variant="secondary" onClick={resetForm}
                   className="h-10 w-10 rounded-full"
                 >
-                  <CircleOff /> 
+                  <CircleOff />
                 </Button>}
               </div>
             </div>

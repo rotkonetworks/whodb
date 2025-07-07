@@ -8,9 +8,9 @@ import { Binary } from "polkadot-api";
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react";
 import { useProxy } from "valtio/utils";
 
-import { config } from "~/api/config";
-import { AccountData } from "~/store/AccountStore";
-import { xcmParameters as _xcmParams } from "~/store/XcmParameters";
+import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
+import { AccountData } from "@/store/AccountStore";
+import { xcmParameters as _xcmParams } from "@/store/XcmParameters";
 
 interface UseXcmParametersOptions {
   chainId: string | number | symbol;
@@ -31,8 +31,8 @@ export function useXcmParameters({
   );
 
   // Get list of relay and parachains
-  const relayAndParachains = useMemo(() => 
-    Object.entries(config.chains)
+  const relayAndParachains = useMemo(() =>
+    Object.entries(CHAIN_CONFIG.chains)
       .filter(([id]) => id.includes(relayChainId) && id !== chainId)
       .map(([id, chain]) => ({ id, name: chain.name })),
     [relayChainId, chainId]
@@ -41,12 +41,12 @@ export function useXcmParameters({
   // Setup fromChain when relayChainId changes
   useEffect(() => {
     xcmParams.fromChain.id = relayChainId;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relayChainId]);
 
   // Get typed API for from chain
-  const fromTypedApi = useTypedApi({ 
-    chainId: xcmParams.fromChain.id || relayChainId as ChainId 
+  const fromTypedApi = useTypedApi({
+    chainId: xcmParams.fromChain.id || relayChainId as ChainId
   });
 
   // Function to get parachain ID
@@ -72,28 +72,28 @@ export function useXcmParameters({
         }
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromTypedApi, getParachainId]);
 
   // Update total transaction cost based on estimated costs
   useEffect(() => {
     const totalCost = Object.values(estimatedCosts)
       .reduce(
-        (total: BigNumber, current: BigNumber) => BigNumber(total).plus(BigNumber(current.toString())), 
+        (total: BigNumber, current: BigNumber) => BigNumber(total).plus(BigNumber(current.toString())),
         BigNumber(0)
       ) as BigNumber;
     xcmParams.txTotalCost = totalCost.times(1.1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estimatedCosts]);
 
   // Generate teleport call
   const getTeleportCall = useCallback(({
-    amount, 
-    fromApi, 
-    signer, 
+    amount,
+    fromApi,
+    signer,
     parachainId
-  }: { 
-    amount: BigNumber; 
+  }: {
+    amount: BigNumber;
     fromApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
     signer: AccountData['polkadotSigner'];
     parachainId?: number;
@@ -160,7 +160,7 @@ export function useXcmParameters({
         value: null,
       }
     });
-    
+
     console.log({ txArguments });
     return fromApi.tx.XcmPallet.limited_teleport_assets(txArguments);
   }, [xcmParams.fromChain.paraId]);
@@ -169,7 +169,7 @@ export function useXcmParameters({
   const teleportExpanded = xcmParams.enabled;
   const setTeleportExpanded = useCallback((nextState: boolean) => {
     xcmParams.enabled = nextState;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

@@ -1,24 +1,13 @@
-import React, { Suspense } from 'react'
+import React from 'react'
 import ReactDOM from 'react-dom/client'
-
-import 'uno.css'
-import '@unocss/reset/tailwind-compat.css'
-import "./css/uno.css"
-import "react-responsive-carousel/lib/styles/carousel.min.css";
-
+import { BrowserRouter } from 'react-router-dom'
 import App from './App'
-import { Loading } from './pages/Loading'
+import './globals.css'
 
-const Main: React.FC = () => {
-  return <>
-    <Suspense fallback={<Loading />}>
-      <App />
-    </Suspense>
-  </>
-}
-
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Main />
-  </React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>,
 )

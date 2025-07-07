@@ -1,21 +1,12 @@
+"use client"
+
+import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"
-import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-export type TypedSelectValue = {
-  type: string;
-  // There can be any set of additional props on any tyoe.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-}
-export type SelectChangeHandler = ((value: string | TypedSelectValue) => void)
-type ExtendedSelectProps = Omit<SelectPrimitive.SelectProps, 'onValueChange' | 'value'> & {
-  onValueChange?: (value: string | TypedSelectValue) => void;
-  value?: string | TypedSelectValue | null;
-}
-const Select = SelectPrimitive.Root as React.FC<ExtendedSelectProps>;
+const Select = SelectPrimitive.Root
 
 const SelectGroup = SelectPrimitive.Group
 
@@ -28,7 +19,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-10 w-full items-center justify-between rounded-md border bg-transparent border-[#E6007A] b-1 text-black dark:text-white placeholder-[#706D6D] focus:ring-[#E6007A] px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
     {...props}
@@ -120,14 +111,10 @@ const SelectLabel = React.forwardRef<
 ))
 SelectLabel.displayName = SelectPrimitive.Label.displayName
 
-type ExtendedSelectItemProps = Omit<React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>, 'value'> & {
-  value?: string | TypedSelectValue;
-}
-
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  ExtendedSelectItemProps
->(({ className, children, value, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -135,7 +122,6 @@ const SelectItem = React.forwardRef<
       className
     )}
     {...props}
-    value={value as string}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>

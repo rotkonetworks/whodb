@@ -4,10 +4,10 @@ import { TypedApi } from "polkadot-api";
 import { SS58String } from "polkadot-api";
 import { useCallback, useEffect, useState } from "react";
 
-import { IdentityFormData } from "~/components/tabs/IdentityForm";
-import { Identity, verifyStatuses } from "~/types/Identity";
-import { ApiTx } from "~/types/api";
-import { fetchIdentity } from "~/utils/fetchIdentity";
+import { IdentityFormData } from "@/components/tabs/IdentityForm";
+import { Identity, verifyStatuses } from "@/types/Identity";
+import { ApiTx } from "@/types/api";
+import { fetchIdentity } from "@/utils/fetchIdentity";
 
 export function useIdentity({ typedApi, address, }: {
   typedApi: TypedApi<ChainDescriptorOf<ChainId>>,
@@ -23,26 +23,26 @@ export function useIdentity({ typedApi, address, }: {
   };
   const [identity, _setIdentity] = useState<Identity>(_blankIdentity);
 
-  const fetchIdAndJudgement = (async () => {
+  const fetchIdAndJudgement = useCallback(async () => {
     try {
       const identityInfo = await fetchIdentity(typedApi, address);
       console.log({ identityInfo });
-      
+
       const newIdentity = { ..._blankIdentity };
       // Update the identity store with the fetched information
       Object.assign(newIdentity, identityInfo);
       _setIdentity(newIdentity);
-      
+
       return identityInfo;
     } catch (error) {
       console.error("Error fetching identity info:", error);
       return null;
     }
-  });
+  }, [typedApi, address]);
 
   useEffect(() => {
     _setIdentity({ ..._blankIdentity });
-    
+
     if (address && typedApi) {
       fetchIdAndJudgement();
     }
@@ -61,7 +61,7 @@ export function useIdentity({ typedApi, address, }: {
     return typedApi.tx.Identity.clear_identity({});
   }, [typedApi]);
 
-  return { 
+  return {
     identity,
     fetchIdAndJudgement,
     prepareSetIdentityTx,

@@ -3,8 +3,8 @@ import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
 import { SS58String, TypedApi } from "polkadot-api";
 import { useCallback, useEffect, useState } from "react";
 
-import { fetchIdentity } from "~/utils/fetchIdentity";
-import { fetchSubsOf, fetchSuperOf } from "~/utils/subaccounts";
+import { fetchIdentity } from "@/utils/fetchIdentity";
+import { fetchSubsOf, fetchSuperOf } from "@/utils/subaccounts";
 
 export type AccountTreeNode = {
   address: SS58String,
@@ -35,11 +35,11 @@ type BuildHierarchyParams = {
 async function buildAccountHierarchy(
   params: BuildHierarchyParams
 ): Promise<AccountTreeNode | null> {
-  const { 
-    api, 
-    address, 
-    currentAddress, 
-    allNodes = {}, 
+  const {
+    api,
+    address,
+    currentAddress,
+    allNodes = {},
     maxDepth = 5
   } = params;
 
@@ -51,7 +51,7 @@ async function buildAccountHierarchy(
 
   // Special case: Always process the current address even if visited
   const isCurrentAccount = address === currentAddress;
-  
+
   // Prevent infinite loops and too deep recursion
   // But make an exception for the current account to ensure it's included
   if (allNodes[address]) {
@@ -66,13 +66,13 @@ async function buildAccountHierarchy(
     isVisited: ${allNodes[address] ? "yes" : "no"}`
   );
   console.log("allNodes:", allNodes);
-  
+
   const node: AccountTreeNode = {
     address,
     isCurrentAccount
   };
   allNodes[address] = node; // Store the node in the allNodes object
-  
+
   console.log(`Building node for: ${address}, isCurrentAccount: ${node.isCurrentAccount}`);
   // Try to fetch super account (parent)
   try {
@@ -91,7 +91,7 @@ async function buildAccountHierarchy(
           maxDepth: maxDepth - 1
         });
 
-        
+
         if (node.super) {
           allNodes[superAccount.address] = node.super; // Store the super node in allNodes
           console.log(`Set super for ${address}: ${superAccount.address}`);
@@ -183,21 +183,21 @@ function findAccountInTree(node: AccountTreeNode, targetAddress: SS58String): Ac
   if (node.address === targetAddress) {
     return node;
   }
-  
+
   if (node.subs) {
     for (const sub of node.subs) {
       const found = findAccountInTree(sub, targetAddress);
       if (found) return found;
     }
   }
-  
+
   return null;
 }
 
-export const useAccountsTree = ({ 
+export const useAccountsTree = ({
   address,
-  api 
-}: { 
+  api
+}: {
   address: SS58String,
   api: TypedApi<ChainDescriptorOf<ChainId>>
 }) => {
@@ -220,7 +220,7 @@ export const useAccountsTree = ({
       console.log(`Starting to build hierarchy for ${address}`);
 
       const allNodes = {}; // Reset allNodes for each fetch
-      
+
       // Build the complete hierarchy starting from the current address
       const hierarchy = await buildAccountHierarchy({
         api,
@@ -228,11 +228,11 @@ export const useAccountsTree = ({
         currentAddress: address,
         allNodes,
       });
-      
+
       if (hierarchy) {
         // Find the root of the hierarchy to display the full tree
         const rootAccount = findRootAccount(hierarchy);
-        
+
         // Make sure the current account is marked correctly
         const currentAccountNode = findAccountInTree(rootAccount, address);
         if (currentAccountNode) {
@@ -246,7 +246,7 @@ export const useAccountsTree = ({
         }
         console.log(`Root account: ${rootAccount.address}`);
         console.log(`Current account found in tree: ${!!currentAccountNode}`);
-        
+
         setAccountTree(rootAccount);
       } else {
         // If no hierarchy found, create a simple node for the current address

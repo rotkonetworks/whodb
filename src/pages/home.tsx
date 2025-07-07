@@ -21,7 +21,7 @@ function Home() {
       _chainStore.id = import.meta.env.VITE_APP_DEFAULT_CHAIN;
     }
   }, [chainId]);
-  
+
   return (
     <ErrorBoundary>
       <ReactiveDotProvider config={config}>

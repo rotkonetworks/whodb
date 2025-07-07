@@ -1,5 +1,5 @@
-import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
@@ -9,35 +9,27 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/50 hover:text-black/66 hover:dark:text-white",
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
         secondary:
-          "border-transparent bg-secondary text-white hover:bg-secondary/50 hover:text-black/66 hover:dark:text-white",
+          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/50 hover:text-black/66 hover:dark:text-white",
-        successoutline: "text-foreground",
-        success:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/50 hover:text-black/66 hover:dark:text-white",
-      },
-      size: {
-        default: "text-sm",
-        sm: "text-xs",
-        lg: "text-lg",
+          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        outline: "text-foreground",
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
     },
   }
 )
 
 export interface BadgeProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'size'>,
+  extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, size, ...props }: BadgeProps) {
+function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant, size }), "text-nowrap", className)} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
   )
 }
 

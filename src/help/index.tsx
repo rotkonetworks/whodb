@@ -96,7 +96,8 @@ export const HELP_SLIDES = {
       .filter(([key]) => key.startsWith("VITE_APP_CONTACT_LINK_"))
       .map(([key, value]) => {
         const contactLinkName = key.replace("VITE_APP_CONTACT_LINK_", "").replace("_", " ")
-        return ({ key,
+        return ({
+          key,
           title: <><Link className="inline h-4 w-4" />  {contactLinkName}</>,
           description: <a href={value} target="_blank" rel="noreferrer" className="break-words">
             {value}
@@ -110,8 +111,8 @@ export const Overview = () => (
   <section className="max-w-3xl mx-auto px-4 py-4 text-center">
     <h1 className="text-3xl font-bold mb-2">Identity Verification</h1>
     <p className="text-lg text-gray-600">
-      Verify ownership of your social media accounts and web domains for transparent on-chain 
-      identity. Our automated judgement system helps you prove control of your declared accounts, 
+      Verify ownership of your social media accounts and web domains for transparent on-chain
+      identity. Our automated judgement system helps you prove control of your declared accounts,
       allowing others to verify who they&apos;re interacting with on the Polkadot network.
     </p>
   </section>
@@ -120,7 +121,7 @@ export const Overview = () => (
 export const StartGuide = () => (
   <section className="max-w-3xl mx-auto px-4 py-3 text-center">
     <p className="text-lg text-gray-600">
-      Start the verification process to establish your on-chain identity. The automated system 
+      Start the verification process to establish your on-chain identity. The automated system
       validates your account ownership through simple challenge-response checks.
     </p>
   </section>
@@ -147,7 +148,7 @@ const Item = ({ title, description }: HelpItem) => {
 export const Collection = ({ title, items }: { title: string, items: HelpItem[] }) => {
   return <>
     <h2 className="text-2xl font-bold text-center mb-3">{title}</h2>
-    <div 
+    <div
       className="grid sm:grid-cols-2 grid-col-1 gap-2 overflow-auto max-h-[20rem] sm:max-h-full sm:overflow-visible"
     >
       {items.map(({ key, title, description }) => (

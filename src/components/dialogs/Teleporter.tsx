@@ -20,9 +20,9 @@ import { AccountSelector } from "../ui/account-selector"
 import { Alert } from "../ui/alert"
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip"
 
-export default function Teleporter({ 
+export default function Teleporter({
   address, accounts, chainId, tokenSymbol, tokenDecimals, config, xcmParams, fromBalance, toBalance,
-  otherChains, teleportAmount, 
+  otherChains, teleportAmount,
   setTeleportAmount, formatAmount,
 }: {
   address: SS58String,
@@ -59,12 +59,12 @@ export default function Teleporter({
     const amountInBase = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
     setTeleportAmount(amountInBase)
   }
-  
+
   const selectedChain = xcmParams.fromChain.id
   const setSelectedChain = (id: keyof Chains) => xcmParams.fromChain.id = id
   const fromChainId = xcmParams.fromChain.id
   const toChainId = chainId as keyof Chains
-  
+
   useEffect(() => {
     if (open) {
       setSelectedChain(xcmParams.fromChain.id)
@@ -72,7 +72,7 @@ export default function Teleporter({
   }, [xcmParams.fromChain.id, open])
 
   const [comboboxOpen, setComboboxOpen] = React.useState(null)
-  
+
   const handleFromWalletChange = React.useCallback((address: string) => {
     setFromAddress(address)
     setComboboxOpen(null)
@@ -84,7 +84,7 @@ export default function Teleporter({
         <div className="flex-1 space-y-2">
           <Label htmlFor="fromAddress">From Wallet</Label>
           <AccountSelector id="fromAddress" accounts={accounts} address={fromAddress}
-            open={comboboxOpen} handleAddressChange={handleFromWalletChange}
+            open={comboboxOpen} onAddressSelect={handleFromWalletChange}
             handleOpen={setComboboxOpen}
           />
         </div>
@@ -92,7 +92,7 @@ export default function Teleporter({
         <div className="flex-1 space-y-2">
           <Label htmlFor="toAddress">Current Wallet</Label>
           <Input readOnly id="toAddress"
-            value={accounts.find(({ encodedAddress }) => encodedAddress === toAddress).name} 
+            value={accounts.find(({ encodedAddress }) => encodedAddress === toAddress).name}
             className="flex-1"
           />
         </div>
@@ -105,13 +105,13 @@ export default function Teleporter({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Select value={fromChainId as keyof Chains}
-                  onValueChange={setSelectedChain as (value: string) => void} 
+                  onValueChange={setSelectedChain as (value: string) => void}
                 >
                   <SelectTrigger className="border-[#E6007A]">
                     <SelectValue placeholder="Select chain" />
                   </SelectTrigger>
                   <SelectContent>
-                    {otherChains.map(({ id, name }) => 
+                    {otherChains.map(({ id, name }) =>
                       <SelectItem key={id} value={id}>{name}</SelectItem>)
                     }
                   </SelectContent>

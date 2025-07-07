@@ -23,5 +23,16 @@ export function useUrlParams() {
     console.debug({ queryString });
   }, []);
 
-  return { urlParams, updateUrlParams };
+  const setParam = useCallback((key: string, value: string | undefined) => {
+    const newParams = { ...urlParams, [key]: value };
+    updateUrlParams(newParams);
+  }, [urlParams, updateUrlParams]);
+
+  const deleteParam = useCallback((key: string) => {
+    const newParams = { ...urlParams };
+    delete newParams[key];
+    updateUrlParams(newParams);
+  }, [urlParams, updateUrlParams]);
+
+  return { urlParams, updateUrlParams, setParam, deleteParam };
 }

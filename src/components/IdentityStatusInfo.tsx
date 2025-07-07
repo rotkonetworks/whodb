@@ -1,7 +1,7 @@
 import { Info } from "lucide-react";
 import { useMemo } from "react";
 
-import { verifyStatuses } from "~/types/Identity";
+import { verifyStatuses } from "@/types/Identity";
 
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 

@@ -7,8 +7,9 @@ import { SS58String } from "polkadot-api";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button"
-import { Select, SelectChangeHandler, SelectContent, SelectGroup, SelectItem, SelectSeparator, 
-  SelectTrigger, SelectValue 
+import {
+  Select, SelectChangeHandler, SelectContent, SelectGroup, SelectItem, SelectSeparator,
+  SelectTrigger, SelectValue
 } from "@/components/ui/select"
 import { ApiConfig } from "~/api/config";
 import { useFormatAmount } from "~/hooks/useFormatAmount";
@@ -19,7 +20,7 @@ import { Identity } from "~/types/Identity";
 
 import { BalanceDisplay } from "./ui/balance-display";
 
-const AccountListing = ({ address, name }: {address: SS58String, name: string}) => (
+const AccountListing = ({ address, name }: { address: SS58String, name: string }) => (
   <div className="flex items-center w-full min-w-0">
     <div className="flex-shrink-0">
       <PolkadotIdenticon address={address} />
@@ -31,10 +32,10 @@ const AccountListing = ({ address, name }: {address: SS58String, name: string}) 
   </div>
 )
 
-const Header = ({ 
+const Header = ({
   config, chainStore, accountStore, identity, accounts, isTxBusy, isDark, balance,
   onChainSelect, onAccountSelect, onRequestWalletConnections, onToggleDark, openHelpDialog,
-}: { 
+}: {
   accounts: AccountData[];
   config: ApiConfig;
   chainStore: ChainInfo;
@@ -54,7 +55,7 @@ const Header = ({
   const [isUserDropdownOpen, setUserDropdownOpen] = useState(false)
 
   const allAccountBalances = useSpendableBalance(
-    accounts.map(({ address }) => address), 
+    accounts.map(({ address }) => address),
     { chainId: chainStore.id as keyof Chains }
   )
 
@@ -72,8 +73,8 @@ const Header = ({
     <div className="flex flex-wrap justify-center sm:justify-between content-space-around mb-6 gap-2">
       <div className="flex gap-2 w-full sm:w-auto max-w-[300px]">
         <div className="flex-1 min-w-[180px]">
-          <Select 
-            onValueChange={onAccountSelect} 
+          <Select
+            onValueChange={onAccountSelect}
             open={isUserDropdownOpen}
             onOpenChange={() => {
               if (connectedWallets.length > 0) {
@@ -100,16 +101,16 @@ const Header = ({
             </SelectTrigger>
             <SelectContent>
               {connectedWallets.length > 0 && <>
-                <SelectItem value={{type: "Wallets"}}>Connect Wallets</SelectItem>
-                <SelectItem value={{type: "Teleport"}}>Teleport</SelectItem>
-                <SelectItem value={{type: "Disconnect"}}>Disconnect</SelectItem>
+                <SelectItem value={{ type: "Wallets" }}>Connect Wallets</SelectItem>
+                <SelectItem value={{ type: "Teleport" }}>Teleport</SelectItem>
+                <SelectItem value={{ type: "Disconnect" }}>Disconnect</SelectItem>
                 {identity.info && accountStore.polkadotSigner && <>
-                  <SelectItem value={{type: "RemoveIdentity"}}>Remove Identity</SelectItem>
+                  <SelectItem value={{ type: "RemoveIdentity" }}>Remove Identity</SelectItem>
                 </>}
                 <SelectSeparator />
                 <SelectGroup>
-                  {accounts.length > 0 
-                    ?<>
+                  {accounts.length > 0
+                    ? <>
                       <SelectLabel>Accounts</SelectLabel>
                       {accounts.map(({ name, address, encodedAddress, ...rest }, index) => {
                         const account = { name, address, ...rest };
@@ -129,7 +130,7 @@ const Header = ({
                         );
                       })}
                     </>
-                    :<>
+                    : <>
                       <SelectLabel>No accounts found</SelectLabel>
                     </>
                   }
@@ -139,9 +140,9 @@ const Header = ({
           </Select>
         </div>
         <div className="flex-1 min-w-[100px]">
-          <Select 
-            open={isNetDropdownOpen} 
-            onOpenChange={setNetDropdownOpen} 
+          <Select
+            open={isNetDropdownOpen}
+            onOpenChange={setNetDropdownOpen}
             onValueChange={onChainSelect}
             disabled={isTxBusy}
           >
@@ -150,8 +151,8 @@ const Header = ({
             </SelectTrigger>
             <SelectContent>
               {Object.entries(config.chains)
-                .filter(([key]) => 
-                  import.meta.env.VITE_APP_AVAILABLE_CHAINS 
+                .filter(([key]) =>
+                  import.meta.env.VITE_APP_AVAILABLE_CHAINS
                     ? import.meta.env.VITE_APP_AVAILABLE_CHAINS.split(',').map(key => key.trim())
                       .includes(key)
                     : key.includes("people")
@@ -168,19 +169,19 @@ const Header = ({
       </div>
       <div className="flex gap-2">
         <BalanceDisplay balance={balance} formatter={formatAmount} />
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           className="border-[#E6007A] text-inherit hover:bg-[#E6007A] hover:text-[#FFFFFF]"
-          onClick={() => openHelpDialog()} 
+          onClick={() => openHelpDialog()}
         >
           <ShieldQuestion className="h-4 w-4" />
         </Button>
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           className="border-[#E6007A] text-inherit hover:bg-[#E6007A] hover:text-[#FFFFFF]"
-          onClick={() => onToggleDark()} 
+          onClick={() => onToggleDark()}
         >
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>

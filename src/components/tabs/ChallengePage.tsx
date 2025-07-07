@@ -35,7 +35,7 @@ interface ChallengeRenderer {
 const specialChallengeRenderers: Record<string, ChallengeRenderer> = {
   pgp_fingerprint: ({ code, status, onVerify, isLoading }) => {
     if (!code || status !== ChallengeStatus.Pending) return null
-    
+
     return (
       <PGPVerification
         challenge={code}
@@ -64,10 +64,10 @@ interface ChallengePageProps {
   identity: Identity
   chainStore: { id: string }
   accountStore: { encodedAddress: string }
-  sendPGPVerification: (payload: { 
-    pubkey: string; 
-    signed_challenge: string; 
-    network: string; 
+  sendPGPVerification: (payload: {
+    pubkey: string;
+    signed_challenge: string;
+    network: string;
     account: string
   }) => Promise<void>
   // Add more props as needed
@@ -222,8 +222,8 @@ export function ChallengePage({
           <li>Wait for the bot to verify your code.</li>
         </ol>}
       />
-        ),
-        twitter: ({ button }) => (
+    ),
+    twitter: ({ button }) => (
       <FullDescriptionPopOver
         button={button}
         name="Twitter"
@@ -234,8 +234,8 @@ export function ChallengePage({
           <li>Wait for the account to verify your code.</li>
         </ol>}
       />
-        ),
-        discord: ({ button }) => (
+    ),
+    discord: ({ button }) => (
       <FullDescriptionPopOver
         button={button}
         name="Discord"
@@ -247,8 +247,8 @@ export function ChallengePage({
           <li>Wait for the bot to verify your code.</li>
         </ol>}
       />
-        ),
-        email: ({ button }) => (
+    ),
+    email: ({ button }) => (
       <FullDescriptionPopOver
         button={button}
         name="Email"

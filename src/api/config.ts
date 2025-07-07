@@ -108,7 +108,7 @@ export const config = defineConfig({
     },
     ...rococoConfig,
   },
-  targetChains: import.meta.env.VITE_APP_AVAILABLE_CHAINS 
+  targetChains: import.meta.env.VITE_APP_AVAILABLE_CHAINS
     ? import.meta.env.VITE_APP_AVAILABLE_CHAINS.split(',').map(key => key.trim())
     : ["polkadot_people", "ksmcc3_people", "westend2_people", "rococo_people"]
   ,

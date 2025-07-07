@@ -3,8 +3,8 @@ import { ChainId } from "@reactive-dot/core";
 import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
 import { Binary, SS58String, TypedApi } from "polkadot-api";
 
-import { verifyStatuses } from "~/types/Identity";
-import { ApiStorage } from "~/types/api";
+import { verifyStatuses } from "@/types/Identity";
+import { ApiStorage } from "@/types/api";
 
 export interface JudgementData {
   registrar: {
@@ -49,19 +49,19 @@ export const fetchIdentity = async (
     // Fetch identity information from chain
     const result = await (api.query.Identity.IdentityOf as ApiStorage)
       .getValue(address, { at: "best" });
-    
+
     if (!result) return identityInfo;
 
     // For most chains, the result is an array of IdentityOf, but for Westend it's an object
     const identityOf = result[0] || result;
     console.log("Fetched identityOf:", identityOf);
-    
+
     // Extract identity data (raw text fields)
     const identityData = Object.fromEntries(
       Object.entries(identityOf.info)
         .filter(([_, value]: [string, IdentityData]) => value?.type?.startsWith("Raw"))
         .map(([key, value]: [string, IdentityData]) => [
-          key, 
+          key,
           (value.value as Binary).asText()
         ])
     );
@@ -91,7 +91,7 @@ export const fetchIdentity = async (
     if (judgementsData.find(j => j.state === "FeePaid")) {
       identityInfo.status = verifyStatuses.FeePaid;
     }
-    
+
     if (judgementsData.find(j => ["Reasonable", "KnownGood"].includes(j.state))) {
       identityInfo.status = verifyStatuses.IdentityVerified;
     }

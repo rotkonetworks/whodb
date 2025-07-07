@@ -3,7 +3,7 @@ import BigNumber from "bignumber.js";
 import { SS58String, TypedApi } from "polkadot-api";
 import { useEffect, useMemo, useState } from "react";
 
-import { ApiStorage } from "~/types/api";
+import { ApiStorage } from "@/types/api";
 
 export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
@@ -14,12 +14,12 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
     onError?: (error: Error) => void;
     priority: number;
   }>
-}) => {  
-  const [ constants, setConstants ] = useState<Record<string, bigint | BigNumber | string>>({});
+}) => {
+  const [constants, setConstants] = useState<Record<string, bigint | BigNumber | string>>({});
   useEffect(() => {
     console.log(constants)
   }, [constants])
-  
+
   useEffect(() => {
     if (typedApi) {
       (async () => {
@@ -37,13 +37,13 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
       })()
     }
   }, [typedApi])
-  
+
   // Convert handlers to array and memoize
-  const handlerEntries = useMemo(() => 
+  const handlerEntries = useMemo(() =>
     Object.entries(handlers).map(([key, handler]) => {
       const [pallet, call] = key.split('.')
       return { pallet, call, handler }
-    }), 
+    }),
     [handlers]
   )
 
@@ -53,19 +53,19 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
         next: (events) => {
           console.log({ events });
           events
-            .filter(({ 
+            .filter(({
               event: {
-                type: _pallet, 
-                value: { 
+                type: _pallet,
+                value: {
                   type: _type,
                   value: { who, target },
-                } 
+                }
               }
-            }) => 
+            }) =>
               handlerEntries.some(({ pallet, call }) => pallet === _pallet && call === _type)
-                && [who, target].includes(address)
+              && [who, target].includes(address)
             )
-            .map(({ 
+            .map(({
               event: {
                 type: _pallet,
                 value: {
