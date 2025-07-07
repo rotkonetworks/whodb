@@ -61,6 +61,6 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
-            echo "NGINX_PORT=55999" > .env
+            echo "NGINX_PORT=51999" > .env
             docker compose up --build -d web-nginx
           EOF
