@@ -40,23 +40,23 @@ interface PolkadotApiContextType {
   removeAlert: (key: string) => void;
   clearAllAlerts: () => void;
   alertsCount: number;
-  
+
   // Dark mode
   isDark: boolean;
   setDark: (dark: boolean) => void;
-  
+
   // Stores
   chainStore: ChainInfo;
   accountStore: AccountData;
-  
+
   // APIs
   typedApi: TypedApi<any> | undefined;
   fromTypedApi: TypedApi<any> | undefined;
-  
+
   // URL params
   urlParams: UrlParamsArgs;
   updateUrlParams: (params: UrlParamsArgs) => void;
-  
+
   // Wallet
   walletDialogOpen: boolean;
   setWalletDialogOpen: (open: boolean) => void;
@@ -64,12 +64,12 @@ interface PolkadotApiContextType {
   getWalletAccount: (address: Uint8Array | string) => any;
   connectedWallets: any[];
   disconnectAllWallets: () => void;
-  
+
   // Account management
   updateAccount: (account: AccountData) => void;
   onAccountSelect: (accountAction: { type: string, account: AccountData }) => Promise<void>;
   onRequestWalletConnection: () => void;
-  
+
   // Identity
   identityFormRef: React.RefObject<IdentityFormRef>;
   registrarIndex: number;
@@ -78,12 +78,12 @@ interface PolkadotApiContextType {
   fetchIdAndJudgement: () => Promise<Identity>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
-  
+
   // Chain
   chainClient: any;
   onChainSelect: (chainId: string | number | symbol) => void;
   chainConstants: any;
-  
+
   // Challenges
   challenges: ChallengeStore;
   challengeError: string | null;
@@ -91,26 +91,26 @@ interface PolkadotApiContextType {
   challengeLoading: boolean;
   subscribeToChallenges: () => void;
   sendPGPVerification: any;
-  
+
   // Formatting
   formatAmount: (amount: any) => string;
-  
+
   // Transactions
   isTxBusy: boolean;
   signSubmitAndWatch: (params: SignSubmitAndWatchParams) => Promise<TxStateUpdate>;
   submitTransaction: () => Promise<void>;
-  
+
   // Dialogs
   openDialog: DialogMode | null;
   setOpenDialog: (mode: DialogMode | null) => void;
   openTxDialog: (args: OpenTxDialogArgs) => void;
   closeTxDialog: () => void;
   handleOpenChange: (nextState: boolean) => void;
-  
+
   // Cost estimations
   estimatedCosts: EstimatedCostInfo;
   setEstimatedCosts: (costs: EstimatedCostInfo) => void;
-  
+
   // XCM
   xcmParams: any;
   relayAndParachains: any;
@@ -119,22 +119,22 @@ interface PolkadotApiContextType {
   teleportExpanded: boolean;
   setTeleportExpanded: (expanded: boolean) => void;
   parachainId: number | undefined;
-  
+
   // Balances
   fromBalance: BigNumber;
   balance: BigNumber;
   hasEnoughBalance: boolean;
   minimunTeleportAmount: BigNumber;
-  
+
   // Transaction confirmation
   txToConfirm: ApiTx | null;
   setTxToConfirm: (tx: ApiTx | null) => void;
-  
+
   // Account tree
   accountTree: any;
   accountTreeLoading: boolean;
   refreshAccountTree: () => void;
-  
+
   // Error details
   errorDetails: Error | null;
   setErrorDetails: (error: Error | null) => void;
@@ -154,7 +154,7 @@ export const usePolkadotApi = () => {
 
 const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   const { network } = useNetwork();
-  
+
   return (
     <ReactiveDotProvider config={CHAIN_CONFIG}>
       <ChainProvider chainId={(network || import.meta.env.VITE_APP_DEFAULT_CHAIN) as keyof typeof CHAIN_CONFIG.chains}>

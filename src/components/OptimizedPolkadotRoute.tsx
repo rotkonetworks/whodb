@@ -33,7 +33,7 @@ export const OptimizedPolkadotRoute = memo<{ children: React.ReactNode }>(
   ({ children }) => {
     const singleton = PolkadotProviderSingleton.getInstance();
     const [isProviderReady, setIsProviderReady] = useState(singleton.getInitialized());
-    
+
     // Memoize children to prevent unnecessary re-renders
     const memoizedChildren = useMemo(() => children, [children]);
 
@@ -44,7 +44,7 @@ export const OptimizedPolkadotRoute = memo<{ children: React.ReactNode }>(
           setIsProviderReady(true);
           singleton.setInitialized(true);
         }, 50);
-        
+
         return () => clearTimeout(timer);
       }
     }, [isProviderReady, singleton]);
