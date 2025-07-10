@@ -105,6 +105,10 @@ interface UseIdentityWebSocketReturn {
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
 }
 
+const keyMapping: Record<string, string> = {// WWorkaround for old API
+  'p_g_p_fingerprint': 'pgp_fingerprint',
+}
+
 const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNotification, }: {
   url: string;
   address: SS58String;
@@ -329,7 +333,17 @@ const useChallengeWebSocket = (
               }
             } else if (message.payload.message && typeof message.payload.message === 'object') {
               // Handle object responses (AccountState)
-              const response = (message.payload.message as ResponsePayload).AccountState;
+              const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
+              response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] | [[string, string]] => {
+                let value: [string, string];                
+                if (Array.isArray(key)) {
+                  value =  [key[0], key[1]];
+                } else {
+                  value =  [key, code];
+                }
+                const newKey = keyMapping[value[0]] || value[0];
+                return [newKey, value[1]];
+              });
               if (response) {
                 console.log({ response })
                 setChallengeState({
