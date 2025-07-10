@@ -341,7 +341,6 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     address: accountStore.encodedAddress,
     network: (chainStore.id as string).split("_")[0],
     identity: { info: identity.info, status: identity.status, },
-    addNotification: addAlert,
   });
 
   useEffect(() => {

@@ -91,7 +91,6 @@ interface UseIdentityWebSocketProps {
   url: string;
   account: string;
   network: string;
-  addNotification: (alert: AlertPropsOptionalKey) => void;
 }
 
 interface UseIdentityWebSocketReturn {
@@ -109,18 +108,16 @@ const keyMapping: Record<string, string> = {// WWorkaround for old API
   'p_g_p_fingerprint': 'pgp_fingerprint',
 }
 
-const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNotification, }: {
+const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   url: string;
   address: SS58String;
   network: string;
   identity: { info: IdentityInfo, status: verifyStatuses };
-  addNotification: (alert: AlertPropsOptionalKey) => void;
 }) => {
   const challengeWebSocket = useChallengeWebSocket({
     url,
     account: address,
     network: network.split("_")[0],
-    addNotification,
   });
   const { challengeState, error, isConnected } = challengeWebSocket
 
@@ -206,7 +203,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
 
 // Generic WebSocket hook with challenge verification support
 const useChallengeWebSocket = (
-  { url, account, network, addNotification }: UseIdentityWebSocketProps
+  { url, account, network }: UseIdentityWebSocketProps
 ): UseIdentityWebSocketReturn => {
   const ws = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -319,17 +316,7 @@ const useChallengeWebSocket = (
             if (typeof message.payload.message === 'string') {
               // Handle string responses (like PGP verification)
               if (message.payload.message === 'PGP verification is done') {
-                addNotification({
-                  type: 'success',
-                  message: 'PGP key verified successfully!',
-                });
-                // Don't trigger another subscription here - let the backend send updates
               } else {
-                // Handle other string messages
-                addNotification({
-                  type: 'info',
-                  message: message.payload.message,
-                });
               }
             } else if (message.payload.message && typeof message.payload.message === 'object') {
               // Handle object responses (AccountState)
@@ -358,20 +345,12 @@ const useChallengeWebSocket = (
             // Handle error
             setError(message.payload.message);
             setLoading(false);
-            addNotification({
-              type: 'error',
-              message: message.payload.message,
-            });
           }
           break;
 
         case "error":
           setError(message.message);
           setLoading(false);
-          addNotification({
-            type: 'error',
-            message: message.message,
-          });
           break;
       }
 
@@ -385,7 +364,7 @@ const useChallengeWebSocket = (
       setError(err instanceof Error ? err.message : 'Failed to parse message');
       setLoading(false);
     }
-  }, [addNotification, subscribe]);
+  }, [subscribe]);
 
   const disconnect = useCallback(() => {
     // Clear reconnection timeout
