@@ -21,7 +21,7 @@ import { Logo } from "@/components/logo"
 import { useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
 import { useWallet } from "@/contexts/wallet-context"
 import { useUser } from "@/contexts/user-context" // For fetching profile to edit
-import { useVerification } from "@/contexts/verification-context"
+import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { BalanceCheck } from "@/components/balance-check"
 import { type IdentityData } from "@/components/identity-fields-form" // Import IdentityData
 import { SimpleIdentityForm } from "@/components/simple-identity-form" // New simple form
@@ -43,6 +43,7 @@ import { SS58String } from "polkadot-api"
 import { verifyStatuses } from "@/types/Identity"
 import { Binary } from "polkadot-api"
 import BigNumber from "bignumber.js"
+import { ChallengeStatus } from "@/store/challengesStore"
 
 const GoogleIcon = () => <Mail className="w-5 h-5" />
 const MatrixIcon = () => (
@@ -97,7 +98,36 @@ export default function RegisterPage() {
   }, [accountStore.address])
 
   const { userProfile: loggedInUserProfile, isLoading: isUserLoading } = useUser()
-  const { getFieldStatus, getAllFilledFields, resetFieldVerification, setChallenges, setSendPGPVerification } = useVerification()
+  const {
+    getFieldStatus,
+    getAllFilledFields,
+    resetFieldVerification,
+    setChallenges,
+    setSendPGPVerification,
+    setInitialVerifications,
+  } = useVerification()
+
+  useEffect(() => {
+    const challengeStatusMapping = {
+      [ChallengeStatus.Unknown]: "unverified",
+      [ChallengeStatus.Pending]: "pending",
+      [ChallengeStatus.Passed]: "verified",
+      [ChallengeStatus.Failed]: "failed",
+    }
+
+    const verifications: FieldVerification[] = Object.entries(challenges || {}).map(([key, challenge]) => {
+      const status = challengeStatusMapping[challenge.status] || "unknown"
+      return {
+        field: key,
+        status,
+        lastVerified: challenge.lastVerified,
+        verificationMethod: challenge.verificationMethod,
+        verificationPayload: challenge.verificationPayload,
+      }
+    })
+
+    setInitialVerifications(verifications)
+  }, [challenges, setInitialVerifications])
 
   const [currentStep, setCurrentStep] = useState(1)
   const [identityData, setIdentityData] = useState<IdentityData>({
