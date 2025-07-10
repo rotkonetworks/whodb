@@ -1,4 +1,4 @@
-import { IdentityData, IdentityJudgement } from "@polkadot-api/descriptors";
+import { IdentityData as PolkadotIdentityData, IdentityJudgement } from "@polkadot-api/descriptors";
 import { Binary, FixedSizeBinary, SS58String, StorageDescriptor } from "polkadot-api";
 
 export interface IdentityInfo {
@@ -14,19 +14,34 @@ export interface IdentityInfo {
   web?: string;
 }
 
+// Centralized IdentityData interface using Polkadot API field names
+export interface IdentityData {
+  display: string;
+  email: string;
+  matrix: string;
+  twitter: string;
+  web: string;
+  github: string;
+  pgp_fingerprint: string;
+  discord: string;
+  image: string;
+  legal: string;
+  [key: string]: string;
+}
+
 export type IdentityOf = StorageDescriptor<[Key: SS58String], [{
   deposit: bigint;
   info: {
-    discord: IdentityData;
-    display: IdentityData;
-    email: IdentityData;
-    github: IdentityData;
-    image: IdentityData;
-    legal: IdentityData;
-    matrix: IdentityData;
+    discord: PolkadotIdentityData;
+    display: PolkadotIdentityData;
+    email: PolkadotIdentityData;
+    github: PolkadotIdentityData;
+    image: PolkadotIdentityData;
+    legal: PolkadotIdentityData;
+    matrix: PolkadotIdentityData;
     pgp_fingerprint?: FixedSizeBinary<20>;
-    twitter: IdentityData;
-    web: IdentityData;
+    twitter: PolkadotIdentityData;
+    web: PolkadotIdentityData;
   };
   judgements: [number, IdentityJudgement][];
 }, Binary | undefined], true, "identityOf">;

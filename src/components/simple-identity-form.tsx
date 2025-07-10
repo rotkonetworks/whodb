@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { FormField } from "@/components/form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
-import { verifyStatuses } from "@/types/Identity"
+import { verifyStatuses, IdentityData } from "@/types/Identity"
 import {
   User,
   Mail,
@@ -18,17 +18,6 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-
-export interface IdentityData {
-  displayName: string
-  email: string
-  matrix: string
-  twitter: string
-  website: string
-  github: string
-  pgpFingerprint: string
-  [key: string]: string
-}
 
 interface SimpleIdentityFormProps {
   initialData: IdentityData
@@ -62,18 +51,21 @@ export function SimpleIdentityForm({
 
   // Determine which fields to show based on supportedFields
   const fieldsToShow = useMemo(() => supportedFields.length > 0 ? supportedFields : [
-    'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint'
+    'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint', 'discord', 'image', 'legal'
   ], [supportedFields])
 
   // Field mapping from blockchain names to our form field names
   const fieldMapping = useMemo((): Record<string, keyof IdentityData> => ({
-    'display': 'displayName',
+    'display': 'display',
     'email': 'email',
-    'web': 'website',
+    'web': 'web',
     'twitter': 'twitter',
     'github': 'github',
     'matrix': 'matrix',
-    'pgp_fingerprint': 'pgpFingerprint'
+    'pgp_fingerprint': 'pgp_fingerprint',
+    'discord': 'discord',
+    'image': 'image',
+    'legal': 'legal'
   }), [])
 
   // Simple field configuration without verification
@@ -84,7 +76,7 @@ export function SimpleIdentityForm({
       placeholder: "satoshi@example.com",
       type: "email",
     },
-    website: {
+    web: {
       label: "Website",
       icon: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "https://bitcoin.org",
@@ -108,10 +100,28 @@ export function SimpleIdentityForm({
       placeholder: "@satoshi:matrix.org",
       type: "text",
     },
-    pgpFingerprint: {
+    pgp_fingerprint: {
       label: "PGP Fingerprint",
       icon: <Key className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+      placeholder: "0x123456789abcdef123456789abcdef",
+      type: "text",
+    },
+    discord: {
+      label: "Discord Handle",
+      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "username#1234",
+      type: "text",
+    },
+    image: {
+      label: "Avatar Image URL",
+      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "https://example.com/avatar.png",
+      type: "url",
+    },
+    legal: {
+      label: "Legal Name",
+      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "John Doe",
       type: "text",
     }
   }), [])
@@ -121,15 +131,15 @@ export function SimpleIdentityForm({
     const formFieldKey = fieldMapping[fieldKey]
     if (!formFieldKey) return null
 
-    if (formFieldKey === 'displayName') {
+    if (formFieldKey === 'display') {
       return (
         <FormField
-          key="displayName"
-          id="displayName"
+          key="display"
+          id="display"
           label="Display Name"
           icon={<User className="w-4 h-4 text-gray-400 mr-2" />}
-          value={formData.displayName}
-          onChange={(value) => handleChange("displayName", value)}
+          value={formData.display}
+          onChange={(value) => handleChange("display", value)}
           placeholder="e.g., Satoshi Nakamoto"
           description="This name will be publicly visible. Verified on-chain after submission."
           className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
@@ -143,7 +153,7 @@ export function SimpleIdentityForm({
     return (
       <FormField
         key={formFieldKey}
-        id={formFieldKey}
+        id={String(formFieldKey)}
         label={config.label}
         icon={config.icon}
         value={formData[formFieldKey]}
@@ -167,9 +177,9 @@ export function SimpleIdentityForm({
 
       if (field === 'display') {
         primaryFields.push(component)
-      } else if (['email', 'web', 'twitter', 'github', 'matrix'].includes(field)) {
+      } else if (['email', 'web', 'twitter', 'github', 'matrix', 'discord'].includes(field)) {
         contactFields.push(component)
-      } else if (field === 'pgp_fingerprint') {
+      } else if (['pgp_fingerprint', 'image', 'legal'].includes(field)) {
         securityFields.push(component)
       }
     })
@@ -194,7 +204,7 @@ export function SimpleIdentityForm({
 
     if (securityFields.length > 0) {
       sections.push({
-        title: "Security",
+        title: "Security & Additional Info",
         icon: <ShieldCheck className="w-5 h-5 text-pink-400 mr-2" />,
         fields: securityFields,
       })
@@ -203,9 +213,9 @@ export function SimpleIdentityForm({
     return sections
   }, [fieldsToShow, createFieldComponent])
 
-  const hasDisplayName = useMemo(() => formData.displayName.trim() !== "", [formData.displayName])
+  const hasDisplayName = useMemo(() => formData.display.trim() !== "", [formData.display])
   const hasOtherFields = useMemo(() => {
-    const { displayName, ...otherFields } = formData
+    const { display, ...otherFields } = formData
     return Object.values(otherFields).some(value => value && value.trim() !== "")
   }, [formData])
 
@@ -215,7 +225,7 @@ export function SimpleIdentityForm({
   }
 
   return (
-    <form onSubmit={handleFormSubmit} className="space-y-8">
+    <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Identity Status Info */}
       <IdentityStatusInfo status={identityStatus} />
 

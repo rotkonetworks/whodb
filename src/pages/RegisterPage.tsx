@@ -23,7 +23,7 @@ import { useWallet } from "@/contexts/wallet-context"
 import { useUser } from "@/contexts/user-context" // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { BalanceCheck } from "@/components/balance-check"
-import { type IdentityData } from "@/components/identity-fields-form" // Import IdentityData
+import { type IdentityData } from "@/types/Identity" // Import IdentityData
 import { SimpleIdentityForm } from "@/components/simple-identity-form" // New simple form
 import { IdentityVerificationForm } from "@/components/identity-verification-form" // New verification form
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -131,13 +131,16 @@ export default function RegisterPage() {
 
   const [currentStep, setCurrentStep] = useState(1)
   const [identityData, setIdentityData] = useState<IdentityData>({
-    displayName: "",
+    display: "",
     email: "",
     matrix: "",
     twitter: "",
-    website: "",
+    web: "",
     github: "",
-    pgpFingerprint: "",
+    pgp_fingerprint: "",
+    discord: "",
+    image: "",
+    legal: "",
   })
   const [isSubmittingIdentity, setIsSubmittingIdentity] = useState(false)
   const [isLinkingAccount, setIsLinkingAccount] = useState(false)
@@ -197,13 +200,16 @@ export default function RegisterPage() {
     const loadProfileData = async (idToLoad: string, currentFlow?: string | null, currentParentId?: string | null) => {
       setIsLoadingProfileForEdit(true)
       let profileDataToSet: Partial<IdentityData> = {
-        displayName: "",
+        display: "",
         email: "",
         matrix: "",
         twitter: "",
-        website: "",
+        web: "",
         github: "",
-        pgpFingerprint: "",
+        pgp_fingerprint: "",
+        discord: "",
+        image: "",
+        legal: "",
       }
       try {
         let fetchedProfile: ProfileType | null = null
@@ -217,22 +223,28 @@ export default function RegisterPage() {
 
         if (fetchedProfile) {
           profileDataToSet = {
-            displayName: fetchedProfile.displayName || "",
+            display: fetchedProfile.displayName || "",
             email: fetchedProfile.email || "",
             matrix: fetchedProfile.matrix || "",
             twitter: fetchedProfile.twitter || "",
-            website: fetchedProfile.website || "",
+            web: fetchedProfile.web || "",
             github: fetchedProfile.github || "",
-            pgpFingerprint: fetchedProfile.pgpFingerprint || "",
+            pgp_fingerprint: fetchedProfile.pgp_fingerprint || "",
+            discord: fetchedProfile.discord || "",
+            image: fetchedProfile.image || "",
+            legal: fetchedProfile.legal || "",
           }
           setIdentityData(profileDataToSet as IdentityData) // Ensure full IdentityData type
           const fieldsToReset: (keyof IdentityData)[] = [
             "email",
             "matrix",
             "twitter",
-            "website",
+            "web",
             "github",
-            "pgpFingerprint",
+            "pgp_fingerprint",
+            "discord",
+            "image",
+            "legal",
           ]
           fieldsToReset.forEach((key) => {
             if (profileDataToSet[key] && (profileDataToSet[key] as string).trim() !== "") {
@@ -267,22 +279,28 @@ export default function RegisterPage() {
           }
           setEditingProfileId(loggedInUserProfile.id)
           const currentUserData: IdentityData = {
-            displayName: loggedInUserProfile.displayName || "",
+            display: loggedInUserProfile.displayName || "",
             email: loggedInUserProfile.email || "",
             matrix: loggedInUserProfile.matrix || "",
             twitter: loggedInUserProfile.twitter || "",
-            website: loggedInUserProfile.website || "",
+            web: loggedInUserProfile.web || "",
             github: loggedInUserProfile.github || "",
-            pgpFingerprint: loggedInUserProfile.pgpFingerprint || "",
+            pgp_fingerprint: loggedInUserProfile.pgp_fingerprint || "",
+            discord: loggedInUserProfile.discord || "",
+            image: loggedInUserProfile.image || "",
+            legal: loggedInUserProfile.legal || "",
           }
           setIdentityData(currentUserData)
           const fieldsToReset: (keyof IdentityData)[] = [
             "email",
             "matrix",
             "twitter",
-            "website",
+            "web",
             "github",
-            "pgpFingerprint",
+            "pgp_fingerprint",
+            "discord",
+            "image",
+            "legal",
           ]
           fieldsToReset.forEach((key) => {
             if (currentUserData[key] && currentUserData[key]?.trim() !== "") {
@@ -300,21 +318,27 @@ export default function RegisterPage() {
         setIsEditMode(false)
         setEditingProfileId(null)
         setIdentityData({
-          displayName: "",
+          display: "",
           email: "",
           matrix: "",
           twitter: "",
-          website: "",
+          web: "",
           github: "",
-          pgpFingerprint: "",
+          pgp_fingerprint: "",
+          discord: "",
+          image: "",
+          legal: "",
         })
         const allVerifiableFields: (keyof IdentityData)[] = [
           "email",
           "matrix",
           "twitter",
-          "website",
+          "web",
           "github",
-          "pgpFingerprint",
+          "pgp_fingerprint",
+          "discord",
+          "image",
+          "legal",
         ]
         allVerifiableFields.forEach(field => resetFieldVerification(String(field)))
         setIsLoadingProfileForEdit(false)
@@ -368,13 +392,16 @@ export default function RegisterPage() {
           // Only populate form with fetched identity data if not in edit mode
           // This allows users to update their existing identity
           const fetchedData: IdentityData = {
-            displayName: fetchedIdentity.info.display || "",
+            display: fetchedIdentity.info.display || "",
             email: fetchedIdentity.info.email || "",
             matrix: fetchedIdentity.info.matrix || "",
             twitter: fetchedIdentity.info.twitter || "",
-            website: fetchedIdentity.info.web || "",
+            web: fetchedIdentity.info.web || "",
             github: fetchedIdentity.info.github || "",
-            pgpFingerprint: fetchedIdentity.info.pgp_fingerprint || "",
+            pgp_fingerprint: fetchedIdentity.info.pgp_fingerprint || "",
+            discord: fetchedIdentity.info.discord || "",
+            image: fetchedIdentity.info.image || "",
+            legal: fetchedIdentity.info.legal || "",
           }
           setIdentityData(fetchedData)
         }
@@ -389,7 +416,7 @@ export default function RegisterPage() {
   const canProceedFromIdentityStep = useMemo(() => {
     // For the fillIdentityInfo step, we only need displayName + at least one other field
     // No verification required at this step
-    const hasDisplayName = identityData.displayName.trim() !== ""
+    const hasDisplayName = identityData.display.trim() !== ""
     const otherFields = Object.entries(identityData)
       .filter(([key, value]) => key !== "displayName" && value && value.trim() !== "")
     const hasOtherFields = otherFields.length > 0
@@ -422,10 +449,10 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) {
       // For fillIdentityInfo, we only need displayName + at least one other field
       // No verification required at this step
-      if (identityData.displayName.trim() === "") {
+      if (identityData.display.trim() === "") {
         toast.error("Please provide a Display Name.")
         return
-      } else if (getAllFilledFields(identityData).filter((f) => f !== "displayName").length === 0) {
+      } else if (getAllFilledFields(identityData).filter((f) => f !== "display").length === 0) {
         toast.error("Please fill at least one other field besides Display Name.")
         return
       }
@@ -532,7 +559,8 @@ export default function RegisterPage() {
         image: { type: "None" },
         twitter: { type: "None" },
         github: { type: "None" },
-        discord: { type: "None" }
+        discord: { type: "None" },
+        pgp_fingerprint: { type: "None" }
       }
 
       const info: any = {
@@ -543,16 +571,20 @@ export default function RegisterPage() {
             .map(([key, value]) => {
               // Map field names to blockchain field names
               const fieldMap: Record<string, string> = {
-                displayName: 'display',
-                website: 'web',
+                display: 'display',
+                web: 'web',
                 twitter: 'twitter',
                 github: 'github',
                 matrix: 'matrix',
-                email: 'email'
+                email: 'email',
+                discord: 'discord',
+                image: 'image',
+                legal: 'legal',
+                pgp_fingerprint: 'pgp_fingerprint'
               }
               const blockchainField = fieldMap[key] || key
 
-              if (key === "pgpFingerprint") {
+              if (key === "pgp_fingerprint") {
                 return [null, null] // Handle separately
               }
 
@@ -566,11 +598,11 @@ export default function RegisterPage() {
       }
 
       // Handle PGP fingerprint separately
-      if (dataToSubmit.pgpFingerprint && dataToSubmit.pgpFingerprint.trim() !== "") {
+      if (dataToSubmit.pgp_fingerprint && dataToSubmit.pgp_fingerprint.trim() !== "") {
         info.pgp_fingerprint = Binary.fromHex(
-          dataToSubmit.pgpFingerprint.startsWith('0x')
-            ? dataToSubmit.pgpFingerprint.slice(2)
-            : dataToSubmit.pgpFingerprint
+          dataToSubmit.pgp_fingerprint.startsWith('0x')
+            ? dataToSubmit.pgp_fingerprint.slice(2)
+            : dataToSubmit.pgp_fingerprint
         )
       }
 

@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react" // Added useCallback
 import { toast } from "sonner"
 
-interface FieldVerification {
+export interface FieldVerification {
   field: string
   status: "unverified" | "pending" | "verified" | "failed"
   lastVerified?: string
@@ -41,6 +41,9 @@ const initialVerificationFields: FieldVerification[] = [
   { field: "website", status: "unverified" },
   { field: "github", status: "unverified" },
   { field: "pgpFingerprint", status: "unverified" },
+  { field: "discord", status: "unverified" },
+  { field: "image", status: "unverified" },
+  { field: "legal", status: "unverified" },
 ]
 
 export function VerificationProvider({ children }: { children: React.ReactNode }) {

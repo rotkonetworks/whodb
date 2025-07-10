@@ -13,7 +13,7 @@ import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { verifyStatuses } from "@/types/Identity"
 
 interface VerifiableFormFieldProps {
-  fieldId: "email" | "matrix" | "twitter" | "website" | "github" | "pgpFingerprint"
+  fieldId: "email" | "matrix" | "twitter" | "web" | "github" | "pgp_fingerprint" | "discord" | "image" | "legal"
   label: string
   icon: React.ReactNode
   value: string
@@ -62,7 +62,7 @@ export function VerifiableFormField({
   }
 
   const handleConfirmVerification = () => {
-    if (fieldId === "pgpFingerprint" && verificationInstructions.method === "gpg-challenge") {
+    if (fieldId === "pgp_fingerprint" && verificationInstructions.method === "gpg-challenge") {
       if (!signedChallenge.trim()) {
         toast.error("Please paste the signed PGP challenge.")
         return
@@ -189,7 +189,7 @@ export function VerifiableFormField({
               </div>
             </>
           )}
-          {verificationInstructions.method === "gpg-challenge" && fieldId === "pgpFingerprint" && (
+          {verificationInstructions.method === "gpg-challenge" && fieldId === "pgp_fingerprint" && (
             <>
               <p>1. Sign the following challenge string with your PGP key ({value || "your key"}):</p>
               <div className="my-1.5 p-2 bg-gray-900 rounded-md">
@@ -218,7 +218,7 @@ export function VerifiableFormField({
               </p>
             </>
           )}
-          {verificationInstructions.method === "dns-challenge" && fieldId === "website" && (
+          {verificationInstructions.method === "dns-challenge" && fieldId === "web" && (
             <>
               <p>
                 Add the following TXT record to your domain&apos;s DNS settings for{" "}

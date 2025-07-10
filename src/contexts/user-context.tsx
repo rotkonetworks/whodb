@@ -18,8 +18,10 @@ interface UserProfile {
   discord?: string
   twitter?: string
   github?: string
-  website?: string
-  pgpFingerprint?: string
+  web?: string
+  pgp_fingerprint?: string
+  image?: string
+  legal?: string
 }
 
 interface UserContextType {
@@ -72,8 +74,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       discord: "alice#1234",
       twitter: "@alice",
       github: "alice-dev",
-      website: "alice.dev",
-      pgpFingerprint: "3AA5 7A23 F091 DC24 3314 12AF 4268 A3AC 5A1A 4DF3",
+      web: "alice.dev",
+      pgp_fingerprint: "3AA5 7A23 F091 DC24 3314 12AF 4268 A3AC 5A1A 4DF3",
     }
 
     setUserProfile(aliceProfile)

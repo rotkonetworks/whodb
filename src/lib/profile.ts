@@ -13,8 +13,10 @@ export interface Profile {
   discord?: string
   twitter?: string
   github?: string
-  website?: string
-  pgpFingerprint?: string
+  web?: string
+  pgp_fingerprint?: string
+  image?: string
+  legal?: string
   subaccounts?: Profile[]
   deposit?: string
   network?: string
@@ -36,8 +38,8 @@ const mockProfiles: Record<string, Profile> = {
     discord: "alice#1234",
     twitter: "@alice",
     github: "alice-dev",
-    website: "alice.dev",
-    pgpFingerprint: "3AA5 7A23 F091 DC24 3314 12AF 4268 A3AC 5A1A 4DF3",
+    web: "alice.dev",
+    pgp_fingerprint: "3AA5 7A23 F091 DC24 3314 12AF 4268 A3AC 5A1A 4DF3",
     avatar: "/professional-woman-avatar.png",
     subaccounts: [
       {
@@ -78,8 +80,8 @@ const mockProfiles: Record<string, Profile> = {
     discord: "bob#5678",
     twitter: "@bob",
     github: "bob-security",
-    website: "bob.dev",
-    pgpFingerprint: "4BB6 8B34 G102 ED35 4425 23BG 5379 B4BD 6B2B 5EG4",
+    web: "bob.dev",
+    pgp_fingerprint: "4BB6 8B34 G102 ED35 4425 23BG 5379 B4BD 6B2B 5EG4",
     avatar: "/professional-man-avatar.png",
     // Bob has no subaccounts for this example
   },
