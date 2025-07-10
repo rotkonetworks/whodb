@@ -23,7 +23,7 @@ export interface ChallengeStore {
   matrix?: Challenge;
   twitter?: Challenge;
   image?: Challenge;
-  pgpFingerprint?: Challenge;
+  pgp_fingerprint?: Challenge;
   web?: Challenge;
 }
 
