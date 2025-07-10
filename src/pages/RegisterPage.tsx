@@ -420,7 +420,7 @@ export default function RegisterPage() {
     const otherFields = Object.entries(identityData)
       .filter(([key, value]) => key !== "displayName" && value && value.trim() !== "")
     const hasOtherFields = otherFields.length > 0
-    
+
     return hasDisplayName && hasOtherFields
   }, [identityData])
 
@@ -428,10 +428,10 @@ export default function RegisterPage() {
     // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
     const filledFields = getAllFilledFields(identityData)
     const verifiableFields = filledFields.filter(f => f !== "displayName")
-    
+
     // If no verifiable fields, can proceed (display name only)
     if (verifiableFields.length === 0) return true
-    
+
     // All verifiable fields must be verified
     for (const fieldName of verifiableFields) {
       const status = getFieldStatus(fieldName)
@@ -467,7 +467,7 @@ export default function RegisterPage() {
         const status = getFieldStatus(fieldName)
         return !status || status.status !== "verified"
       })
-      
+
       if (unverifiedFields.length > 0) {
         const fieldNames = unverifiedFields
           .map(fieldName => fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/([A-Z])/g, " $1"))
@@ -527,7 +527,7 @@ export default function RegisterPage() {
         call: txToConfirm,
         name: `${action} identity`,
       })
-      
+
       // Close the dialog
       closeTxDialog()
 
@@ -750,7 +750,7 @@ export default function RegisterPage() {
       txToConfirm={txToConfirm}
       xcmParams={{} as any} // Simplified for now
       teleportExpanded={false}
-      setTeleportExpanded={() => {}} // Simplified for now
+      setTeleportExpanded={() => { }} // Simplified for now
       displayedAccounts={accounts}
       chainStore={{
         id: network || "",
@@ -905,14 +905,14 @@ export default function RegisterPage() {
                   onClick={onSetIdentity}
                   disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
                   className="w-full btn-primary mt-6"
-                  >
-                    {isSubmittingIdentity
-                      ? "Submitting Identity Data..."
-                      : identity.status === verifyStatuses.NoIdentity
-                        ? "Submit Identity Data"
-                        : "Update Identity Data"
-                    }
-                  </Button>
+                >
+                  {isSubmittingIdentity
+                    ? "Submitting Identity Data..."
+                    : identity.status === verifyStatuses.NoIdentity
+                      ? "Submit Identity Data"
+                      : "Update Identity Data"
+                  }
+                </Button>
               </>
             )}
 
@@ -925,7 +925,7 @@ export default function RegisterPage() {
                   supportedFields={supportedFields}
                   canVerifyFields={identity?.status === verifyStatuses.FeePaid}
                 />
-                
+
                 <Card className="bg-gray-800/50 border-gray-700 mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center text-white text-xl">
@@ -951,7 +951,7 @@ export default function RegisterPage() {
                       </p>
                     </div>
                     <Button
-                      onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => {}}
+                      onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => { }}
                       disabled={
                         (identity?.status === verifyStatuses.IdentitySet && false) || // Can request judgement
                         (identity?.status !== verifyStatuses.IdentitySet && !canProceedFromVerificationStep) // Need verification

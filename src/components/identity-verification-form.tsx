@@ -270,7 +270,7 @@ export function IdentityVerificationForm({
       </div>
 
       {/* Status-based instructions */}
-      {identityStatus < verifyStatuses.FeePaid 
+      {identityStatus < verifyStatuses.FeePaid
         ? (
           <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
             <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
