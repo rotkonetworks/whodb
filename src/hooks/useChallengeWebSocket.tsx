@@ -8,25 +8,6 @@ import { IdentityInfo, verifyStatuses } from '@/types/Identity';
 
 import { AlertPropsOptionalKey } from './useAlerts';
 
-// Types matching your Rust backend
-type Data = {
-  type: 'none' | 'raw' | 'blake_two_256' | 'sha_256' | 'keccak_256' | 'sha_three_256';
-  value?: Uint8Array | [number, number, number, number];
-};
-
-export interface IdentityRawData {
-  display: Data;
-  legal: Data;
-  web: Data;
-  matrix: Data;
-  email: Data;
-  pgp_fingerprint?: Uint8Array;
-  image: Data;
-  twitter: Data;
-  github: Data;
-  discord: Data;
-}
-
 interface VerificationState {
   fields: Record<string, boolean>;
 }
@@ -48,8 +29,6 @@ interface ResponseAccountState {
 
 type ResponsePayload = {
   AccountState: ResponseAccountState;
-  Secret: string;
-  VerificationResult: boolean;
 };
 
 type SubscribeAccountState = {
