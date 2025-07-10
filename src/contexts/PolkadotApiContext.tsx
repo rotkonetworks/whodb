@@ -22,7 +22,7 @@ import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, useTypedApi } from "@reactive-dot/react";
 import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useProxy } from "valtio/utils";
 import { useNetwork } from "./network-context";
 
@@ -152,10 +152,10 @@ export const usePolkadotApi = () => {
   return context;
 };
 
-const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   const { network } = useNetwork();
   
-  return <>
+  return (
     <ReactiveDotProvider config={CHAIN_CONFIG}>
       <ChainProvider chainId={(network || import.meta.env.VITE_APP_DEFAULT_CHAIN) as keyof typeof CHAIN_CONFIG.chains}>
         <Suspense>
@@ -163,10 +163,10 @@ const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = ({ 
         </Suspense>
       </ChainProvider>
     </ReactiveDotProvider>
-  </>
-}
+  )
+})
 
-const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   //#region Hooks
   const {
     alerts, add: addAlert, remove: removeAlert, clearAll: clearAllAlerts, size: alertsCount
@@ -828,9 +828,9 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) =
       {children}
     </PolkadotApiContext.Provider>
   );
-}
+})
 
-export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   return (
     <PolkadotApiProviderWrapper>
       <InnerProvider>
@@ -838,4 +838,4 @@ export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = ({ 
       </InnerProvider>
     </PolkadotApiProviderWrapper>
   );
-}
+})
