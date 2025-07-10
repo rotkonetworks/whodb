@@ -7,14 +7,14 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import { useIdentity } from "@/hooks/useIdentity";
 import { useSupportedFields } from "@/hooks/useSupportedFields";
-import { useUrlParams } from "@/hooks/useUrlParams";
+import { UrlParamsArgs, useUrlParams } from "@/hooks/useUrlParams";
 import { useWalletAccounts } from "@/hooks/useWalletAccounts";
 import { useXcmParameters } from "@/hooks/useXcmParameters";
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
-import { AccountData } from "@/store/AccountStore";
+import { Account, AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
 import { ApiStorage, ApiTx } from "@/types/api";
-import { verifyStatuses } from "@/types/Identity";
+import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { ChainId } from "@reactive-dot/core";
@@ -47,20 +47,20 @@ interface PolkadotApiContextType {
   
   // Stores
   chainStore: ChainInfo;
-  accountStore: any;
+  accountStore: AccountData;
   
   // APIs
   typedApi: TypedApi<any> | undefined;
   fromTypedApi: TypedApi<any> | undefined;
   
   // URL params
-  urlParams: any;
-  updateUrlParams: (params: any) => void;
+  urlParams: UrlParamsArgs;
+  updateUrlParams: (params: UrlParamsArgs) => void;
   
   // Wallet
   walletDialogOpen: boolean;
   setWalletDialogOpen: (open: boolean) => void;
-  accounts: any[];
+  accounts: AccountData[];
   getWalletAccount: (address: Uint8Array | string) => any;
   connectedWallets: any[];
   disconnectAllWallets: () => void;
@@ -73,9 +73,9 @@ interface PolkadotApiContextType {
   // Identity
   identityFormRef: React.RefObject<IdentityFormRef>;
   registrarIndex: number;
-  supportedFields: any;
-  identity: any;
-  fetchIdAndJudgement: () => Promise<any>;
+  supportedFields: (keyof IdentityInfo)[];
+  identity: Identity;
+  fetchIdAndJudgement: () => Promise<Identity>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
   
