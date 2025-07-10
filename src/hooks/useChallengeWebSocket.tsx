@@ -365,38 +365,6 @@ const useChallengeWebSocket = (
           }
           break;
 
-        case 'AccountState': {
-          const verificationStateFields: Record<string, boolean> = {};
-          const pendingChallenges: [string, string][] = [];
-
-          // Extract verification states and pending challenges from the new format
-          if (message.verification_state?.challenges) {
-            Object.entries(message.verification_state.challenges)
-              .forEach(([key, value]: [string, Challenge]) => {
-                verificationStateFields[key] = value.done;
-                if (value.done) {
-                  addNotification({
-                    message: `Challenge ${key} has been verified successfully`,
-                    type: 'info'
-                  });
-                }
-                if (!value.done && value.token) {
-                  pendingChallenges.push([key, value.token]);
-                }
-              });
-          }
-
-          setChallengeState(prev => ({
-            account: prev?.account || account,
-            network: message.network,
-            hashed_info: prev?.hashed_info || '',
-            verification_state: { fields: verificationStateFields },
-            pending_challenges: pendingChallenges,
-          }));
-          setLoading(false);
-          break;
-        }
-
         case "error":
           setError(message.message);
           setLoading(false);
