@@ -668,7 +668,7 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
-    if (currentStep === STEP_NUMBERS.pickAccount && !walletAddress) return false
+    if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
     return true
   }
 
