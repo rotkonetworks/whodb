@@ -44,26 +44,39 @@ export function VerifiableFormField({
 
   const fieldStatus = getFieldStatus(fieldId)
 
+  const { identity, chainStore, accountStore } = usePolkadotApi()
+
   const handleVerifyClick = async () => {
     if (!value) {
       toast.error(`Please enter your ${label.toLowerCase()} before verifying.`)
       return
     }
-    const payload = await startVerification(fieldId, verificationInstructions.method, label)
-    if (payload) {
-      setChallengeOrCode(payload)
+    if (!challengeOrCode) {
+      const payload = await startVerification(fieldId, verificationInstructions.method, label)
+      if (payload) {
+        setChallengeOrCode(payload)
+      }
+      return
     }
-  }
-
-  const handleConfirmVerification = () => {
+    
     if (fieldId === "pgp_fingerprint" && verificationInstructions.method === "gpg-challenge") {
-      if (!signedChallenge.trim()) {
-        toast.error("Please paste the signed PGP challenge.")
+      if (!signedChallenge) {
+        toast.error("Please paste your signed PGP message before confirming verification.")
         return
       }
-      confirmVerification(fieldId, signedChallenge)
-    } else {
-      confirmVerification(fieldId)
+      const isConfirmed = await confirmVerification(fieldId, {
+        signed_challenge: signedChallenge,
+        pubkey: value, // Assuming value is the PGP fingerprint
+        network: (chainStore.id as string).split("_")[0], // TODO Add prop to chainStore to get relay chain name more reliably
+        account: accountStore.encodedAddress!!
+      }
+      )
+      if (isConfirmed) {
+        toast.success("PGP verification confirmed!")
+      } else {
+        toast.error("PGP verification failed. Please check your signed message.")
+      }
+      return
     }
   }
 
@@ -98,7 +111,8 @@ export function VerifiableFormField({
     }
 
     if (fieldStatus?.status === "pending") {
-      const isGithubChallengeUrl = verificationInstructions.method === "challenge-url" && fieldId === "github"
+      const isGithubChallengeUrl = verificationInstructions.method === "challenge-url" 
+        && fieldId === "github"
       if (isGithubChallengeUrl) {
         return (
           <Button
@@ -125,7 +139,7 @@ export function VerifiableFormField({
           type="button"
           size="sm"
           variant="ghost"
-          onClick={handleConfirmVerification}
+          onClick={handleVerifyClick}
           disabled={isVerifyingThisField}
           className="text-xs h-8 px-2.5 border border-yellow-500/70 text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300"
         >
@@ -134,8 +148,6 @@ export function VerifiableFormField({
       )
     }
   }
-
-  const { identity } = usePolkadotApi()
 
   return (
     <div className="space-y-2 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">

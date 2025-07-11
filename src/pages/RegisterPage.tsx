@@ -117,6 +117,7 @@ export default function RegisterPage() {
 
     const verifications: FieldVerification[] = Object.entries(challenges || {}).map(([key, challenge]) => {
       const status = challengeStatusMapping[challenge.status] || "unknown"
+
       return {
         field: key,
         status,
