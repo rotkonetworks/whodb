@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { verifyStatuses } from "@/types/Identity"
+import { GitHubVerification } from "./challenges/GitHubVerification"
 
 interface VerifiableFormFieldProps {
   fieldId: "email" | "matrix" | "twitter" | "web" | "github" | "pgp_fingerprint" | "discord" | "image" | "legal"
@@ -51,13 +52,6 @@ export function VerifiableFormField({
     const payload = await startVerification(fieldId, verificationInstructions.method, label)
     if (payload) {
       setChallengeOrCode(payload)
-    }
-    if (verificationInstructions.method === "challenge-url" && fieldId === "github") {
-      // For GitHub challenge-url method, the payload should contain the URL
-      if (payload) {
-        toast.info("Opening GitHub verification URL...")
-        window.open(payload, "_blank")
-      }
     }
   }
 
@@ -104,6 +98,28 @@ export function VerifiableFormField({
     }
 
     if (fieldStatus?.status === "pending") {
+      const isGithubChallengeUrl = verificationInstructions.method === "challenge-url" && fieldId === "github"
+      if (isGithubChallengeUrl) {
+        return (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleVerifyClick}
+            disabled={isVerifyingThisField}
+            className="text-xs h-8 px-2.5 border border-pink-500/70 text-pink-400 hover:bg-pink-500/10 hover:text-pink-300"
+          >
+            {isVerifyingThisField ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <Github className="w-3 h-3 mr-1" /> Verify with GitHub
+              </>
+            )}
+          </Button>
+        )
+      }
+
       return (
         <Button
           type="button"
@@ -117,28 +133,6 @@ export function VerifiableFormField({
         </Button>
       )
     }
-
-    const isGithubChallengeUrl = verificationInstructions.method === "challenge-url" && fieldId === "github"
-    return (
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={handleVerifyClick}
-        disabled={!value || isVerifyingThisField}
-        className="text-xs h-8 disabled:opacity-60 px-2.5 border border-pink-500/70 text-pink-400 hover:bg-pink-500/10 hover:text-pink-300"
-      >
-        {isVerifyingThisField ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : isGithubChallengeUrl ? (
-          <>
-            <Github className="w-3 h-3 mr-1" /> Verify with GitHub
-          </>
-        ) : (
-          "Verify"
-        )}
-      </Button>
-    )
   }
 
   const { identity } = usePolkadotApi()
@@ -242,32 +236,21 @@ export function VerifiableFormField({
               </p>
             </>
           )}
-          {verificationInstructions.method === "challenge-url" && fieldId === "github" && (
-            <>
-              <p>A new tab should have opened with the GitHub verification URL. Please complete the OAuth process there.</p>
-              {challengeOrCode && (
-                <div className="mt-2">
-                  <p className="text-[11px] text-yellow-300/80 mb-1">If the tab didn't open, use this URL:</p>
-                  <div className="p-1.5 bg-gray-900 rounded-md flex items-center justify-between">
-                    <span className="font-mono text-xs text-white break-all">{challengeOrCode}</span>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="w-7 h-7 text-gray-300 hover:text-white ml-2 flex-shrink-0"
-                      onClick={() => copyToClipboard(challengeOrCode, "GitHub URL copied!")}
-                      aria-label="Copy GitHub verification URL"
-                    >
-                      <ClipboardCopy className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+          {verificationInstructions.method === "challenge-url" && fieldId === "github" 
+          && challengeOrCode && identity.info?.github && (
+            <GitHubVerification
+              url={challengeOrCode}
+              expectedUsername={identity.info.github}
+              onVerify={(isVerified) => {
+                if (isVerified) {
+                  toast.success("GitHub account successfully verified!")
+                } else {
+                  toast.error("GitHub verification failed. Please try again.")
+                }
+              }}
+              isVerified={fieldStatus?.status === "verified"}
+            />
           )}
-          <p className="mt-2 font-medium">
-            After completing the required action, click the "Check Verification" button above.
-          </p>
         </div>
       )}
 
