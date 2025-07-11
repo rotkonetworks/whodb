@@ -180,7 +180,7 @@ export function IdentityVerificationForm({
 
   // Create field components for verification
   const createVerificationComponent = useCallback((fieldKey: string) => {
-    const formFieldKey = fieldMapping[fieldKey]
+    const formFieldKey = fieldKey
     if (!formFieldKey || formFieldKey === 'display') return null
 
     const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
