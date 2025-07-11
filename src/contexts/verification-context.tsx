@@ -40,7 +40,7 @@ const initialVerificationFields: FieldVerification[] = [
   { field: "twitter", status: "unverified" },
   { field: "website", status: "unverified" },
   { field: "github", status: "unverified" },
-  { field: "pgpFingerprint", status: "unverified" },
+  { field: "pgp_fingerprint", status: "unverified" },
   { field: "discord", status: "unverified" },
   { field: "image", status: "unverified" },
   { field: "legal", status: "unverified" },
@@ -126,7 +126,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     const fieldState = verifications.find((v) => v.field === field)
     toast.info(`Checking verification status for ${fieldState?.verificationMethod || field}...`)
 
-    if (field === "pgpFingerprint" && signedChallenge && sendPGPVerification) {
+    if (field === "pgp_fingerprint" && signedChallenge && sendPGPVerification) {
       try {
         // Use the real PGP verification function from the API
         await sendPGPVerification({
@@ -179,7 +179,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     }
 
     // For other verification types, use the existing simulation logic
-    if (field === "pgpFingerprint" && signedChallenge) {
+    if (field === "pgp_fingerprint" && signedChallenge) {
       console.log("PGP Verification Data:", {
         fingerprint: "USER_FINGERPRINT_HERE", // This should be the actual fingerprint from form
         originalChallenge: fieldState?.verificationPayload,
