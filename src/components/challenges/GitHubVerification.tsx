@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Github, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 interface GitHubVerificationProps {
   url: string; // Required URL for challenge verification
@@ -13,30 +14,28 @@ interface GitHubVerificationProps {
 export function GitHubVerification({ url, expectedUsername, onVerify, isVerified }: GitHubVerificationProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connectedUser, setConnectedUser] = useState<string | null>(null);
+
+  const connectedUser = expectedUsername; // Assuming expectedUsername is the connected GitHub user
+  const isGitHubConnected = isVerified
 
   useEffect(() => {
-    // Check if already connected
-    const user = localStorage.getItem('github_verified_user');
-    if (user) {
-      setConnectedUser(user);
-      if (user.toLowerCase() === expectedUsername.toLowerCase()) {
-        onVerify(true);
-      }
+    if (isGitHubConnected) {
+      setLoading(false);
+      setError(null);
+      onVerify(true);
     }
-  }, [expectedUsername, onVerify]);
+  }, [isGitHubConnected, onVerify]);
 
   const handleGitHubConnect = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Generate state for CSRF protection
-      const state = crypto.randomUUID();
-      sessionStorage.setItem('github_verification_state', state);
-      sessionStorage.setItem('github_expected_username', expectedUsername);
-
       window.open(url, 'github_verification', 'width=600,height=700');
+      setTimeout(() => {
+        setLoading(false);
+        toast.error('GitHub verification timed out. Please try again.');
+      }, 10000); // Simulate loading time
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -44,10 +43,7 @@ export function GitHubVerification({ url, expectedUsername, onVerify, isVerified
   };
 
   const disconnect = () => {
-    localStorage.removeItem('github_verified_user');
-    localStorage.removeItem('github_token');
-    setConnectedUser(null);
-    onVerify(false);
+    // TODO implement disconnect logic from GitHub oauth
   };
 
   return <>
@@ -61,13 +57,6 @@ export function GitHubVerification({ url, expectedUsername, onVerify, isVerified
           Successfully verified as <strong>@{connectedUser}</strong>
         </AlertDescription>
       </Alert>
-    ) : connectedUser ? (
-      <Alert className="bg-yellow-50 border-yellow-200">
-        <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertDescription>
-          Connected as <strong>@{connectedUser}</strong>, but expected <strong>@{expectedUsername}</strong>
-        </AlertDescription>
-      </Alert>
     ) : null}
 
     {error && (
@@ -78,11 +67,10 @@ export function GitHubVerification({ url, expectedUsername, onVerify, isVerified
     )}
 
     <div className="flex gap-2">
-      {!connectedUser ? (
+      {!isVerified ? (
         <Button
           onClick={handleGitHubConnect}
           disabled={loading}
-          variant="primary"
           className="w-full"
         >
           <Github className="mr-2 h-4 w-4" />
