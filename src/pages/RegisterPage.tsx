@@ -432,8 +432,6 @@ export default function RegisterPage() {
         toast.error("Please fill at least one other field besides Display Name.")
         return
       }
-      /* const tx = typedApi.tx.Identity.set_identity({
-        info: { */
     }
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) {
       // For reviewAndSubmit, all filled fields (except displayName) must be verified
@@ -915,10 +913,6 @@ export default function RegisterPage() {
                 currentBalance={balance}
               />
             )}
-            {/* TODO Move up */}
-            {/* {currentStep === 3 && !walletAddress && (
-              <p className="text-center text-yellow-400">Please connect your wallet first.</p>
-            )} */}
 
             {currentStep === STEP_NUMBERS.fillIdentityInfo && (
               <>
