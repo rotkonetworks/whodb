@@ -540,19 +540,7 @@ export default function RegisterPage() {
             .filter(([_, value]) => value && value.trim() !== "")
             .map(([key, value]) => {
               // Map field names to blockchain field names
-              const fieldMap: Record<string, string> = {
-                display: 'display',
-                web: 'web',
-                twitter: 'twitter',
-                github: 'github',
-                matrix: 'matrix',
-                email: 'email',
-                discord: 'discord',
-                image: 'image',
-                legal: 'legal',
-                pgp_fingerprint: 'pgp_fingerprint'
-              }
-              const blockchainField = fieldMap[key] || key
+              const blockchainField = key || key
 
               if (key === "pgp_fingerprint") {
                 return [null, null] // Handle separately
