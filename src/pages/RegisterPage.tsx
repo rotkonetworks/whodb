@@ -86,6 +86,8 @@ export default function RegisterPage() {
     typedApi,
     sendPGPVerification,
     signSubmitAndWatch,
+    chainConstants,
+    balance, // Current account balance
   } = polkadotApiContext
 
   const {
@@ -163,34 +165,6 @@ export default function RegisterPage() {
   const isEditingCurrentUserFromParams = searchParams.get("edit") === "true"
 
   const connectedWallets = useConnectedWallets();
-
-  useEffect(() => {// Set steps based on whether required information is available
-    if (network) {
-      setCurrentStep(STEP_NUMBERS.connectWallet)
-    } else {
-      setCurrentStep(STEP_NUMBERS.pickNetwork)
-      return
-    }
-
-    if (connectedWallets.length > 0) {
-      setCurrentStep(STEP_NUMBERS.pickAccount)
-    } else {
-      setCurrentStep(STEP_NUMBERS.connectWallet)
-      return;
-    }
-
-    if (accountStore.address) {
-      // If we have an identity set, go to verification, otherwise go to identity form
-      if (identity?.status === verifyStatuses.IdentitySet || identity?.status === verifyStatuses.JudgementRequested || identity?.status === verifyStatuses.FeePaid) {
-        setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
-      } else {
-        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
-      }
-    } else {
-      setCurrentStep(STEP_NUMBERS.pickAccount)
-      return
-    }
-  }, [network, connectedWallets, accountStore.address, identity?.status])
 
   useEffect(() => {// Set up profile/idenity data based on URL parameters or logged in user
     // Wait for user data to be loaded before doing anything.
@@ -354,6 +328,7 @@ export default function RegisterPage() {
     loggedInUserProfile,
     isEditMode,
     editingProfileId,
+    balance, // current account balance
     resetFieldVerification,
     navigate,
   ])
@@ -696,12 +671,63 @@ export default function RegisterPage() {
     }))
   const [hoveredNetwork, setHoveredNetwork] = useState<string | null>(null)
 
+  const minBalanceAmount = useMemo(// existentialDeposit * byteDeposit*32*10 + basicDeposit*2
+    () => chainConstants
+      ? BigNumber(chainConstants.existentialDeposit.toString())
+        .plus(BigNumber(chainConstants.byteDeposit.toString()).times(32).times(10)) // Assumed max for each of the identity fields
+        .plus(BigNumber(chainConstants.basicDeposit.toString()).multipliedBy(2n)) // Min. for setting identity, and extra for more transactions
+      : null,
+    [chainConstants]
+  )
+  const hasEnoughBalance = useMemo(
+    () => (balance && minBalanceAmount) 
+      ? balance.isGreaterThanOrEqualTo(minBalanceAmount)
+      : null,
+    [balance, minBalanceAmount]
+  )
+
+  useEffect(() => {// Set steps based on whether required information is available
+    if (network) {
+      setCurrentStep(STEP_NUMBERS.connectWallet)
+    } else {
+      setCurrentStep(STEP_NUMBERS.pickNetwork)
+      return
+    }
+
+    if (connectedWallets.length > 0) {
+      setCurrentStep(STEP_NUMBERS.pickAccount)
+    } else {
+      setCurrentStep(STEP_NUMBERS.connectWallet)
+      return;
+    }
+
+    if (accountStore.address) {
+      setCurrentStep(STEP_NUMBERS.checkBalancet)
+    } else {
+      setCurrentStep(STEP_NUMBERS.pickAccount)
+      return
+    }
+
+    if (hasEnoughBalance === true) {
+      // If we have an identity set, go to verification, otherwise go to identity form
+      if (identity?.status === verifyStatuses.IdentitySet || identity?.status === verifyStatuses.JudgementRequested || identity?.status === verifyStatuses.FeePaid) {
+        setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
+      } else {
+        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
+      }
+    } else if (hasEnoughBalance === false) {
+      setCurrentStep(STEP_NUMBERS.checkBalance)
+      return
+    }
+  }, [network, connectedWallets, accountStore.address, identity?.status, hasEnoughBalance])
+
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
+    if (currentStep === STEP_NUMBERS.checkBalance && !hasEnoughBalance) return false
     return true
   }
 
@@ -884,7 +910,10 @@ export default function RegisterPage() {
             )}
 
             {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
-              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep} />
+              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep} 
+                minBalanceAmount={minBalanceAmount} hasEnoughBalance={hasEnoughBalance}
+                currentBalance={balance}
+              />
             )}
             {/* TODO Move up */}
             {/* {currentStep === 3 && !walletAddress && (

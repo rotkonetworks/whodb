@@ -617,15 +617,15 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
 
   const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
 
-  const hasEnoughBalance = useMemo(() => balance
+  const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
       .plus(chainConstants.existentialDeposit?.toString())
-    ), [balance, chainConstants.existentialDeposit, xcmParams.txTotalCost])
+    ), [balance, chainConstants, xcmParams.txTotalCost])
   const minimunTeleportAmount = useMemo(() => {
     const calculatedTeleportAmount = xcmParams.txTotalCost.times(1.1)
     return hasEnoughBalance ? calculatedTeleportAmount
-      : calculatedTeleportAmount.plus(chainConstants.existentialDeposit?.toString())
-  }, [xcmParams.txTotalCost, hasEnoughBalance, chainConstants.existentialDeposit])
+      : calculatedTeleportAmount.plus((chainConstants?.existentialDeposit || 10n)?.toString())
+  }, [xcmParams.txTotalCost, hasEnoughBalance, chainConstants])
 
   const balanceRef = useRef(balance)
   useEffect(() => {
