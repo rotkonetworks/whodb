@@ -2,16 +2,16 @@ import { Dialog } from "@radix-ui/react-dialog";
 import BigNumber from "bignumber.js";
 import { SS58String } from "polkadot-api";
 
-import { ApiConfig } from "~/api/config";
-import { AccountData } from "~/store/AccountStore";
-import { XcmParameters } from "~/store/XcmParameters";
-import { FormatAmountFn, SignSubmitAndWatchParams, TxStateUpdate } from "~/types";
-import { ApiTx } from "~/types/api";
+import { ApiConfig } from "@/api/config";
+import { AccountData } from "@/store/AccountStore";
+import { XcmParameters } from "@/store/XcmParameters";
+import { FormatAmountFn, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
+import { ApiTx } from "@/types/api";
 
 import { Button } from "../ui/button";
 import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 
-import Teleporter from "./Teleporter"
+import Teleporter from "./Teleporter";
 
 export const TeleporterDialog = ({
   address,
@@ -65,7 +65,7 @@ export const TeleporterDialog = ({
   }
 
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogContent>
+    <DialogContent className="dark:bg-gray-900/50 bg-grey-100/50 backdrop-blur-sm">
       <DialogHeader>
         <DialogTitle>Teleport</DialogTitle>
       </DialogHeader>
@@ -95,7 +95,7 @@ export const TeleporterDialog = ({
           Cancel
         </Button>
         <Button
-          variant="primary"
+          variant="default"
           disabled={teleportAmount.isZero() || isTxBusy}
           onClick={async () => {
             try {
