@@ -6,9 +6,10 @@ import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import BigNumber from "bignumber.js";
-import { AlertCircle, CheckCircle, Loader2, Users, Wallet, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { SS58String } from "polkadot-api";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 
 interface BalanceCheckProps {
@@ -93,6 +94,8 @@ export function BalanceCheck({
   }
 
   const amountNeededForChipIn = requiredBalance - balanceFloat > 0 ? requiredBalance - balanceFloat : 0
+
+  const fauceturl = import.meta.env[`VITE_APP_${(chainStore.id as string).split("_")[0].toUpperCase()}_FAUCET_URL`]
 
   return (
     <>
@@ -209,15 +212,17 @@ export function BalanceCheck({
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Button
-                      onClick={() => {
-                        setHasChecked(false) // Allow re-checking
-                        checkBalance(address)
-                      }}
-                      className="w-full btn-outline" // Use outline style
-                    >
-                      Refresh Balance
-                    </Button>
+                    {fauceturl && (
+                      <Link
+                        to={fauceturl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full btn-secondary flex items-center justify-center"
+                      >
+                        <Coins className="w-4 h-4 mr-2" />
+                        Get Test Tokens
+                      </Link>
+                    )}
                     {canRequestChipIn && (
                       <Button
                         onClick={() => setShowChipInModal(true)}
@@ -227,6 +232,14 @@ export function BalanceCheck({
                         Request Chip-in
                       </Button>
                     )}
+                    <Button
+                      onClick={handleRequestTokens}
+                      disabled={isRequestingTokens}
+                      className="w-full btn-primary"
+                    >
+                      <ArrowLeftRight className="w-4 h-4 mr-2" />
+                      Ieleport Tokens
+                    </Button>
                   </div>
                 </div>
               )}
