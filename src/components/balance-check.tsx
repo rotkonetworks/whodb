@@ -1,15 +1,15 @@
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useNetwork } from "@/contexts/network-context"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNetwork } from "@/contexts/network-context";
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
-import BigNumber from "bignumber.js"
-import { AlertCircle, CheckCircle, Loader2, Users, Wallet, Zap } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useFormatAmount } from "@/hooks/useFormatAmount";
+import BigNumber from "bignumber.js";
+import { AlertCircle, CheckCircle, Loader2, Users, Wallet, Zap } from "lucide-react";
+import { SS58String } from "polkadot-api";
+import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
-import { SS58String } from "polkadot-api"
-import { useFormatAmount } from "@/hooks/useFormatAmount"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 
 interface BalanceCheckProps {
   address: string

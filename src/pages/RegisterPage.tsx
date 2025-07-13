@@ -1,49 +1,47 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowLeft,
-  ListChecks,
-  Mail,
-  Info,
-  WalletIcon,
-  UserCheck,
-  LinkIcon,
-  Loader2,
   Edit,
+  Info,
+  LinkIcon,
+  ListChecks,
+  Loader2,
+  Mail,
+  UserCheck,
+  WalletIcon,
 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
+import { AuthProviderButton } from "@/components/auth-provider-button"
+import { BalanceCheck } from "@/components/balance-check"
+import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
+import { IdentityVerificationForm } from "@/components/identity-verification-form"; // New verification form
+import { Logo } from "@/components/logo"
+import { NetworkSelection } from "@/components/network-selection-register"
+import { SimpleIdentityForm } from "@/components/simple-identity-form"; // New simple form
+import { useTheme } from "@/components/theme-provider-simple"
+import { AccountSelector } from "@/components/ui/account-selector"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/logo"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
-import { useWallet } from "@/contexts/wallet-context"
-import { useUser } from "@/contexts/user-context" // For fetching profile to edit
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
-import { BalanceCheck } from "@/components/balance-check"
-import { type IdentityData } from "@/types/Identity" // Import IdentityData
-import { SimpleIdentityForm } from "@/components/simple-identity-form" // New simple form
-import { IdentityVerificationForm } from "@/components/identity-verification-form" // New verification form
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { NetworkSelection } from "@/components/network-selection-register"
-import { AuthProviderButton } from "@/components/auth-provider-button"
-import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
-import { getProfile, type Profile as ProfileType } from "@/lib/profile" // For fetching profile by ID
+import { useWallet } from "@/contexts/wallet-context"
+import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
-import { useConnectedWallets } from "@reactive-dot/react"
-import { DialogMode } from "@/types"
-import { ConnectionDialog } from "dot-connect/react.js"
-import { useTheme } from "@/components/theme-provider-simple"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
-import { AccountSelector } from "@/components/ui/account-selector"
-import { SS58String } from "polkadot-api"
-import { verifyStatuses } from "@/types/Identity"
-import { Binary } from "polkadot-api"
-import BigNumber from "bignumber.js"
 import { ChallengeStatus } from "@/store/challengesStore"
+import { DialogMode } from "@/types"
+import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
+import { useConnectedWallets } from "@reactive-dot/react"
+import BigNumber from "bignumber.js"
+import { ConnectionDialog } from "dot-connect/react.js"
+import { Binary, SS58String } from "polkadot-api"
 
 const GoogleIcon = () => <Mail className="w-5 h-5" />
 const MatrixIcon = () => (

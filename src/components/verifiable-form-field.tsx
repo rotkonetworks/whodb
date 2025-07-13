@@ -1,16 +1,16 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { CheckCircle, Loader2, AlertTriangle, ShieldQuestion, ClipboardCopy, Github } from "lucide-react"
-import { useVerification } from "@/contexts/verification-context"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useVerification } from "@/contexts/verification-context"
 import { verifyStatuses } from "@/types/Identity"
+import { AlertTriangle, CheckCircle, ClipboardCopy, Github, Loader2, ShieldQuestion } from "lucide-react"
+import type React from "react"
+import { useState } from "react"
+import { toast } from "sonner"
 import { GitHubVerification } from "./challenges/GitHubVerification"
 
 interface VerifiableFormFieldProps {

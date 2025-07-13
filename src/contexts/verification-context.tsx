@@ -1,9 +1,9 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useCallback } from "react" // Added useCallback
-import { toast } from "sonner"
 import { ChallengeStore } from "@/store/challengesStore"
+import type React from "react"
+import { createContext, useCallback, useContext, useState } from "react"; // Added useCallback
+import { toast } from "sonner"
 
 type ChallengeType = keyof Omit<ChallengeStore, "display">
 type pgpSigningInfo = {

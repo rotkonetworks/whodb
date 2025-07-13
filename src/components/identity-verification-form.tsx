@@ -1,27 +1,27 @@
 "use client"
 
-import type React from "react"
-import { useMemo, useCallback } from "react"
-import { VerifiableFormField } from "@/components/verifiable-form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
+import { Separator } from "@/components/ui/separator"
+import { VerifiableFormField } from "@/components/verifiable-form-field"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useVerification } from "@/contexts/verification-context"
+import { IdentityData, verifyStatuses } from "@/types/Identity"
 import {
-  User,
+  AlertTriangle,
+  CheckCircle,
+  Github,
+  Globe,
+  Info,
+  Key,
+  Loader2,
   Mail,
   MessageSquare,
-  Twitter,
-  Globe,
-  Github,
-  Key,
   ShieldCheck,
-  Info,
-  CheckCircle,
-  AlertTriangle,
-  Loader2,
+  Twitter,
+  User,
 } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
-import { useVerification } from "@/contexts/verification-context"
-import { verifyStatuses, IdentityData } from "@/types/Identity"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import type React from "react"
+import { useCallback, useMemo } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
