@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { User, AtSign } from "lucide-react"
@@ -116,11 +114,9 @@ export default function SearchSuggestions({
         <button
           key={profile.id}
           onClick={() => handleSuggestionClick(profile)}
-          className={`w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 transition-colors ${
-            index === selectedIndex ? "bg-gray-700" : ""
-          } ${index === 0 ? "rounded-t-lg" : ""} ${
-            index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"
-          }`}
+          className={`w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 transition-colors ${index === selectedIndex ? "bg-gray-700" : ""
+            } ${index === 0 ? "rounded-t-lg" : ""} ${index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"
+            }`}
         >
           <img
             className="suggestion-img w-8 h-8 rounded-full object-cover bg-gray-700"

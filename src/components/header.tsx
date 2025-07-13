@@ -1,5 +1,3 @@
-"use client"
-
 import Link from "next/link"
 import { Logo } from "@/app/components/logo"
 import { NetworkSelector } from "@/components/network-selector"

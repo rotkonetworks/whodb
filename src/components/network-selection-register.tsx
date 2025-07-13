@@ -1,5 +1,3 @@
-"use client"
-
 import React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -37,11 +35,10 @@ export const NetworkSelection: React.FC<NetworkSelectionProps> = ({
         {networks.map((network) => (
           <Card
             key={network.id}
-            className={`cursor-pointer transition-all duration-200 bg-gray-800/50 ${network.color} ${
-              selectedNetwork === network.id
+            className={`cursor-pointer transition-all duration-200 bg-gray-800/50 ${network.color} ${selectedNetwork === network.id
                 ? "ring-2 ring-offset-2 ring-offset-gray-900 ring-pink-500"
                 : "border-gray-700"
-            } ${hoveredNetwork === network.id ? "shadow-lg sm:scale-[1.02]" : ""}`}
+              } ${hoveredNetwork === network.id ? "shadow-lg sm:scale-[1.02]" : ""}`}
             onMouseEnter={() => setHoveredNetwork(network.id)}
             onMouseLeave={() => setHoveredNetwork(null)}
             onClick={() => onSelect(network.id)}

@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"

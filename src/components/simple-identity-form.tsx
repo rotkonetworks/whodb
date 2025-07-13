@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { FormField } from "@/components/form-field"

@@ -1,5 +1,3 @@
-"use client"
-
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { Separator } from "@/components/ui/separator"
 import { VerifiableFormField } from "@/components/verifiable-form-field"

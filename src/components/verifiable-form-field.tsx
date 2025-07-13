@@ -1,5 +1,3 @@
-"use client"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -58,7 +56,7 @@ export function VerifiableFormField({
       }
       return
     }
-    
+
     if (fieldId === "pgp_fingerprint" && verificationInstructions.method === "gpg-challenge") {
       if (!signedChallenge) {
         toast.error("Please paste your signed PGP message before confirming verification.")
@@ -111,7 +109,7 @@ export function VerifiableFormField({
     }
 
     if (fieldStatus?.status === "pending") {
-      const isGithubChallengeUrl = verificationInstructions.method === "challenge-url" 
+      const isGithubChallengeUrl = verificationInstructions.method === "challenge-url"
         && fieldId === "github"
       if (isGithubChallengeUrl) {
         return (
@@ -248,21 +246,21 @@ export function VerifiableFormField({
               </p>
             </>
           )}
-          {verificationInstructions.method === "challenge-url" && fieldId === "github" 
-          && challengeOrCode && identity.info?.github && (
-            <GitHubVerification
-              url={challengeOrCode}
-              expectedUsername={identity.info.github}
-              onVerify={(isVerified) => {
-                if (isVerified) {
-                  toast.success("GitHub account successfully verified!")
-                } else {
-                  toast.error("GitHub verification failed. Please try again.")
-                }
-              }}
-              isVerified={fieldStatus?.status === "verified"}
-            />
-          )}
+          {verificationInstructions.method === "challenge-url" && fieldId === "github"
+            && challengeOrCode && identity.info?.github && (
+              <GitHubVerification
+                url={challengeOrCode}
+                expectedUsername={identity.info.github}
+                onVerify={(isVerified) => {
+                  if (isVerified) {
+                    toast.success("GitHub account successfully verified!")
+                  } else {
+                    toast.error("GitHub verification failed. Please try again.")
+                  }
+                }}
+                isVerified={fieldStatus?.status === "verified"}
+              />
+            )}
         </div>
       )}
 

@@ -1,5 +1,3 @@
-"use client"
-
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import type React from "react"

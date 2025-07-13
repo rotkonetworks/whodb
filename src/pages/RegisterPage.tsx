@@ -1,5 +1,3 @@
-"use client"
-
 import {
   ArrowLeft,
   Edit,
@@ -676,7 +674,7 @@ export default function RegisterPage() {
     [chainConstants]
   )
   const hasEnoughBalance = useMemo(
-    () => (balance && minBalanceAmount) 
+    () => (balance && minBalanceAmount)
       ? balance.isGreaterThanOrEqualTo(minBalanceAmount)
       : null,
     [balance, minBalanceAmount]
@@ -906,7 +904,7 @@ export default function RegisterPage() {
             )}
 
             {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
-              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep} 
+              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep}
                 minBalanceAmount={minBalanceAmount} hasEnoughBalance={hasEnoughBalance}
                 currentBalance={balance}
               />

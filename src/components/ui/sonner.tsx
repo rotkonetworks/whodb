@@ -1,5 +1,3 @@
-"use client"
-
 import { useTheme } from "@/components/theme-provider-simple"
 import { Toaster as Sonner } from "sonner"
 

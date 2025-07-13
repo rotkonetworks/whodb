@@ -1,5 +1,3 @@
-"use client"
-
 import { ChallengeStore } from "@/store/challengesStore"
 import type React from "react"
 import { createContext, useCallback, useContext, useState } from "react"; // Added useCallback
@@ -42,7 +40,7 @@ interface VerificationContextType {
     label: string,
   ) => Promise<string | null>
   confirmVerification: (
-    field: ChallengeType, 
+    field: ChallengeType,
     extraConfirmationData: ExtraConfirmationData[ChallengeType]
   ) => Promise<boolean>
   getFieldStatus: (field: ChallengeType) => FieldVerification | null
@@ -147,7 +145,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   }
 
   const confirmVerification = async (
-    field: ChallengeType, 
+    field: ChallengeType,
     extraConfirmationData: ExtraConfirmationData[ChallengeType]
   ): Promise<boolean> => {
     setVerifyingFields((prev) => new Set(prev).add(field))

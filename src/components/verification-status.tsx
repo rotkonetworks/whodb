@@ -1,5 +1,3 @@
-"use client"
-
 import { CheckCircle, Loader2, AlertTriangle, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useVerification } from "@/contexts/verification-context"

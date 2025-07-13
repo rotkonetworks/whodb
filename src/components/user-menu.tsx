@@ -1,5 +1,3 @@
-"use client"
-
 import { useState } from "react"
 import { User, LogOut, Settings, ChevronDown } from "lucide-react"
 import { useUser } from "@/contexts/user-context"
