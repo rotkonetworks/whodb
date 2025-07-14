@@ -7,14 +7,14 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import { useIdentity } from "@/hooks/useIdentity";
 import { useSupportedFields } from "@/hooks/useSupportedFields";
-import { useUrlParams } from "@/hooks/useUrlParams";
+import { UrlParamsArgs, useUrlParams } from "@/hooks/useUrlParams";
 import { useWalletAccounts } from "@/hooks/useWalletAccounts";
 import { useXcmParameters } from "@/hooks/useXcmParameters";
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
-import { AccountData } from "@/store/AccountStore";
+import { Account, AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
 import { ApiStorage, ApiTx } from "@/types/api";
-import { verifyStatuses } from "@/types/Identity";
+import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { ChainId } from "@reactive-dot/core";
@@ -22,7 +22,7 @@ import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, useTypedApi } from "@reactive-dot/react";
 import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useProxy } from "valtio/utils";
 import { useNetwork } from "./network-context";
 
@@ -40,50 +40,50 @@ interface PolkadotApiContextType {
   removeAlert: (key: string) => void;
   clearAllAlerts: () => void;
   alertsCount: number;
-  
+
   // Dark mode
   isDark: boolean;
   setDark: (dark: boolean) => void;
-  
+
   // Stores
   chainStore: ChainInfo;
-  accountStore: any;
-  
+  accountStore: AccountData;
+
   // APIs
   typedApi: TypedApi<any> | undefined;
   fromTypedApi: TypedApi<any> | undefined;
-  
+
   // URL params
-  urlParams: any;
-  updateUrlParams: (params: any) => void;
-  
+  urlParams: UrlParamsArgs;
+  updateUrlParams: (params: UrlParamsArgs) => void;
+
   // Wallet
   walletDialogOpen: boolean;
   setWalletDialogOpen: (open: boolean) => void;
-  accounts: any[];
+  accounts: AccountData[];
   getWalletAccount: (address: Uint8Array | string) => any;
   connectedWallets: any[];
   disconnectAllWallets: () => void;
-  
+
   // Account management
   updateAccount: (account: AccountData) => void;
   onAccountSelect: (accountAction: { type: string, account: AccountData }) => Promise<void>;
   onRequestWalletConnection: () => void;
-  
+
   // Identity
   identityFormRef: React.RefObject<IdentityFormRef>;
   registrarIndex: number;
-  supportedFields: any;
-  identity: any;
-  fetchIdAndJudgement: () => Promise<any>;
+  supportedFields: (keyof IdentityInfo)[];
+  identity: Identity;
+  fetchIdAndJudgement: () => Promise<Identity>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
-  
+
   // Chain
   chainClient: any;
   onChainSelect: (chainId: string | number | symbol) => void;
   chainConstants: any;
-  
+
   // Challenges
   challenges: ChallengeStore;
   challengeError: string | null;
@@ -91,26 +91,26 @@ interface PolkadotApiContextType {
   challengeLoading: boolean;
   subscribeToChallenges: () => void;
   sendPGPVerification: any;
-  
+
   // Formatting
   formatAmount: (amount: any) => string;
-  
+
   // Transactions
   isTxBusy: boolean;
   signSubmitAndWatch: (params: SignSubmitAndWatchParams) => Promise<TxStateUpdate>;
   submitTransaction: () => Promise<void>;
-  
+
   // Dialogs
   openDialog: DialogMode | null;
   setOpenDialog: (mode: DialogMode | null) => void;
   openTxDialog: (args: OpenTxDialogArgs) => void;
   closeTxDialog: () => void;
   handleOpenChange: (nextState: boolean) => void;
-  
+
   // Cost estimations
   estimatedCosts: EstimatedCostInfo;
   setEstimatedCosts: (costs: EstimatedCostInfo) => void;
-  
+
   // XCM
   xcmParams: any;
   relayAndParachains: any;
@@ -119,22 +119,22 @@ interface PolkadotApiContextType {
   teleportExpanded: boolean;
   setTeleportExpanded: (expanded: boolean) => void;
   parachainId: number | undefined;
-  
+
   // Balances
   fromBalance: BigNumber;
   balance: BigNumber;
   hasEnoughBalance: boolean;
   minimunTeleportAmount: BigNumber;
-  
+
   // Transaction confirmation
   txToConfirm: ApiTx | null;
   setTxToConfirm: (tx: ApiTx | null) => void;
-  
+
   // Account tree
   accountTree: any;
   accountTreeLoading: boolean;
   refreshAccountTree: () => void;
-  
+
   // Error details
   errorDetails: Error | null;
   setErrorDetails: (error: Error | null) => void;
@@ -152,10 +152,10 @@ export const usePolkadotApi = () => {
   return context;
 };
 
-const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   const { network } = useNetwork();
-  
-  return <>
+
+  return (
     <ReactiveDotProvider config={CHAIN_CONFIG}>
       <ChainProvider chainId={(network || import.meta.env.VITE_APP_DEFAULT_CHAIN) as keyof typeof CHAIN_CONFIG.chains}>
         <Suspense>
@@ -163,10 +163,10 @@ const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = ({ 
         </Suspense>
       </ChainProvider>
     </ReactiveDotProvider>
-  </>
-}
+  )
+})
 
-const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   //#region Hooks
   const {
     alerts, add: addAlert, remove: removeAlert, clearAll: clearAllAlerts, size: alertsCount
@@ -341,7 +341,6 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) =
     address: accountStore.encodedAddress,
     network: (chainStore.id as string).split("_")[0],
     identity: { info: identity.info, status: identity.status, },
-    addNotification: addAlert,
   });
 
   useEffect(() => {
@@ -618,15 +617,15 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) =
 
   const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
 
-  const hasEnoughBalance = useMemo(() => balance
+  const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
       .plus(chainConstants.existentialDeposit?.toString())
-    ), [balance, chainConstants.existentialDeposit, xcmParams.txTotalCost])
+    ), [balance, chainConstants, xcmParams.txTotalCost])
   const minimunTeleportAmount = useMemo(() => {
     const calculatedTeleportAmount = xcmParams.txTotalCost.times(1.1)
     return hasEnoughBalance ? calculatedTeleportAmount
-      : calculatedTeleportAmount.plus(chainConstants.existentialDeposit?.toString())
-  }, [xcmParams.txTotalCost, hasEnoughBalance, chainConstants.existentialDeposit])
+      : calculatedTeleportAmount.plus((chainConstants?.existentialDeposit || 10n)?.toString())
+  }, [xcmParams.txTotalCost, hasEnoughBalance, chainConstants])
 
   const balanceRef = useRef(balance)
   useEffect(() => {
@@ -828,9 +827,9 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) =
       {children}
     </PolkadotApiContext.Provider>
   );
-}
+})
 
-export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
   return (
     <PolkadotApiProviderWrapper>
       <InnerProvider>
@@ -838,4 +837,4 @@ export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = ({ 
       </InnerProvider>
     </PolkadotApiProviderWrapper>
   );
-}
+})

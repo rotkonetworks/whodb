@@ -1,11 +1,31 @@
-"use client"
-
+import { ChallengeStore } from "@/store/challengesStore"
 import type React from "react"
-import { createContext, useContext, useState, useCallback } from "react" // Added useCallback
+import { createContext, useCallback, useContext, useState } from "react"; // Added useCallback
 import { toast } from "sonner"
 
-interface FieldVerification {
-  field: string
+type ChallengeType = keyof Omit<ChallengeStore, "display">
+type pgpSigningInfo = {
+  pubkey: string
+  signed_challenge: string
+  network: string
+  account: string
+}
+type ExtraConfirmationData = {
+  "email": never
+  "matrix": never
+  "twitter": never
+  "website": never
+  "github": never
+  "pgp_fingerprint": pgpSigningInfo
+  "discord": never
+  "image": never
+  "legal": never
+  "web": never
+}
+
+
+export interface FieldVerification {
+  field: ChallengeType
   status: "unverified" | "pending" | "verified" | "failed"
   lastVerified?: string
   verificationMethod?: string
@@ -19,12 +39,15 @@ interface VerificationContextType {
     methodType: "code" | "oauth" | "dns-challenge" | "challenge" | "challenge-url" | "gpg-challenge",
     label: string,
   ) => Promise<string | null>
-  confirmVerification: (field: string, signedChallenge?: string) => Promise<boolean>
-  getFieldStatus: (field: string) => FieldVerification | null
-  isVerifying: (field: string) => boolean
+  confirmVerification: (
+    field: ChallengeType,
+    extraConfirmationData: ExtraConfirmationData[ChallengeType]
+  ) => Promise<boolean>
+  getFieldStatus: (field: ChallengeType) => FieldVerification | null
+  isVerifying: (field: ChallengeType) => boolean
   getVerifiedFields: () => FieldVerification[]
   getAllFilledFields: (formData: Record<string, string>) => string[]
-  resetFieldVerification: (field: string) => void
+  resetFieldVerification: (field: ChallengeType) => void
   setInitialVerifications: (initialStates: FieldVerification[]) => void
   // Add challenges from WebSocket API
   setChallenges: (challenges: Record<string, { code: string; status: any }>) => void
@@ -40,7 +63,10 @@ const initialVerificationFields: FieldVerification[] = [
   { field: "twitter", status: "unverified" },
   { field: "website", status: "unverified" },
   { field: "github", status: "unverified" },
-  { field: "pgpFingerprint", status: "unverified" },
+  { field: "pgp_fingerprint", status: "unverified" },
+  { field: "discord", status: "unverified" },
+  { field: "image", status: "unverified" },
+  { field: "legal", status: "unverified" },
 ]
 
 export function VerificationProvider({ children }: { children: React.ReactNode }) {
@@ -118,39 +144,25 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     return null
   }
 
-  const confirmVerification = async (field: string, signedChallenge?: string): Promise<boolean> => {
+  const confirmVerification = async (
+    field: ChallengeType,
+    extraConfirmationData: ExtraConfirmationData[ChallengeType]
+  ): Promise<boolean> => {
     setVerifyingFields((prev) => new Set(prev).add(field))
     const fieldState = verifications.find((v) => v.field === field)
     toast.info(`Checking verification status for ${fieldState?.verificationMethod || field}...`)
 
-    if (field === "pgpFingerprint" && signedChallenge && sendPGPVerification) {
+    if (field === "pgp_fingerprint" && extraConfirmationData.signed_challenge && sendPGPVerification) {
       try {
         // Use the real PGP verification function from the API
         await sendPGPVerification({
-          pubkey: "USER_PGP_KEY", // This would need to be extracted from the signed challenge
-          signed_challenge: signedChallenge,
-          network: "current_network", // This would be passed from context
-          account: "current_account", // This would be passed from context
+          pubkey: extraConfirmationData.pubkey,
+          signed_challenge: extraConfirmationData.signed_challenge,
+          network: extraConfirmationData.network,
+          account: extraConfirmationData.account,
         })
 
-        setVerifications((prev) =>
-          prev.map((v) =>
-            v.field === field
-              ? {
-                ...v,
-                status: "verified",
-                lastVerified: new Date().toISOString(),
-                verificationPayload: undefined,
-              }
-              : v,
-          ),
-        )
-
-        setVerifyingFields((prev) => {
-          const next = new Set(prev)
-          next.delete(field)
-          return next
-        })
+        return true
 
         toast.success(`PGP verification successful!`)
         return true
@@ -176,7 +188,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     }
 
     // For other verification types, use the existing simulation logic
-    if (field === "pgpFingerprint" && signedChallenge) {
+    if (field === "pgp_fingerprint" && signedChallenge) {
       console.log("PGP Verification Data:", {
         fingerprint: "USER_FINGERPRINT_HERE", // This should be the actual fingerprint from form
         originalChallenge: fieldState?.verificationPayload,

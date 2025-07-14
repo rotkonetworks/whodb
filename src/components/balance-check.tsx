@@ -1,22 +1,34 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import { Wallet, Zap, CheckCircle, AlertCircle, Loader2, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { useBalance } from "@/contexts/balance-context"
-import { useNetwork } from "@/contexts/network-context"
-import { ChipInRequestModal } from "./chip-in-request-modal" // Import the new modal
-import { useWallet } from "@/contexts/wallet-context" // Import wallet context
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNetwork } from "@/contexts/network-context";
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
+import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
+import { useFormatAmount } from "@/hooks/useFormatAmount";
+import BigNumber from "bignumber.js";
+import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
+import { SS58String } from "polkadot-api";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 
 interface BalanceCheckProps {
   address: string
   onSufficientBalance: () => void
+  minBalanceAmount?: BigNumber // Optional minimum balance amount
+  hasEnoughBalance?: boolean // Optional prop to control balance check
+  currentBalance?: BigNumber // Optional current balance, if available
 }
 
-export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps) {
-  const { balance, isLoading, checkBalance, requestTokens, isRequestingTokens } = useBalance()
+export function BalanceCheck({
+  address, onSufficientBalance, minBalanceAmount, hasEnoughBalance, currentBalance
+}: BalanceCheckProps) {
+  //const { balance, isLoading, checkBalance, requestTokens, isRequestingTokens } = useBalance()
+  const balance = currentBalance;
+  const isLoading = balance === undefined; // Assuming balance is undefined while loading
+  const [isRequestingTokens, setIsRequestingTokens] = useState(false)
+  
+  const checkBalance = (address: SS58String, chainId: string) => balance // TODO Add balance checks with ParaSpell
   const { network, networkDisplayName } = useNetwork()
   const [hasChecked, setHasChecked] = useState(false)
   const [showChipInModal, setShowChipInModal] = useState(false) // State for modal
@@ -30,10 +42,21 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
   }, [address, hasChecked, checkBalance])
 
   const balanceFloat = Number.parseFloat(balance)
-  const requiredBalance = 1.0
-  const hasSufficientBalance = balanceFloat >= requiredBalance
+  const requiredBalance = minBalanceAmount || new BigNumber(0) // Use provided min balance or default to 0
+  const hasSufficientBalance = hasEnoughBalance
   const needsTokensOnPaseo = network === "paseo" && balanceFloat < requiredBalance
   const canRequestChipIn = !hasSufficientBalance && !needsTokensOnPaseo && network !== "paseo" // Only for non-Paseo, insufficient balance
+
+  const polkadotApi = usePolkadotApi()
+  const { chainStore, accountStore } = polkadotApi
+
+  const formatAmount = useFormatAmount({
+    symbol: chainStore.tokenSymbol,
+    tokenDecimals: chainStore.tokenDecimals,
+  })
+
+  const balanceFormatted = formatAmount(balance || 0)
+  const requiredBalanceFormatted = formatAmount(requiredBalance || 0)
 
   const handleRequestTokens = async () => {
     const success = await requestTokens(address)
@@ -72,6 +95,8 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
 
   const amountNeededForChipIn = requiredBalance - balanceFloat > 0 ? requiredBalance - balanceFloat : 0
 
+  const fauceturl = import.meta.env[`VITE_APP_${(chainStore.id as string).split("_")[0].toUpperCase()}_FAUCET_URL`]
+
   return (
     <>
       <Card className="bg-gray-800 border-pink-500/30">
@@ -84,10 +109,17 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="p-3 bg-gray-700/50 rounded-md">
+          <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-600">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-400">Account Name:</span>
+              <span className="text-white font-mono text-lg">
+                {accountStore.name}
+              </span>
+            </div>
+            
             <div className="flex items-center justify-between">
-              <span className="text-gray-400 text-sm">Wallet Address:</span>
-              <span className="text-white font-mono text-sm">
+              <span className="text-gray-400 text-sm">Address:</span>
+              <span className="text-gray-300 text-sm font-mono">
                 {address.substring(0, 10)}...{address.substring(address.length - 10)}
               </span>
             </div>
@@ -102,8 +134,8 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
                   <span className="text-gray-400">Checking...</span>
                 </div>
               ) : (
-                <span className="text-white font-mono text-lg">
-                  {balance} {getNetworkToken()}
+                <span className="text-white font-mono text-sm">
+                  {balanceFormatted}
                 </span>
               )}
             </div>
@@ -111,8 +143,8 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
             {!isLoading && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-400 text-sm">Required for registration:</span>
-                <span className="text-gray-300 text-sm">
-                  {requiredBalance.toFixed(10)} {getNetworkToken()}
+                <span className="text-gray-300 font-mono text-sm">
+                  {requiredBalanceFormatted}
                 </span>
               </div>
             )}
@@ -180,15 +212,17 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Button
-                      onClick={() => {
-                        setHasChecked(false) // Allow re-checking
-                        checkBalance(address)
-                      }}
-                      className="w-full btn-outline" // Use outline style
-                    >
-                      Refresh Balance
-                    </Button>
+                    {fauceturl && (
+                      <Link
+                        to={fauceturl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full btn-secondary flex items-center justify-center"
+                      >
+                        <Coins className="w-4 h-4 mr-2" />
+                        Get Test Tokens
+                      </Link>
+                    )}
                     {canRequestChipIn && (
                       <Button
                         onClick={() => setShowChipInModal(true)}
@@ -198,6 +232,14 @@ export function BalanceCheck({ address, onSufficientBalance }: BalanceCheckProps
                         Request Chip-in
                       </Button>
                     )}
+                    <Button
+                      onClick={handleRequestTokens}
+                      disabled={isRequestingTokens}
+                      className="w-full btn-primary"
+                    >
+                      <ArrowLeftRight className="w-4 h-4 mr-2" />
+                      Ieleport Tokens
+                    </Button>
                   </div>
                 </div>
               )}

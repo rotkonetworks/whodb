@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 
 import { useState } from "react"
@@ -45,9 +43,8 @@ export function ExpandableField({
       <Button
         type="button"
         onClick={toggleExpanded}
-        className={`w-full p-4 flex items-center justify-between bg-gray-800 hover:bg-gray-700 text-left transition-colors ${
-          hasValue ? "border-l-4 border-l-pink-500" : ""
-        }`}
+        className={`w-full p-4 flex items-center justify-between bg-gray-800 hover:bg-gray-700 text-left transition-colors ${hasValue ? "border-l-4 border-l-pink-500" : ""
+          }`}
         variant="ghost"
       >
         <div className="flex items-center">

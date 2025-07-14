@@ -1,50 +1,36 @@
-"use client"
-
-import type React from "react"
-import { useMemo, useCallback } from "react"
-import { VerifiableFormField } from "@/components/verifiable-form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
+import { Separator } from "@/components/ui/separator"
+import { VerifiableFormField } from "@/components/verifiable-form-field"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useVerification } from "@/contexts/verification-context"
+import { IdentityData, verifyStatuses } from "@/types/Identity"
 import {
-  User,
+  AlertTriangle,
+  CheckCircle,
+  Github,
+  Globe,
+  Info,
+  Key,
+  Loader2,
   Mail,
   MessageSquare,
-  Twitter,
-  Globe,
-  Github,
-  Key,
   ShieldCheck,
-  Info,
-  CheckCircle,
-  AlertTriangle,
+  Twitter,
+  User,
 } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
-import { useVerification } from "@/contexts/verification-context"
-import { verifyStatuses } from "@/types/Identity"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
-
-export interface IdentityData {
-  displayName: string
-  email: string
-  matrix: string
-  twitter: string
-  website: string
-  github: string
-  pgpFingerprint: string
-  [key: string]: string
-}
+import type React from "react"
+import { useCallback, useMemo } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
   identityStatus: verifyStatuses
   supportedFields?: string[]
-  canVerifyFields?: boolean
 }
 
 export function IdentityVerificationForm({
   identityData,
   identityStatus,
   supportedFields = [],
-  canVerifyFields = false,
 }: IdentityVerificationFormProps) {
   const { getVerifiedFields } = useVerification()
   const { challengeError, challengeLoading } = usePolkadotApi()
@@ -52,34 +38,40 @@ export function IdentityVerificationForm({
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
-      'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint'
+      'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint', 'discord', 'image', 'legal'
     ]
 
     // Only show fields that are actually filled
     return supportedSet.filter(field => {
       const fieldMapping: Record<string, keyof IdentityData> = {
-        'display': 'displayName',
+        'display': 'display',
         'email': 'email',
-        'web': 'website',
+        'web': 'web',
         'twitter': 'twitter',
         'github': 'github',
         'matrix': 'matrix',
-        'pgp_fingerprint': 'pgpFingerprint'
+        'pgp_fingerprint': 'pgp_fingerprint',
+        'discord': 'discord',
+        'image': 'image',
+        'legal': 'legal',
       }
       const formFieldKey = fieldMapping[field]
       return formFieldKey && identityData[formFieldKey] && identityData[formFieldKey].trim() !== ""
     })
   }, [supportedFields, identityData])
 
-  // Field mapping
+  // Field mapping from blockchain field names to form field names
   const fieldMapping = useMemo((): Record<string, keyof IdentityData> => ({
-    'display': 'displayName',
+    'display': 'display',
     'email': 'email',
-    'web': 'website',
+    'web': 'web',
     'twitter': 'twitter',
     'github': 'github',
     'matrix': 'matrix',
-    'pgp_fingerprint': 'pgpFingerprint'
+    'pgp_fingerprint': 'pgp_fingerprint',
+    'discord': 'discord',
+    'image': 'image',
+    'legal': 'legal'
   }), [])
 
   // Field configuration with verification instructions
@@ -95,7 +87,7 @@ export function IdentityVerificationForm({
         details: `Send verification code via email. You'll receive a unique code to enter for verification.`
       }
     },
-    website: {
+    web: {
       label: "Website",
       icon: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "https://bitcoin.org",
@@ -137,7 +129,7 @@ export function IdentityVerificationForm({
         details: `Send the verification code as a message to ${import.meta.env.VITE_VERIFICATION_MATRIX || "@verify:whodb.org"} on Matrix.`
       }
     },
-    pgpFingerprint: {
+    pgp_fingerprint: {
       label: "PGP Fingerprint",
       icon: <Key className="w-4 h-4 text-pink-400 mr-2" />,
       placeholder: "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
@@ -150,13 +142,44 @@ export function IdentityVerificationForm({
 3. Paste the signed challenge (including -----BEGIN PGP SIGNED MESSAGE----- header)
 4. Ensure your public key is available on keyservers (keys.openpgp.org or pgp.mit.edu)`
       }
+    },
+    discord: {
+      label: "Discord Handle",
+      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "username#1234",
+      type: "text",
+      verificationInstructions: {
+        method: "code" as const,
+        contactAddress: import.meta.env.VITE_VERIFICATION_DISCORD || "@whodb_verify",
+        details: `Send the verification code as a direct message to ${import.meta.env.VITE_VERIFICATION_DISCORD || "@whodb_verify"} on Discord.`
+      }
+    },
+    image: {
+      label: "Avatar Image URL",
+      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "https://example.com/avatar.png",
+      type: "url",
+      verificationInstructions: {
+        method: "challenge" as const,
+        details: `Provide a publicly accessible URL to your avatar image.`
+      }
+    },
+    legal: {
+      label: "Legal Name",
+      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
+      placeholder: "John Doe",
+      type: "text",
+      verificationInstructions: {
+        method: "challenge" as const,
+        details: `Provide your full legal name for identity verification.`
+      }
     }
   }), [])
 
   // Create field components for verification
   const createVerificationComponent = useCallback((fieldKey: string) => {
-    const formFieldKey = fieldMapping[fieldKey]
-    if (!formFieldKey || formFieldKey === 'displayName') return null
+    const formFieldKey = fieldKey
+    if (!formFieldKey || formFieldKey === 'display') return null
 
     const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
     if (!config) return null
@@ -233,7 +256,7 @@ export function IdentityVerificationForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-gray-300">Display Name:</span>
-            <span className="text-white font-medium">{identityData.displayName}</span>
+            <span className="text-white font-medium">{identityData.display}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-300">Verification Progress:</span>
@@ -245,7 +268,7 @@ export function IdentityVerificationForm({
       </div>
 
       {/* Status-based instructions */}
-      {identityStatus < verifyStatuses.FeePaid 
+      {identityStatus < verifyStatuses.FeePaid
         ? (
           <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
             <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
@@ -254,10 +277,10 @@ export function IdentityVerificationForm({
             </span>
           </div>
         )
-        : (challengeLoading 
+        : (challengeLoading
           ? (
             <div className="flex items-start p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
-              <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
+              <Loader2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400 animate-spin" />
               <span>
                 Connecting to verification service to enable challenges...
               </span>
@@ -267,23 +290,14 @@ export function IdentityVerificationForm({
             <div className="flex items-start p-3 text-sm text-red-300 bg-red-900/20 border border-red-500/30 rounded-md">
               <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-red-400" />
               <span>
-                Error connecting to verification service: {challengeError.message}
+                Error connecting to verification service: {String(challengeError)}
               </span>
             </div>
           ) : null
         )
       }
 
-      {identityStatus >= verifyStatuses.FeePaid && !canVerifyFields && (
-        <div className="flex items-start p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
-          <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
-          <span>
-            Connecting to verification service to enable challenges...
-          </span>
-        </div>
-      )}
-
-      {identityStatus >= verifyStatuses.FeePaid && canVerifyFields && (
+      {identityStatus >= verifyStatuses.FeePaid && !challengeError && (
         <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
           <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
           <span>

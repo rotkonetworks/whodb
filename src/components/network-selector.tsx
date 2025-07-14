@@ -1,5 +1,3 @@
-"use client"
-
 import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { useNetwork, type Network } from "@/contexts/network-context"
@@ -35,9 +33,8 @@ export function NetworkSelector() {
             {networks.map((net) => (
               <button
                 key={net.id}
-                className={`w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center justify-between ${
-                  network === net.id ? "bg-gray-700" : ""
-                }`}
+                className={`w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center justify-between ${network === net.id ? "bg-gray-700" : ""
+                  }`}
                 onClick={() => handleNetworkChange(net.id as Network)}
               >
                 <span

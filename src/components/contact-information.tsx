@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,7 +11,7 @@ interface ContactInformationProps {
 }
 
 interface ContactItemConfig {
-  field: keyof Profile & ("email" | "matrix" | "twitter" | "website" | "github" | "pgpFingerprint")
+  field: keyof Profile & ("email" | "matrix" | "twitter" | "web" | "github" | "pgp_fingerprint" | "discord" | "image" | "legal")
   label: string
   icon: React.ElementType
   getLink?: (value: string) => string | null
@@ -38,7 +36,14 @@ const contactItemConfigs: ContactItemConfig[] = [
     linkAriaLabel: "View X profile",
   },
   {
-    field: "website",
+    field: "discord",
+    label: "Discord",
+    icon: MessageCircle,
+    getLink: (_v) => null, // Discord doesn't have direct links
+    linkAriaLabel: "Discord handle",
+  },
+  {
+    field: "web",
     label: "Website",
     icon: Globe,
     getLink: (v) => (!v.match(/^https?:\/\//) ? `https://${v}` : v),
@@ -52,12 +57,26 @@ const contactItemConfigs: ContactItemConfig[] = [
     linkAriaLabel: "View GitHub profile",
   },
   {
-    field: "pgpFingerprint",
+    field: "pgp_fingerprint",
     label: "PGP",
     icon: Key,
     getLink: (v) => `https://keys.openpgp.org/search?q=${encodeURIComponent(v.replace(/\s+/g, ""))}`,
     linkAriaLabel: "Search PGP key",
     isMonospace: true,
+  },
+  {
+    field: "image",
+    label: "Avatar",
+    icon: Globe,
+    getLink: (v) => v,
+    linkAriaLabel: "View avatar image",
+  },
+  {
+    field: "legal",
+    label: "Legal Name",
+    icon: Key,
+    getLink: (_v) => null, // Legal name doesn't have links
+    linkAriaLabel: "Legal name",
   },
 ]
 

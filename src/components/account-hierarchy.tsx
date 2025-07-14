@@ -1,5 +1,3 @@
-"use client"
-
 import { User, ExternalLink, PlusCircle, Edit2, Users } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

@@ -18,6 +18,7 @@ import { PGPVerification } from "../challenges/PGPVerification"
 import { StatusBadge } from "../challenges/StatusBadge"
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
+import { GitHubVerification } from "../challenges/GitHubVerification"
 
 // Challenge renderer interface for extensibility
 interface ChallengeRenderer {
@@ -48,6 +49,17 @@ const specialChallengeRenderers: Record<string, ChallengeRenderer> = {
         isVerifying={isLoading}
       />
     )
+  },
+  github: ({ code, status, identity, onVerify, isLoading }) => {
+    if (status !== ChallengeStatus.Pending) return null;
+
+    return (
+      <GitHubVerification
+        expectedUsername={identity.info.github}
+        onVerify={(verified) => onVerify({ verified })}
+        isVerified={status === ChallengeStatus.Passed}
+      />
+    );
   },
   // Easy to add more special renderers here
   // web: ({ ... }) => <WebVerification ... />,

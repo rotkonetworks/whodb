@@ -8,25 +8,6 @@ import { IdentityInfo, verifyStatuses } from '@/types/Identity';
 
 import { AlertPropsOptionalKey } from './useAlerts';
 
-// Types matching your Rust backend
-type Data = {
-  type: 'none' | 'raw' | 'blake_two_256' | 'sha_256' | 'keccak_256' | 'sha_three_256';
-  value?: Uint8Array | [number, number, number, number];
-};
-
-export interface IdentityRawData {
-  display: Data;
-  legal: Data;
-  web: Data;
-  matrix: Data;
-  email: Data;
-  pgp_fingerprint?: Uint8Array;
-  image: Data;
-  twitter: Data;
-  github: Data;
-  discord: Data;
-}
-
 interface VerificationState {
   fields: Record<string, boolean>;
 }
@@ -48,8 +29,6 @@ interface ResponseAccountState {
 
 type ResponsePayload = {
   AccountState: ResponseAccountState;
-  Secret: string;
-  VerificationResult: boolean;
 };
 
 type SubscribeAccountState = {
@@ -112,7 +91,6 @@ interface UseIdentityWebSocketProps {
   url: string;
   account: string;
   network: string;
-  addNotification: (alert: AlertPropsOptionalKey) => void;
 }
 
 interface UseIdentityWebSocketReturn {
@@ -126,18 +104,20 @@ interface UseIdentityWebSocketReturn {
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
 }
 
-const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNotification, }: {
+const keyMapping: Record<string, string> = {// WWorkaround for old API
+  'p_g_p_fingerprint': 'pgp_fingerprint',
+}
+
+const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   url: string;
   address: SS58String;
   network: string;
   identity: { info: IdentityInfo, status: verifyStatuses };
-  addNotification: (alert: AlertPropsOptionalKey) => void;
 }) => {
   const challengeWebSocket = useChallengeWebSocket({
     url,
     account: address,
     network: network.split("_")[0],
-    addNotification,
   });
   const { challengeState, error, isConnected } = challengeWebSocket
 
@@ -186,10 +166,10 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
             status = done ? ChallengeStatus.Passed : ChallengeStatus.Pending;
           }
 
-          _challenges[key] = {
+          _challenges[key as keyof ChallengeStore] = {
             type: "matrixChallenge",
             status,
-            code: !done && pendingChallenges[key],
+            code: !done ? pendingChallenges[key] : undefined,
           };
         })
       if (_.isEqual(challenges, _challenges)) {
@@ -223,13 +203,20 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity, addNoti
 
 // Generic WebSocket hook with challenge verification support
 const useChallengeWebSocket = (
-  { url, account, network, addNotification }: UseIdentityWebSocketProps
+  { url, account, network }: UseIdentityWebSocketProps
 ): UseIdentityWebSocketReturn => {
   const ws = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Track if we've already subscribed for this connection
+  const hasSubscribed = useRef(false);
+  const reconnectTimeout = useRef<number | null>(null);
+  const isReconnecting = useRef(false);
+  const connectionAttempts = useRef(0);
+  const lastConnectionAttempt = useRef(0);
 
   // Keep track of pending promises for responses
   const pendingRequests = useRef<Map<string, {
@@ -239,6 +226,15 @@ const useChallengeWebSocket = (
   }>>(new Map());
 
   const generateRequestId = () => Math.random().toString(36).substring(7);
+
+  // Clean up all pending requests
+  const cleanupPendingRequests = useCallback(() => {
+    for (const [, { reject, timeout }] of pendingRequests.current.entries()) {
+      clearTimeout(timeout);
+      reject(new Error('WebSocket disconnected'));
+    }
+    pendingRequests.current.clear();
+  }, []);
 
   const sendMessage = useCallback((message: WebSocketMessage): Promise<void> => {
     setLoading(true);
@@ -264,7 +260,11 @@ const useChallengeWebSocket = (
         }
       }, 30000);
 
-      pendingRequests.current.set(requestId, { resolve, reject, timeout });
+      pendingRequests.current.set(requestId, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeout
+      });
       ws.current.send(JSON.stringify(versionedMessage));
     });
   }, []);
@@ -277,13 +277,29 @@ const useChallengeWebSocket = (
     });
   }, [sendMessage]);
 
-  // Subscribe to account state
+  // Subscribe to account state - only once per connection
   const subscribe = useCallback(() => {
-    sendMessage({
-      type: 'SubscribeAccountState',
-      payload: { account, network },
-    }).catch(err => setError(err.message));
-  }, [sendMessage, account, network]);
+    if (!hasSubscribed.current && ws.current?.readyState === WebSocket.OPEN && account && network) {
+      hasSubscribed.current = true;
+      console.log(`Subscribing to account state for ${account} on ${network}`);
+
+      // Send message directly without using sendMessage to avoid dependency issues
+      const message = {
+        version: '1.0',
+        type: 'SubscribeAccountState' as const,
+        payload: { account, network },
+      };
+
+      try {
+        ws.current.send(JSON.stringify(message));
+        console.log('Subscription message sent');
+      } catch (err) {
+        console.error('Subscription failed:', err);
+        setError(err instanceof Error ? err.message : 'Subscription failed');
+        hasSubscribed.current = false; // Reset on error to allow retry
+      }
+    }
+  }, [account, network]);
 
   // Note union of types for event.data. it's done because AccountStateMessage does not have `payload` field.
   type ChallengeMessageType = WebSocketMessage | AccountStateMessage;
@@ -300,22 +316,21 @@ const useChallengeWebSocket = (
             if (typeof message.payload.message === 'string') {
               // Handle string responses (like PGP verification)
               if (message.payload.message === 'PGP verification is done') {
-                addNotification({
-                  type: 'success',
-                  message: 'PGP key verified successfully!',
-                });
-                // Trigger a refresh of account state
-                subscribe();
               } else {
-                // Handle other string messages
-                addNotification({
-                  type: 'info',
-                  message: message.payload.message,
-                });
               }
             } else if (message.payload.message && typeof message.payload.message === 'object') {
               // Handle object responses (AccountState)
-              const response = (message.payload.message as ResponsePayload).AccountState;
+              const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
+              response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] | [[string, string]] => {
+                let value: [string, string];                
+                if (Array.isArray(key)) {
+                  value =  [key[0], key[1]];
+                } else {
+                  value =  [key, code];
+                }
+                const newKey = keyMapping[value[0]] || value[0];
+                return [newKey, value[1]];
+              });
               if (response) {
                 console.log({ response })
                 setChallengeState({
@@ -330,51 +345,12 @@ const useChallengeWebSocket = (
             // Handle error
             setError(message.payload.message);
             setLoading(false);
-            addNotification({
-              type: 'error',
-              message: message.payload.message,
-            });
           }
           break;
-
-        case 'AccountState': {
-          const verificationStateFields: Record<string, boolean> = {};
-          const pendingChallenges: [string, string][] = [];
-
-          // Extract verification states and pending challenges from the new format
-          if (message.verification_state?.challenges) {
-            Object.entries(message.verification_state.challenges)
-              .forEach(([key, value]: [string, Challenge]) => {
-                verificationStateFields[key] = value.done;
-                if (value.done) {
-                  addNotification({
-                    message: `Challenge ${key} has been verified successfully`,
-                    type: 'info'
-                  });
-                }
-                if (!value.done && value.token) {
-                  pendingChallenges.push([key, value.token]);
-                }
-              });
-          }
-
-          setChallengeState(prev => ({
-            ...prev,
-            verification_state: { fields: verificationStateFields },
-            pending_challenges: pendingChallenges,
-            network: message.network
-          }));
-          setLoading(false);
-          break;
-        }
 
         case "error":
           setError(message.message);
           setLoading(false);
-          addNotification({
-            type: 'error',
-            message: message.message,
-          });
           break;
       }
 
@@ -388,87 +364,185 @@ const useChallengeWebSocket = (
       setError(err instanceof Error ? err.message : 'Failed to parse message');
       setLoading(false);
     }
-  }, [addNotification, subscribe]);
+  }, [subscribe]);
 
   const disconnect = useCallback(() => {
-    // Important. Socket explicitly checked if open. so it won't get closed before ones that are
-    //  connecting. ws.current in dependency array ensures updating on unmount. Otherwise, it's a
-    //  mess to work with it, as too many connections may be opened in vain, or expected events
-    //  may not really be fired as expected.
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.onopen = null
-      ws.current.onerror = null
-      ws.current.onmessage = null
-      ws.current.close();
-      // ws.current = null and any remaining cleanup happens on close handling.
+    // Clear reconnection timeout
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
     }
-    if (ws.current?.readyState > WebSocket.OPEN) {
-      ws.current = null
+
+    isReconnecting.current = false;
+    hasSubscribed.current = false;
+    connectionAttempts.current = 0; // Reset connection attempts
+    lastConnectionAttempt.current = 0; // Reset throttling
+
+    // Clean up pending requests
+    cleanupPendingRequests();
+
+    // Close WebSocket if it exists and is open
+    if (ws.current) {
+      if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
+        ws.current.onopen = null;
+        ws.current.onerror = null;
+        ws.current.onmessage = null;
+        ws.current.onclose = null;
+        ws.current.close();
+      }
+      ws.current = null;
     }
+
     setLoading(false);
     setIsConnected(false);
-    // 1 Absolutely nothing, to avoid infinite loop. It's a bit tricky, but it works. No more deps!
-  }, []);
+  }, [cleanupPendingRequests]);
 
   // Set up WebSocket connection
   const connect = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastConnectionAttempt.current;
+
+    // Debounce connection attempts - minimum 1 second between attempts
+    if (timeSinceLastAttempt < 1000) {
+      console.log("Connection attempt throttled, too soon since last attempt");
+      return;
+    }
+
+    // Prevent multiple concurrent connection attempts
+    if (isReconnecting.current || (ws.current && ws.current.readyState === WebSocket.CONNECTING)) {
+      console.log("Connection attempt prevented - already connecting");
+      return;
+    }
+
+    lastConnectionAttempt.current = now;
+    connectionAttempts.current += 1;
+
+    // Exponential backoff for multiple failed attempts
+    const backoffDelay = Math.min(1000 * Math.pow(2, Math.min(connectionAttempts.current - 1, 5)), 30000);
+    if (connectionAttempts.current > 1 && timeSinceLastAttempt < backoffDelay) {
+      console.log(`Connection backoff: waiting ${backoffDelay}ms before attempt ${connectionAttempts.current}`);
+      reconnectTimeout.current = window.setTimeout(() => {
+        connect();
+      }, backoffDelay - timeSinceLastAttempt);
+      return;
+    }
+
+    // Clear any existing timeout
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+
+    console.log(`Attempting WebSocket connection #${connectionAttempts.current} to ${url}`);
     setLoading(true);
     setIsConnected(false);
-    ws.current = new WebSocket(url);
+    setError(null);
+    hasSubscribed.current = false;
+    isReconnecting.current = true;
 
-    ws.current.onopen = () => {
-      console.log({ callBack: "onopen" })
-      setIsConnected(true);
-      setError(null);
-    };
-    ws.current.onclose = (event) => {
-      console.log({ callBack: "onclose", code: event.code })
-      setIsConnected(false);
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (!ws.current || ws.current.readyState === WebSocket.CLOSED) {
-          connect();
+    // Close existing connection if any
+    if (ws.current) {
+      ws.current.onopen = null;
+      ws.current.onerror = null;
+      ws.current.onmessage = null;
+      ws.current.onclose = null;
+      ws.current.close();
+    }
+
+    try {
+      ws.current = new WebSocket(url);
+
+      ws.current.onopen = () => {
+        console.log({ callBack: "onopen", attempt: connectionAttempts.current });
+        setIsConnected(true);
+        setError(null);
+        setLoading(false);
+        isReconnecting.current = false;
+        hasSubscribed.current = false; // Reset subscription flag for new connection
+        connectionAttempts.current = 0; // Reset connection attempts on successful connection
+
+        // Subscribe immediately after connection - call subscribe directly to avoid closure issues
+        if (account && network) {
+          const message = {
+            version: '1.0',
+            type: 'SubscribeAccountState' as const,
+            payload: { account, network },
+          };
+
+          try {
+            ws.current?.send(JSON.stringify(message));
+            hasSubscribed.current = true;
+            console.log('Auto-subscription message sent on connection open');
+          } catch (err) {
+            console.error('Auto-subscription failed:', err);
+          }
         }
-      }, 5000);
-    };
-    ws.current.onerror = (error) => {
-      console.error(error)
-      setError('WebSocket error occurred');
-    };
-    ws.current.onmessage = handleMessage;
-  }, [url, handleMessage]);
+      };
 
+      ws.current.onclose = (event) => {
+        console.log({ callBack: "onclose", code: event.code, attempt: connectionAttempts.current });
+        setIsConnected(false);
+        hasSubscribed.current = false;
+        isReconnecting.current = false;
+
+        // Only attempt reconnection for abnormal closures and if not manually disconnected
+        if (event.code !== 1000 && event.code !== 1001) {
+          const reconnectDelay = Math.min(5000 * Math.pow(1.5, Math.min(connectionAttempts.current, 5)), 30000);
+          console.log(`Scheduling reconnection in ${reconnectDelay}ms`);
+          reconnectTimeout.current = window.setTimeout(() => {
+            if (!isReconnecting.current) {
+              console.log("Attempting to reconnect...");
+              connect();
+            }
+          }, reconnectDelay);
+        } else {
+          setLoading(false);
+          connectionAttempts.current = 0; // Reset on clean close
+        }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error("WebSocket error:", error, "attempt:", connectionAttempts.current);
+        setError('WebSocket connection failed');
+        isReconnecting.current = false;
+        setLoading(false);
+      };
+
+      ws.current.onmessage = handleMessage;
+    } catch (error) {
+      console.error("Failed to create WebSocket:", error);
+      setError('Failed to create WebSocket connection');
+      isReconnecting.current = false;
+      setLoading(false);
+    }
+  }, [url]); // Only depend on url to prevent recreation
+
+  // Initialize connection when URL changes
   useEffect(() => {
-    console.log({ ws: ws.current, state: ws.current?.readyState })
-    if (ws.current?.readyState === WebSocket.CONNECTING) {
-      setIsConnected(false)
-      setLoading(true)
-      return;
-    }
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      setIsConnected(true)
-      return;
-    }
-    if (!ws.current?.readyState || ws.current?.readyState > WebSocket.OPEN) {
-      connect()
-      setIsConnected(false)
-      setLoading(true)
-    }
+    if (url) {
+      // Debounce the initial connection to prevent rapid calls
+      const timeoutId = setTimeout(() => {
+        connect();
+      }, 100);
 
-    return disconnect;
-    // DITTO 1
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, ws.current?.readyState]);
+      return () => {
+        clearTimeout(timeoutId);
+        disconnect();
+      };
+    }
+  }, [url, connect, disconnect]); // Include connect and disconnect in deps
 
+  // Subscribe when connection is ready and we have account/network
   useEffect(() => {
-    if (ws.current?.readyState === WebSocket.OPEN && account && network) {
-      console.log({ ws: ws.current, state: ws.current?.readyState, account, callback: "sendMessage<effect>" });
-      // Subscribe to account state on connection
-      subscribe();
+    if (isConnected && account && network && !hasSubscribed.current) {
+      // Add a small delay to ensure connection is fully established
+      const timeoutId = setTimeout(() => {
+        subscribe();
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
     }
-    // DITTO 1
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, network, ws.current?.readyState])
+  }, [isConnected, account, network]); // Remove subscribe from deps to prevent recreation
 
   return {
     connect,
