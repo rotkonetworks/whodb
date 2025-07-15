@@ -34,7 +34,7 @@ export const TeleporterDialog = ({
   const [onTeleportClick, setOnTeleportClick] = useState<() => void>(() => () => { });
 
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogContent className="dark:bg-gray-900/50 bg-grey-100/50 backdrop-blur-sm">
+    <DialogContent className="dark:bg-gray-900/50 bg-gray-100/50 backdrop-blur-sm">
       <DialogHeader>
         <DialogTitle>Teleport</DialogTitle>
       </DialogHeader>
