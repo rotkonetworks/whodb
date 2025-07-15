@@ -113,7 +113,7 @@ export function BalanceCheck({
         <CardHeader>
           <CardTitle className="flex items-center text-white">
             <Wallet className="w-6 h-6 mr-2 text-pink-500" />
-            Balance Check - {networkDisplayName}
+            Balance Check
           </CardTitle>
           <p className="text-gray-400">Checking your balance to ensure you can register your identity.</p>
         </CardHeader>
@@ -131,6 +131,13 @@ export function BalanceCheck({
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
                 {address.substring(0, 10)}...{address.substring(address.length - 10)}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 text-sm">Network:</span>
+              <span className="text-gray-300 text-sm font-mono">
+                {chainStore.relay.name}
               </span>
             </div>
           </div>
