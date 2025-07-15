@@ -232,19 +232,9 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
 
       <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
         <div className="space-y-3">
-          <p className="text-blue-300">
-            <span className="font-semibold text-blue-400">Note:</span> Two transactions are required, which you need to sign with your wallet:
-          </p>
-          <ol className="list-decimal list-inside space-y-1 text-blue-300 text-sm">
-            <li>Teleport assets between chains</li>
-            <li>Execute identity transaction</li>
-          </ol>
-          <p className="text-blue-300 text-sm">
-            <span className="font-semibold text-blue-400">Important:</span> Please ensure you have enough balance in the destination chain to cover transaction fees.
-          </p>
-          <p className="text-blue-300 text-sm">
-            The entire process may take up to 2 minutes to complete. Please be patient.
-          </p>
+            <p className="text-blue-300 text-sm">
+            Teleport and balance update may take a couple minutes. Please wait for confirmation.
+            </p>
         </div>
       </div>
     </div>
