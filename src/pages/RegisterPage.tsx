@@ -892,9 +892,10 @@ export default function RegisterPage() {
             )}
 
             {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
-              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep}
-                minBalanceAmount={minBalanceAmount} hasEnoughBalance={hasEnoughBalance}
-                currentBalance={balance}
+              <BalanceCheck 
+                onSufficientBalance={handleNextStep}
+                minBalanceAmount={minBalanceAmount}
+                hasEnoughBalance={hasEnoughBalance}
               />
             )}
 
