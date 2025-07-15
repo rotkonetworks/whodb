@@ -6,7 +6,6 @@ import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
-import { SS58String } from "polkadot-api";
 import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
@@ -14,19 +13,14 @@ import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the telep
 interface BalanceCheckProps {
   address: string
   onSufficientBalance: () => void
-  minBalanceAmount?: BigNumber // Optional minimum balance amount
-  hasEnoughBalance?: boolean // Optional prop to control balance check
+  minBalanceAmount?: BigNumber | null // Optional minimum balance amount
+  hasEnoughBalance?: boolean | null // Optional prop to control balance check
   currentBalance?: BigNumber // Optional current balance, if available
 }
 
 export function BalanceCheck({
   address, onSufficientBalance, minBalanceAmount, hasEnoughBalance, currentBalance
 }: BalanceCheckProps) {
-  //const { balance, isLoading, checkBalance, requestTokens, isRequestingTokens } = useBalance()
-  const balance = currentBalance;
-  const isLoading = balance === undefined; // Assuming balance is undefined while loading
-  const [isRequestingTokens, setIsRequestingTokens] = useState(false)
-  
   const { network, networkDisplayName } = useNetwork()
   const [hasChecked, setHasChecked] = useState(false)
   const [showChipInModal, setShowChipInModal] = useState(false) // State for modal
@@ -34,17 +28,22 @@ export function BalanceCheck({
   const { address: walletAddress } = useWallet() // Get wallet address from context
 
   const polkadotApi = usePolkadotApi()
-  const { 
-    chainStore, 
-    accountStore, 
+  const {
+    chainStore,
+    accountStore,
     accounts,
-    xcmParams, 
-    relayAndParachains, 
-    fromBalance, 
-    getTeleportCall, 
-    signSubmitAndWatch, 
+    xcmParams,
+    relayAndParachains,
+    fromBalance,
+    getTeleportCall,
+    signSubmitAndWatch,
     isTxBusy
   } = polkadotApi
+
+  // Use passed balance or fall back to context balance
+  const balance = currentBalance || polkadotApi.balance
+  const isLoading = balance === undefined
+  const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
   useEffect(() => {
     if (address && !hasChecked) {
@@ -127,7 +126,7 @@ export function BalanceCheck({
                 {accountStore.name}
               </span>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
@@ -206,7 +205,7 @@ export function BalanceCheck({
                       </>
                     )}
                   </Button>
-                </div> // Insufficient balance on non-Paseo networks
+                </div>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center p-3 bg-red-900/20 border border-red-500/30 rounded-md">
@@ -235,7 +234,7 @@ export function BalanceCheck({
                     {canRequestChipIn && (
                       <Button
                         onClick={() => setShowChipInModal(true)}
-                        className="w-full btn-secondary" // Use secondary style
+                        className="w-full btn-secondary"
                       >
                         <Users className="w-4 h-4 mr-2" />
                         Request Chip-in
@@ -268,27 +267,12 @@ export function BalanceCheck({
         />
       )}
 
-      {showTeleportDialog && (
-        <TeleporterDialog
-          address={address as SS58String}
-          accounts={accounts}
-          chainId={chainStore.id}
-          config={polkadotApi.chainClient?.config || { chains: {} }}
-          tokenSymbol={chainStore.tokenSymbol || 'TOKEN'}
-          tokenDecimals={chainStore.tokenDecimals || 12}
-          xcmParams={xcmParams}
-          tx={polkadotApi.txToConfirm}
-          otherChains={relayAndParachains || []}
-          fromBalance={fromBalance}
-          toBalance={balance || new BigNumber(0)}
-          isTxBusy={isTxBusy}
-          formatAmount={formatAmount}
-          getTeleportCall={getTeleportCall}
-          signSubmitAndWatch={signSubmitAndWatch}
-          open={showTeleportDialog}
-          setOpen={setShowTeleportDialog}
-        />
-      )}
+      <TeleporterDialog
+        isTxBusy={isTxBusy}
+        open={showTeleportDialog}
+        setOpen={setShowTeleportDialog}
+        teleportAmount={minBalanceAmount || new BigNumber(0)}
+      />
     </>
   )
 }

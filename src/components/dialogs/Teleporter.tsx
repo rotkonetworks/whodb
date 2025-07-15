@@ -3,41 +3,46 @@ import { Chains } from "@reactive-dot/core/internal.js"
 import BigNumber from "bignumber.js"
 import { HelpCircle } from 'lucide-react'
 import { SS58String } from "polkadot-api"
-import React, { ReactNode, useEffect } from "react"
+import React, { ReactNode, useEffect, useRef } from "react"
 
-import { ApiConfig } from "@/api/config"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AccountData } from "@/store/AccountStore"
-import { XcmParameters } from "@/store/XcmParameters"
-import { FormatAmountFn } from "@/types"
-import { ApiTx } from "@/types/api"
 
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { AccountDropdown } from "../ui/account-dropdown"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
 
-export default function Teleporter({
-  address, accounts, chainId, tokenSymbol, tokenDecimals, config, xcmParams, fromBalance, toBalance,
-  otherChains, teleportAmount,
-  setTeleportAmount, formatAmount,
-}: {
-  address: SS58String,
-  accounts: AccountData[],
-  chainId: string | number | symbol,
-  config: ApiConfig,
-  tokenSymbol: string,
-  tokenDecimals: number,
-  xcmParams: XcmParameters,
-  tx: ApiTx,
-  otherChains: { id: string; name: string }[],
-  fromBalance: BigNumber,
-  toBalance: BigNumber,
+export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTeleportClick, }: {
   teleportAmount: BigNumber,
   setTeleportAmount: (amount: BigNumber) => void,
-  formatAmount: FormatAmountFn,
+  setOnTeleportClick: (callback: () => void) => void,
 }) {
-  const fromAddress = xcmParams?.fromAddress || address
+  const polkadotApi = usePolkadotApi()
+  const {
+    chainConstants,
+    getTeleportCall,
+    signSubmitAndWatch,
+    chainStore,
+    accountStore,
+    xcmParams,
+    accounts,
+    fromBalance,
+    balance: toBalance,
+    formatAmount,
+    getWalletAccount,
+    fromTypedApi,
+  } = polkadotApi
+
+  useEffect(() => {
+    if (teleportAmount) {
+      setTeleportAmount(teleportAmount)
+    }
+  }, [teleportAmount, setTeleportAmount])
+
+  const address = accountStore.address
+  const fromAddress = xcmParams?.fromAddress
   const setFromAddress = (address: string) => {
     if (xcmParams) {
       xcmParams.fromAddress = address
@@ -51,11 +56,12 @@ export default function Teleporter({
     }
   }, [address])
 
+  const { tokenSymbol, tokenDecimals } = chainConstants
   const [amount, _setAmount] = React.useState(
-    teleportAmount && tokenDecimals 
+    teleportAmount && tokenDecimals
       ? BigNumber(teleportAmount.toString())
-          .div(BigNumber(10).pow(BigNumber(tokenDecimals)))
-          .toString()
+        .div(BigNumber(10).pow(BigNumber(tokenDecimals)))
+        .toString()
       : "0"
   )
   const setAmount = (amount: string) => {
@@ -64,43 +70,68 @@ export default function Teleporter({
     setTeleportAmount(amountInBase)
   }
 
-  const selectedChain = xcmParams?.fromChain?.id
-  const setSelectedChain = (id: keyof Chains) => {
-    if (xcmParams?.fromChain) {
-      xcmParams.fromChain.id = id
-    }
-  }
-  const fromChainId = xcmParams?.fromChain?.id
-  const toChainId = chainId as keyof Chains
-
-  useEffect(() => {
-    if (xcmParams?.fromChain?.id) {
-      setSelectedChain(xcmParams.fromChain.id)
-    }
-  }, [xcmParams?.fromChain?.id])
+  const [selectedChain, setSelectedChain] = React.useState<string>(chainStore.relay.id)
+  const fromChainId = selectedChain as keyof Chains
+  const toChainId = chainStore.id as keyof Chains
 
   const handleFromWalletChange = React.useCallback((address: SS58String) => {
     setFromAddress(address)
   }, [])
 
+  const availableAccounts = accounts
+  const otherChains = [chainStore.relay, ...chainStore.relay.parachains]
+    .filter((chain) => chain.id !== toChainId)
+
+  const handleTeleport = React.useCallback(() => {
+    const tokenDecimals = chainStore.tokenDecimals
+    const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
+    console.log({ amount, newAmount })
+    const tx = getTeleportCall({
+      amount: newAmount,
+    })
+
+    signSubmitAndWatch({
+      call: tx,
+      name: `Teleport Assets from ${fromChainId} to ${toChainId}`,
+      awaitFinalization: true,
+      signer: getWalletAccount(fromAddress).polkadotSigner, // Ensure to use the correct signer
+      api: fromTypedApi, // Pass the API for the from chain
+    })
+  }, [amount, xcmParams, getTeleportCall, chainStore, signSubmitAndWatch, fromChainId, toChainId])
+
+  useEffect(() => {
+    // Set up teleport handler wrapped twice to prevent execution on every render
+    //  Outer function is consumed by setter, returning the actual handler.
+    //  See https://reactjs.org/docs/hooks-reference.html#usestate
+    setOnTeleportClick(() => handleTeleport)
+  }, [setOnTeleportClick, handleTeleport])
+
   return (
     <div className="space-y-6 p-6 rounded-lg border border-gray-700">
       <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-600">
         <h3 className="text-white font-medium mb-4">Wallet Selection</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-2">
             <Label htmlFor="fromAddress" className="text-gray-400">From Wallet</Label>
-            <AccountDropdown 
-              id="fromAddress"
-              accounts={accounts} 
-              address={fromAddress}
-              onAddressSelect={handleFromWalletChange}
-            />
+            {availableAccounts.length > 0 ? (
+              <AccountDropdown
+                id="fromAddress"
+                accounts={availableAccounts}
+                address={fromAddress}
+                onAddressSelect={handleFromWalletChange}
+              />
+            ) : (
+              <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
+                <p className="text-yellow-400 text-sm">
+                  No other wallets available. Please connect additional wallets to enable teleportation.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="toAddress" className="text-gray-400">Current Wallet</Label>
-            <Input readOnly 
+            <Input readOnly
               value={accounts?.find(({ encodedAddress }) => encodedAddress === toAddress)?.name || 'Unknown Account'}
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
@@ -137,9 +168,9 @@ export default function Teleporter({
           </div>
           <div className="space-y-2">
             <Label className="text-gray-400">Current Chain:</Label>
-            <Input 
-              value={config?.chains?.[toChainId]?.name || 'Unknown Chain'} 
-              readOnly 
+            <Input
+              value={CHAIN_CONFIG.chains[toChainId].name}
+              readOnly
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
           </div>
@@ -150,16 +181,12 @@ export default function Teleporter({
         <h3 className="text-white font-medium mb-4">Transferable Balances</h3>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{config?.chains?.[fromChainId]?.name || 'From Chain'}</span>
-            <span className="text-white font-mono text-sm">{formatAmount(fromBalance, {
-              symbol: config?.chains?.[fromChainId]?.symbol || tokenSymbol,
-            })}</span>
+            <span className="text-gray-400">{CHAIN_CONFIG.chains[fromChainId].name}</span>
+            <span className="text-white font-mono text-sm">{formatAmount(fromBalance)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{config?.chains?.[toChainId]?.name || 'To Chain'}</span>
-            <span className="text-white font-mono text-sm">{formatAmount(toBalance, {
-              symbol: config?.chains?.[toChainId]?.symbol || tokenSymbol,
-            })}</span>
+            <span className="text-gray-400">{CHAIN_CONFIG.chains[toChainId].name}</span>
+            <span className="text-white font-mono text-sm">{formatAmount(toBalance)}</span>
           </div>
         </div>
       </div>

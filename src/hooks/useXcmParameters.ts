@@ -90,12 +90,12 @@ export function useXcmParameters({
   const getTeleportCall = useCallback(({
     amount,
     fromApi,
-    signer,
+    toAddress,
     parachainId
   }: {
     amount: BigNumber;
     fromApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
-    signer: AccountData['polkadotSigner'];
+    toAddress: AccountData['polkadotSigner'];
     parachainId?: number;
   }) => {
     const txArguments = ({
@@ -120,7 +120,7 @@ export function useXcmParameters({
             value: {
               type: "AccountId32",
               value: {
-                id: Binary.fromBytes(signer.publicKey),
+                id: Binary.fromBytes(toAddress.publicKey),
               },
             },
           },
