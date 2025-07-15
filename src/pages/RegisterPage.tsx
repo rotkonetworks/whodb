@@ -91,9 +91,7 @@ export default function RegisterPage() {
     isConnecting: isWalletConnecting,
   } = useWallet()
 
-  const walletAddress = useMemo(() => {
-    return accountStore.address
-  }, [accountStore.address])
+  const walletAddress = useMemo(() => accountStore.address, [accountStore.address])
 
   const { userProfile: loggedInUserProfile, isLoading: isUserLoading } = useUser()
   const {
