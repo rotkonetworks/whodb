@@ -56,7 +56,6 @@ export const STEP_NUMBERS = {
   checkBalance: 4,
   fillIdentityInfo: 5,
   reviewAndSubmit: 6,
-  linkExternalAccounts: 7,
   complete: 8,
 } as const
 const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
@@ -614,14 +613,6 @@ export default function RegisterPage() {
     }
   }
 
-  const handleLinkExternalAccount = async (provider: string) => {
-    setIsLinkingAccount(true)
-    toast.info(`Simulating linking with ${provider}...`)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    toast.success(`${provider} account linked! (Simulated)`)
-    setIsLinkingAccount(false)
-  }
-
   const stepTitles = [
     "Select Network",
     "Connect Wallets",
@@ -629,7 +620,6 @@ export default function RegisterPage() {
     "Check Balance",
     isEditMode ? "Update & Verify Identity Info" : "Provide & Verify Identity Info",
     isEditMode ? "Review & Submit Update" : "Review & Submit",
-    "Link External Accounts",
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
@@ -979,41 +969,6 @@ export default function RegisterPage() {
                   </CardContent>
                 </Card>
               </>
-            )}
-
-            {currentStep === STEP_NUMBERS.linkExternalAccounts && (
-              <Card className="bg-gray-800/50 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white text-xl">
-                    <LinkIcon className="w-6 h-6 mr-3 text-pink-400" />
-                    Link External Accounts (Optional)
-                  </CardTitle>
-                  <CardDescription className="text-gray-400 text-sm">
-                    Enhance your account security and recovery options by linking external accounts. Your primary
-                    identity is secured with your wallet.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2 pb-6">
-                  <AuthProviderButton
-                    providerName="Google"
-                    icon={<GoogleIcon />}
-                    onClick={() => handleLinkExternalAccount("Google")}
-                    disabled={isLinkingAccount}
-                  />
-                  <AuthProviderButton
-                    providerName="Matrix"
-                    icon={<MatrixIcon />}
-                    onClick={() => handleLinkExternalAccount("Matrix")}
-                    disabled={isLinkingAccount}
-                  />
-                  <p className="text-xs text-gray-500 text-center pt-2">
-                    Linking accounts can help with identity verification and account recovery in the future.
-                  </p>
-                  <Button onClick={handleNextStep} className="w-full btn-primary mt-4" disabled={isLinkingAccount}>
-                    {isEditMode ? "Finish Update" : "Finish Registration"}
-                  </Button>
-                </CardContent>
-              </Card>
             )}
 
             {currentStep === STEP_NUMBERS.complete && (
