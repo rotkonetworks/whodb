@@ -4,6 +4,7 @@ import { useNetwork } from "@/contexts/network-context";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
+import { verifyStatuses } from "@/types/Identity";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -11,15 +12,13 @@ import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new 
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
 
 interface BalanceCheckProps {
-  address: string
   onSufficientBalance: () => void
   minBalanceAmount?: BigNumber | null // Optional minimum balance amount
   hasEnoughBalance?: boolean | null // Optional prop to control balance check
-  currentBalance?: BigNumber // Optional current balance, if available
 }
 
 export function BalanceCheck({
-  address, onSufficientBalance, minBalanceAmount, hasEnoughBalance, currentBalance
+  onSufficientBalance, minBalanceAmount, hasEnoughBalance
 }: BalanceCheckProps) {
   const { network, networkDisplayName } = useNetwork()
   const [hasChecked, setHasChecked] = useState(false)
@@ -27,21 +26,10 @@ export function BalanceCheck({
   const [showTeleportDialog, setShowTeleportDialog] = useState(false) // State for teleport dialog
   const { address: walletAddress } = useWallet() // Get wallet address from context
 
-  const polkadotApi = usePolkadotApi()
-  const {
-    chainStore,
-    accountStore,
-    accounts,
-    xcmParams,
-    relayAndParachains,
-    fromBalance,
-    getTeleportCall,
-    signSubmitAndWatch,
-    isTxBusy
-  } = polkadotApi
+  const { chainStore, accountStore, isTxBusy, balance, identity } = usePolkadotApi()
 
   // Use passed balance or fall back to context balance
-  const balance = currentBalance || polkadotApi.balance
+  const address = accountStore.address
   const isLoading = balance === undefined
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
@@ -130,10 +118,10 @@ export function BalanceCheck({
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
-                {address.substring(0, 10)}...{address.substring(address.length - 10)}
+                {accountStore.encodedAddress.substring(0, 10)}...{address.substring(address.length - 10)}
               </span>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Network:</span>
               <span className="text-gray-300 text-sm font-mono">
@@ -169,94 +157,124 @@ export function BalanceCheck({
 
           {!isLoading && (
             <>
-              {hasSufficientBalance ? (
-                <div className="space-y-4">
-                  <div className="flex items-center p-3 bg-green-900/20 border border-green-500/30 rounded-md">
-                    <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
-                    <span className="text-green-400 font-medium">Sufficient balance for registration</span>
-                  </div>
-                  <Button onClick={handleProceed} className="w-full btn-primary text-white">
-                    Continue to Registration
-                  </Button>
-                </div>
-              ) : needsTokensOnPaseo ? (
+              {identity.status >= verifyStatuses.IdentitySet ? (
                 <div className="space-y-4">
                   <div className="flex items-center p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
                     <AlertCircle className="w-5 h-5 text-yellow-400 mr-2" />
-                    <span className="text-yellow-400 font-medium">Insufficient balance for registration</span>
-                  </div>
-                  <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-md">
-                    <div className="flex items-center mb-2">
-                      <Zap className="w-4 h-4 text-blue-400 mr-2" />
-                      <span className="text-blue-400 font-medium">Free Tokens Available!</span>
-                    </div>
-                    <p className="text-blue-300 text-sm mb-3">
-                      Since you&apos;re registering on Paseo testnet, we can send you free tokens to get started.
-                    </p>
-                    <span className="inline-flex items-center rounded-full bg-blue-500 text-white px-2.5 py-0.5 text-xs font-semibold">No cost • Instant delivery</span>
-                  </div>
-                  <Button
-                    onClick={handleRequestTokens}
-                    disabled={isRequestingTokens}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isRequestingTokens ? (
-                      <div className="flex items-center">
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending tokens...
-                      </div>
-                    ) : (
-                      <>
-                        <Zap className="w-4 h-4 mr-2" />
-                        Request Free Tokens
-                      </>
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center p-3 bg-red-900/20 border border-red-500/30 rounded-md">
-                    <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
-                    <span className="text-red-400 font-medium">Insufficient balance for registration</span>
+                    <span className="text-yellow-400 font-medium">Identity already registered</span>
                   </div>
                   <div className="p-4 bg-gray-700/30 rounded-md">
-                    <p className="text-gray-300 text-sm mb-2">
-                      You need at least {requiredBalance.toFixed(2)} {getNetworkToken()} to register your identity on{" "}
-                      {networkDisplayName}.
-                    </p>
-                    <p className="text-gray-400 text-xs">
-                      Please add funds to your wallet and refresh, or request a chip-in.
+                    <p className="text-gray-300 text-sm">
+                      You already have an identity registered on this network. You can proceed to the next step.
                     </p>
                   </div>
-                  <div className="flex flex-row gap-2">
-                    {fauceturl && (
-                      <Button
-                        onClick={() => window.open(fauceturl, '_blank')}
-                        className="w-full btn-secondary"
-                      >
-                        <Coins className="w-4 h-4 mr-2" />
-                        Get Test Tokens
-                      </Button>
-                    )}
-                    {canRequestChipIn && (
-                      <Button
-                        onClick={() => setShowChipInModal(true)}
-                        className="w-full btn-secondary"
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        Request Chip-in
-                      </Button>
-                    )}
-                    <Button
-                      onClick={handleTeleportTokens}
-                      disabled={isTxBusy}
-                      className="w-full btn-primary"
-                    >
-                      <ArrowLeftRight className="w-4 h-4 mr-2" />
-                      Teleport Tokens
+                  <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                    Continue to Next Step
+                  </Button>
+                </div>
+              ) : (hasSufficientBalance 
+                ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center p-3 bg-green-900/20 border border-green-500/30 rounded-md">
+                      <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
+                      <span className="text-green-400 font-medium">Sufficient balance for registration</span>
+                    </div>
+                    <div className="p-4 bg-gray-700/30 rounded-md">
+                      <p className="text-gray-300 text-sm">You can proceed to registration.</p>
+                    </div>
+                    <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                      Continue to Registration
                     </Button>
                   </div>
-                </div>
+                ) : hasSufficientBalance ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center p-3 bg-green-900/20 border border-green-500/30 rounded-md">
+                      <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
+                      <span className="text-green-400 font-medium">Sufficient balance for registration</span>
+                    </div>
+                    <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                      Continue to Registration
+                    </Button>
+                  </div>
+                ) : needsTokensOnPaseo ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
+                      <AlertCircle className="w-5 h-5 text-yellow-400 mr-2" />
+                      <span className="text-yellow-400 font-medium">Insufficient balance for registration</span>
+                    </div>
+                    <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-md">
+                      <div className="flex items-center mb-2">
+                        <Zap className="w-4 h-4 text-blue-400 mr-2" />
+                        <span className="text-blue-400 font-medium">Free Tokens Available!</span>
+                      </div>
+                      <p className="text-blue-300 text-sm mb-3">
+                        Since you&apos;re registering on Paseo testnet, we can send you free tokens to get started.
+                      </p>
+                      <span className="inline-flex items-center rounded-full bg-blue-500 text-white px-2.5 py-0.5 text-xs font-semibold">No cost • Instant delivery</span>
+                    </div>
+                    <Button
+                      onClick={handleRequestTokens}
+                      disabled={isRequestingTokens}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isRequestingTokens ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending tokens...
+                        </div>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          Request Free Tokens
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center p-3 bg-red-900/20 border border-red-500/30 rounded-md">
+                      <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+                      <span className="text-red-400 font-medium">Insufficient balance for registration</span>
+                    </div>
+                    <div className="p-4 bg-gray-700/30 rounded-md">
+                      <p className="text-gray-300 text-sm mb-2">
+                        You need at least {requiredBalance.toFixed(2)} {getNetworkToken()} to register your identity on{" "}
+                        {networkDisplayName}.
+                      </p>
+                      <p className="text-gray-400 text-xs">
+                        Please add funds to your wallet and refresh, or request a chip-in.
+                      </p>
+                    </div>
+                    <div className="flex flex-row gap-2">
+                      {fauceturl && (
+                        <Button
+                          onClick={() => window.open(fauceturl, '_blank')}
+                          className="w-full btn-secondary"
+                        >
+                          <Coins className="w-4 h-4 mr-2" />
+                          Get Test Tokens
+                        </Button>
+                      )}
+                      {canRequestChipIn && (
+                        <Button
+                          onClick={() => setShowChipInModal(true)}
+                          className="w-full btn-secondary"
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          Request Chip-In
+                        </Button>
+                      )}
+                      <Button
+                        onClick={handleTeleportTokens}
+                        disabled={isTxBusy}
+                        className="w-full btn-primary"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 mr-2" />
+                        Teleport Tokens
+                      </Button>
+                    </div>
+                  </div>
+                )
               )}
             </>
           )}

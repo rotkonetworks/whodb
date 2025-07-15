@@ -1,8 +1,6 @@
 import { Dialog } from "@radix-ui/react-dialog";
 import BigNumber from "bignumber.js";
 
-import { XcmParameters } from "@/store/XcmParameters";
-
 import { Button } from "../ui/button";
 import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 
@@ -19,6 +17,7 @@ export const TeleporterDialog = ({
   isTxBusy: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
+  teleportAmount: BigNumber;
 }) => {
   const { xcmParams } = usePolkadotApi();
   const teleportAmount = xcmParams.txTotalCost
