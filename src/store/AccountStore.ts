@@ -8,11 +8,11 @@ export interface AccountBalance {
   flags: bigint;
 }
 export type AccountData = {
-  name?: string;
-  address?: SS58String;
-  encodedAddress?: SS58String;
-  polkadotSigner?: PolkadotSigner;
-  disabled?: boolean;
+  name: string;
+  address: SS58String;
+  encodedAddress: SS58String;
+  polkadotSigner: PolkadotSigner;
+  disabled: boolean;
 }
 export type Account = AccountData
 
