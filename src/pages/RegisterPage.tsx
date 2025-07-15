@@ -706,10 +706,12 @@ export default function RegisterPage() {
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
+    if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
+    if (currentStep === STEP_NUMBERS.checkBalance 
+      && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
+    ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
-    if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
-    if (currentStep === STEP_NUMBERS.checkBalance && !hasEnoughBalance) return false
     return true
   }
 
