@@ -83,7 +83,18 @@ export default function RegisterPage() {
     signSubmitAndWatch,
     chainConstants,
     balance, // Current account balance
+    openTxDialog: _openTxDialog,
   } = polkadotApiContext
+
+  const openTxDialog = (args: OpenTxDialogArgs) => {
+    _openTxDialog({
+      ...args,
+      mode: args.mode || null,
+      tx: args.tx || null,
+      estimatedCosts: args.estimatedCosts || {},
+    })
+    setTxName(args.name || null)
+  }
 
   const {
     isConnected: isWalletConnected,
@@ -508,6 +519,7 @@ export default function RegisterPage() {
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
 
   const [openDialog, setOpenDialog] = useState<DialogMode>(null)
+  const [txName, setTxName] = useState<string | null>(null)
 
   const onSetIdentity = async () => {
     if (!walletAddress || !typedApi) return
@@ -576,7 +588,7 @@ export default function RegisterPage() {
 
       // Open transaction dialog
       setOpenDialog("setIdentity")
-
+      setTxName("Set Identity")
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
@@ -606,7 +618,7 @@ export default function RegisterPage() {
 
       // Open transaction dialog
       setOpenDialog("requestJudgement")
-
+      setTxName("Request Judgement")
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
@@ -734,16 +746,9 @@ export default function RegisterPage() {
     />
     <ConfirmActionDialog
       openDialog={openDialog}
+      name={txName}
       closeTxDialog={closeTxDialog}
-      openTxDialog={(args) => {
-        if (args.mode) {
-          setOpenDialog(args.mode)
-          setEstimatedCosts(args.estimatedCosts)
-          setTxToConfirm(args.tx)
-        } else {
-          closeTxDialog()
-        }
-      }}
+      openTxDialog={openTxDialog}
       submitTransaction={submitTransaction}
       estimatedCosts={estimatedCosts}
       txToConfirm={txToConfirm}

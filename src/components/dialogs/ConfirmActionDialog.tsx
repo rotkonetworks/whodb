@@ -13,35 +13,30 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export default function ConfirmActionDialog({
   openDialog,
+  name,
   closeTxDialog,
   openTxDialog,
   submitTransaction,
   estimatedCosts,
   txToConfirm,
-  chainStore,
-  accountStore,
+  ,
   balance,
-  minimunTeleportAmount,
   formatAmount,
   identity,
   isTxBusy,
 }: {
   openDialog: DialogMode;
+  name: string | null;
   closeTxDialog: () => void;
   openTxDialog: (dialog: OpenTxDialogArgs) => void;
   submitTransaction: () => void;
   estimatedCosts: EstimatedCostInfo;
   txToConfirm: ApiTx;
-  chainStore: ChainInfo;
-  accountStore: AccountData;
   balance: BigNumber;
-  minimunTeleportAmount: BigNumber;
   formatAmount: FormatAmountFn;
   identity: Identity;
   isTxBusy: boolean;
 }) {
-  const relayChainId = (chainStore.id as string).split("_")[0];
-
   return (
     <Dialog
       open={[
@@ -60,7 +55,7 @@ export default function ConfirmActionDialog({
       <DialogContent className="dark:bg-[#2C2B2B] dark:text-[#FFFFFF] border-[#E6007A]">
         <DialogHeader>
           {/* TODO Add transaction name */}
-          <DialogTitle className="text-[#E6007A]">Confirm Action</DialogTitle>
+          <DialogTitle className="text-[#E6007A]">{name || "Confirm Transaction"}</DialogTitle>
           <DialogDescription>
             Please review the following information before proceeding.
           </DialogDescription>
