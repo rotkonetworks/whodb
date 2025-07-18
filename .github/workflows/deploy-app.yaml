@@ -1,12 +1,12 @@
 name: Deploy app
 
 env:
-  SERVER_USER: 'w3reg'
-  SERVER_IP: '135.181.202.179'
-  DEPLOY_PATH: '/home/w3reg/app.w3reg.org'
-  BACKUP_PATH: '/home/w3reg/backups'
-  STAGING_PATH: '/home/w3reg/staging.w3reg.org'
-  MODE: 'production'
+  SERVER_USER: "w3reg"
+  SERVER_IP: "135.181.202.179"
+  DEPLOY_PATH: "/home/w3reg/app.whodb.org"
+  BACKUP_PATH: "/home/w3reg/backups"
+  STAGING_PATH: "/home/w3reg/staging.whodb.org"
+  MODE: "production"
 
 on:
   workflow_dispatch:
@@ -33,27 +33,27 @@ jobs:
           ssh-keyscan -t ed25519 ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Backup current app.w3reg.org
+      - name: Backup current app.whodb.org
         run: |
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             TIMESTAMP=\$(date +%Y%m%d%H%M%S)
             mkdir -p ${{ env.BACKUP_PATH }}
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
-              mv ${{ env.DEPLOY_PATH }} ${{ env.BACKUP_PATH }}/w3registrar-www-\$TIMESTAMP
+              mv ${{ env.DEPLOY_PATH }} ${{ env.BACKUP_PATH }}/whodb-org-\$TIMESTAMP
             fi
             cp -r ${{ env.STAGING_PATH }} ${{ env.DEPLOY_PATH }}
           EOF
-            
+
       - name: Deploy specific docker-compose
         run: |
-            scp docker-compose.yaml ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}/docker-compose.yaml
-            
+          scp docker-compose.yaml ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}/docker-compose.yaml
+
       - name: Deploy/Build with docker compose
         run: |
-            ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
-              set -euo pipefail
-              cd ${{ env.DEPLOY_PATH }}
-              echo "NGINX_PORT=63999" > .env
-              docker compose up --build -d web-nginx
-            EOF
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
+            set -euo pipefail
+            cd ${{ env.DEPLOY_PATH }}
+            echo "NGINX_PORT=61999" > .env
+            docker compose up --build -d web-nginx
+          EOF

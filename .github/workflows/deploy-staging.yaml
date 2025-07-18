@@ -1,9 +1,9 @@
 name: Build and Deploy preproduction
 env:
-  NODE_VERSION: '18'
-  SERVER_USER: 'w3reg'
-  SERVER_IP: '135.181.202.179'
-  DEPLOY_PATH: '/home/w3reg/staging.w3reg.org'
+  NODE_VERSION: "18"
+  SERVER_USER: "w3reg"
+  SERVER_IP: "135.181.202.179"
+  DEPLOY_PATH: "/home/w3reg/staging.whodb.org"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
   VITE_APP_DEFAULT_WS_URL: wss://people-paseo.dotters.network
   VITE_APP_DEFAULT_WS_URL_RELAY: wss://paseo.dotters.network
@@ -11,7 +11,7 @@ env:
   VITE_APP_AVAILABLE_CHAINS: paseo_people
   VITE_APP_DEFAULT_CHAIN: paseo_people
   VITE_APP_CHALLENGES_API_URL: ${{ vars.WS_API_URL }}
-  MODE: 'staging'
+  MODE: "staging"
 
 on:
   push:
@@ -32,11 +32,11 @@ jobs:
 
       - name: Build the application
         env:
-          BUILD_TARGET: 'production'
+          BUILD_TARGET: "production"
         run: |
           nix-shell --command "bash scripts/setup.sh"
           nix-shell --command "bash scripts/build.sh"
-      
+
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@v0.5.3
         with:
@@ -61,6 +61,6 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
-            echo "NGINX_PORT=53999" > .env
+            echo "NGINX_PORT=51999" > .env
             docker compose up --build -d web-nginx
           EOF
