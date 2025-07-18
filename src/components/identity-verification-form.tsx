@@ -297,18 +297,16 @@ export function IdentityVerificationForm({
                 Error connecting to verification service: {String(challengeError)}
               </span>
             </div>
-          ) : null
+          ) : (challenges && (
+            <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
+              <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
+              <span>
+                Verification challenges are now available! Complete all field verifications below to proceed.
+              </span>
+            </div>
+          ))
         )
       }
-
-      {identityStatus >= verifyStatuses.FeePaid && !challengeError && (
-        <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
-          <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
-          <span>
-            Verification challenges are now available! Complete all field verifications below to proceed.
-          </span>
-        </div>
-      )}
 
       {/* Verification Sections */}
       {verificationSections.map((section, sectionIndex) => (
