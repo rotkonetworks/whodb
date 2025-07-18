@@ -407,7 +407,9 @@ export default function RegisterPage() {
   const canProceedFromVerificationStep = useMemo(() => {
     // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
     const filledFields = getAllFilledFields(identityData)
-    const verifiableFields = filledFields.filter(f => f !== "displayName")
+    const verifiableFields = filledFields.filter(f =>
+      !["", "display"].includes(f) && identityData[f] && identityData[f].trim() !== ""
+    )
 
     // If no verifiable fields, can proceed (display name only)
     if (verifiableFields.length === 0) return true

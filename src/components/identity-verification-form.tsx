@@ -33,7 +33,7 @@ export function IdentityVerificationForm({
   supportedFields = [],
 }: IdentityVerificationFormProps) {
   const { getVerifiedFields } = useVerification()
-  const { challengeError, challengeLoading } = usePolkadotApi()
+  const { challengeError, challengeLoading, challenges } = usePolkadotApi()
 
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
@@ -238,7 +238,11 @@ export function IdentityVerificationForm({
     return sections
   }, [fieldsToShow, createVerificationComponent])
 
-  const verifiedFields = getVerifiedFields()
+  console.debug({ identityData, identityStatus })
+
+  const verifiedFields = getVerifiedFields().filter(f => 
+    !["", "display"].includes(f.field) && identityData[f.field] && identityData[f.field].trim() !== ""
+  )
   const totalVerifiableFields = fieldsToShow.filter(f => f !== 'display').length
   const allFieldsVerified = totalVerifiableFields > 0 && verifiedFields.length === totalVerifiableFields
 
