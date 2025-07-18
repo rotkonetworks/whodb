@@ -709,7 +709,7 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
-    if (currentStep === STEP_NUMBERS.checkBalance 
+    if (currentStep === STEP_NUMBERS.checkBalance
       && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
     ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
@@ -889,7 +889,7 @@ export default function RegisterPage() {
             )}
 
             {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
-              <BalanceCheck 
+              <BalanceCheck
                 onSufficientBalance={handleNextStep}
                 minBalanceAmount={minBalanceAmount}
                 hasEnoughBalance={hasEnoughBalance}
@@ -944,17 +944,30 @@ export default function RegisterPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50">
-                      <p>
-                        <strong className="text-gray-300">Network:</strong>{" "}
-                        <span className="text-white font-medium">
-                          {networkDisplayName} {isNetworkEncrypted && "(Private)"}
+                    {/* TODO Display as profile design */}
+                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Network:</span>
+                        <span className="text-gray-300 text-sm font-mono">
+                          {chainStore.relay.name}
                         </span>
-                      </p>
-                      <p>
-                        <strong className="text-gray-300">Wallet Address:</strong>{" "}
-                        <span className="text-white font-medium font-mono break-all">{walletAddress}</span>
-                      </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Wallet Address:</span>
+                        <span className="text-gray-300 text-sm font-mono break-all">
+                          {accountStore.encodedAddress.substring(0, 10)}...{accountStore.encodedAddress.substring(accountStore.encodedAddress.length - 10)}
+                        </span>
+                      </div>
+                      {Object.entries(identityData)
+                        .filter(([key, value]) => value && value.trim() !== "" && getFieldStatus(key)?.status === "verified")
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between">
+                            <span className="text-gray-400 text-sm capitalize">
+                              {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}:
+                            </span>
+                            <span className="text-gray-300 text-sm font-mono break-all">{value}</span>
+                          </div>
+                        ))}
                     </div>
                     <Button
                       onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => { }}
