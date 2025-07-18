@@ -297,14 +297,22 @@ export function IdentityVerificationForm({
                 Error connecting to verification service: {String(challengeError)}
               </span>
             </div>
-          ) : (challenges && (
+          ) : (Object.keys(challenges).length > 0 ? (
             <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
               <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
               <span>
                 Verification challenges are now available! Complete all field verifications below to proceed.
               </span>
             </div>
-          ))
+          ) : (
+            <div className="flex items-start p-3 text-sm text-gray-300 bg-gray-900/20 border border-gray-500/30 rounded-md">
+              <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400" />
+              <span>
+                No verification challenges available yet. Please check back later.
+              </span>
+            </div>
+          )
+          )
         )
       }
 
