@@ -351,6 +351,11 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     network: (chainStore.id as string).split("_")[0],
     identity: { info: identity.info, status: identity.status, },
   });
+  useEffect(() => {
+    console.debug({
+      challenges, challengeError, isChallengeWsConnected, challengeLoading,
+    });
+  }, [challenges, challengeError, isChallengeWsConnected, challengeLoading]);
 
   useEffect(() => {
     if (isChallengeWsConnected && identity.status === verifyStatuses.FeePaid) {
