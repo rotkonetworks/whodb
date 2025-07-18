@@ -55,7 +55,7 @@ export default function ConfirmActionDialog({
           {/* TODO Add transaction name */}
           <DialogTitle>{name || "Confirm Transaction"}</DialogTitle>
           <DialogDescription>
-            Please review the following information before proceeding.
+            Please review the following information before confirming this transaction.
           </DialogDescription>
         </DialogHeader>
         <div className="overflow-y-auto max-h-[80vh] space-y-4">
@@ -121,13 +121,13 @@ export default function ConfirmActionDialog({
                 </>)}
                 {openDialog === "requestJudgement" && (<>
                   <li>
-                    After having fees paid, you will have to go to the second tab and complete all challenges
+                    After having fees paid, you will need to complete all verification challenges
                     in order to be verified.
                   </li>
                 </>)}
                 {["setIdentity", "requestJudgement"].includes(openDialog) && (<>
                   <li>Your identity information will remain publicly visible on-chain to everyone until you clear it.</li>
-                  <li>Please ensure all provided information is accurate before continuing.</li>
+                  <li>Please ensure all provided information is accurate before submission.</li>
                 </>)}
                 {openDialog === "addSubaccount" && (<>
                   <li>You will link another account as a subaccount under your identity.</li>
@@ -156,7 +156,7 @@ export default function ConfirmActionDialog({
           </Card>
         </div>
         <DialogFooter>
-          <Button 
+          <Button
             variant="secondary"
             onClick={closeTxDialog}
           >
@@ -164,7 +164,7 @@ export default function ConfirmActionDialog({
           </Button>
           <Button
             variant="default"
-            onClick={submitTransaction} 
+            onClick={submitTransaction}
             disabled={isTxBusy}
           >
             Confirm
