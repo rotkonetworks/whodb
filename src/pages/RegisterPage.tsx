@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   Edit,
   Info,
-  LinkIcon,
   ListChecks,
   Loader2,
   Mail,
@@ -150,7 +149,6 @@ export default function RegisterPage() {
     legal: "",
   })
   const [isSubmittingIdentity, setIsSubmittingIdentity] = useState(false)
-  const [isLinkingAccount, setIsLinkingAccount] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
   const [isLoadingProfileForEdit, setIsLoadingProfileForEdit] = useState(false)
@@ -1037,7 +1035,7 @@ export default function RegisterPage() {
             {currentStep < TOTAL_STEPS && (
               <Button
                 onClick={handleNextStep}
-                disabled={!getCanProceedOverall() || isSubmittingIdentity || isLinkingAccount}
+                disabled={!getCanProceedOverall() || isSubmittingIdentity}
                 variant="ghost"
                 className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 disabled:opacity-50 px-4 py-2 rounded-md"
               >
