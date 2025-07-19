@@ -345,7 +345,7 @@ export default function RegisterPage() {
     // Set address as search parameter to persist selection
     const searchParams = new URLSearchParams(window.location.search)
     searchParams.set("address", address)
-    window.history.replaceState({}, "", `${window.location.pathname}?${searchParams.toString()}`)
+    navigate(`${window.location.pathname}?${searchParams.toString()}`, { replace: true })
     console.debug("Selected account:", address)
   }
 
@@ -357,7 +357,7 @@ export default function RegisterPage() {
       // Set address as search parameter to persist selection
       const searchParams = new URLSearchParams(window.location.search)
       searchParams.set("address", searchAddress)
-      window.history.replaceState({}, "", `${window.location.pathname}?${searchParams.toString()}`)
+      navigate(`${window.location.pathname}?${searchParams.toString()}`, { replace: true })
       console.debug("Selected account from search params:", searchAddress)
     }
   }, [accounts])
