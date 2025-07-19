@@ -29,7 +29,8 @@ export function BalanceCheck({
   const { chainStore, accountStore, isTxBusy, balance, identity } = usePolkadotApi()
 
   // Use passed balance or fall back to context balance
-  const address = accountStore.address
+  const address = accountStore.encodedAddress
+  console.debug("BalanceCheck address:", address, "balance:", balance.toString())
   const isLoading = balance === undefined
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
@@ -118,7 +119,7 @@ export function BalanceCheck({
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
-                {accountStore.encodedAddress.substring(0, 10)}...{address.substring(address.length - 10)}
+                {address ? `${address.substring(0, 10)}...${address.substring(address.length - 10)}` : null}
               </span>
             </div>
 
