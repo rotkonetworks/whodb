@@ -10,7 +10,7 @@ import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
 // Import pages
-import HomePage from './pages/home-new'
+import HomePage from './pages/homepage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SearchPage from './pages/SearchPage'

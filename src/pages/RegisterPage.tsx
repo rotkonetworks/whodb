@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { AuthProviderButton } from "@/components/auth-provider-button"
 import { BalanceCheck } from "@/components/balance-check"
 import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
 import { IdentityVerificationForm } from "@/components/identity-verification-form"; // New verification form
@@ -39,14 +38,6 @@ import { useConnectedWallets } from "@reactive-dot/react"
 import BigNumber from "bignumber.js"
 import { ConnectionDialog } from "dot-connect/react.js"
 import { Binary, SS58String } from "polkadot-api"
-
-const GoogleIcon = () => <Mail className="w-5 h-5" />
-const MatrixIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-    <path d="M20.79 9.44v5.12h-2.97V9.44h2.97zM6.18 9.44v5.12H3.21V9.44h2.97zm7.31 0v5.12h-2.98V9.44h2.98zM17.03 3h-2.98v4.58h2.98V3zm-10.85 0H3.2v4.58h2.98V3zM9.94 3H6.96v4.58h2.98V3zm0 13.42H6.96V21h2.98v-4.58zm7.09 0h-2.98V21h2.98v-4.58z" />
-  </svg>
-)
-
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
