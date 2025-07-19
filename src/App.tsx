@@ -6,6 +6,7 @@ import { WalletProvider } from '@/contexts/wallet-context'
 import { VerificationProvider } from '@/contexts/verification-context'
 import { BalanceProvider } from '@/contexts/balance-context'
 import { Toaster } from '@/components/ui/sonner'
+import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
 // Import pages
@@ -17,6 +18,8 @@ import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
 
 export default function App() {
+  // Enable modal-aware toast behavior
+  useModalAwareToasts();
   return (
     <div className="bg-gray-900 text-white antialiased">
       <ThemeProvider>

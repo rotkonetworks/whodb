@@ -1,4 +1,5 @@
 import { CHAIN_UPDATE_INTERVAL } from "@/constants";
+import { AlertToastBridge } from "@/components/AlertToastBridge";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
@@ -851,6 +852,8 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
       accountTree, accountTreeLoading, refreshAccountTree,
       errorDetails, setErrorDetails,
     }}>
+      {/* Bridge component to convert PolkadotAPI alerts to toast notifications */}
+      <AlertToastBridge alerts={alerts.map(([_, alert]) => alert)} onDismissAlert={removeAlert} />
       {children}
     </PolkadotApiContext.Provider>
   );
