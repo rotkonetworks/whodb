@@ -56,7 +56,6 @@ export const STEP_NUMBERS = {
   checkBalance: 4,
   fillIdentityInfo: 5,
   reviewAndSubmit: 6,
-  linkExternalAccounts: 7,
   complete: 8,
 } as const
 const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
@@ -84,16 +83,25 @@ export default function RegisterPage() {
     signSubmitAndWatch,
     chainConstants,
     balance, // Current account balance
+    openTxDialog: _openTxDialog,
   } = polkadotApiContext
+
+  const openTxDialog = (args: OpenTxDialogArgs) => {
+    _openTxDialog({
+      ...args,
+      mode: args.mode || null,
+      tx: args.tx || null,
+      estimatedCosts: args.estimatedCosts || {},
+    })
+    setTxName(args.name || null)
+  }
 
   const {
     isConnected: isWalletConnected,
     isConnecting: isWalletConnecting,
   } = useWallet()
 
-  const walletAddress = useMemo(() => {
-    return accountStore.address
-  }, [accountStore.address])
+  const walletAddress = useMemo(() => accountStore.address, [accountStore.address])
 
   const { userProfile: loggedInUserProfile, isLoading: isUserLoading } = useUser()
   const {
@@ -399,7 +407,9 @@ export default function RegisterPage() {
   const canProceedFromVerificationStep = useMemo(() => {
     // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
     const filledFields = getAllFilledFields(identityData)
-    const verifiableFields = filledFields.filter(f => f !== "displayName")
+    const verifiableFields = filledFields.filter(f =>
+      !["", "display"].includes(f) && identityData[f] && identityData[f].trim() !== ""
+    )
 
     // If no verifiable fields, can proceed (display name only)
     if (verifiableFields.length === 0) return true
@@ -511,6 +521,7 @@ export default function RegisterPage() {
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
 
   const [openDialog, setOpenDialog] = useState<DialogMode>(null)
+  const [txName, setTxName] = useState<string | null>(null)
 
   const onSetIdentity = async () => {
     if (!walletAddress || !typedApi) return
@@ -540,19 +551,7 @@ export default function RegisterPage() {
             .filter(([_, value]) => value && value.trim() !== "")
             .map(([key, value]) => {
               // Map field names to blockchain field names
-              const fieldMap: Record<string, string> = {
-                display: 'display',
-                web: 'web',
-                twitter: 'twitter',
-                github: 'github',
-                matrix: 'matrix',
-                email: 'email',
-                discord: 'discord',
-                image: 'image',
-                legal: 'legal',
-                pgp_fingerprint: 'pgp_fingerprint'
-              }
-              const blockchainField = fieldMap[key] || key
+              const blockchainField = key || key
 
               if (key === "pgp_fingerprint") {
                 return [null, null] // Handle separately
@@ -591,7 +590,7 @@ export default function RegisterPage() {
 
       // Open transaction dialog
       setOpenDialog("setIdentity")
-
+      setTxName("Set Identity")
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
@@ -621,19 +620,11 @@ export default function RegisterPage() {
 
       // Open transaction dialog
       setOpenDialog("requestJudgement")
-
+      setTxName("Request Judgement")
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
     }
-  }
-
-  const handleLinkExternalAccount = async (provider: string) => {
-    setIsLinkingAccount(true)
-    toast.info(`Simulating linking with ${provider}...`)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    toast.success(`${provider} account linked! (Simulated)`)
-    setIsLinkingAccount(false)
   }
 
   const stepTitles = [
@@ -643,7 +634,6 @@ export default function RegisterPage() {
     "Check Balance",
     isEditMode ? "Update & Verify Identity Info" : "Provide & Verify Identity Info",
     isEditMode ? "Review & Submit Update" : "Review & Submit",
-    "Link External Accounts",
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
@@ -718,10 +708,12 @@ export default function RegisterPage() {
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
     if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
+    if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
+    if (currentStep === STEP_NUMBERS.checkBalance
+      && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
+    ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
-    if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
-    if (currentStep === STEP_NUMBERS.checkBalance && !hasEnoughBalance) return false
     return true
   }
 
@@ -756,16 +748,9 @@ export default function RegisterPage() {
     />
     <ConfirmActionDialog
       openDialog={openDialog}
+      name={txName}
       closeTxDialog={closeTxDialog}
-      openTxDialog={(args) => {
-        if (args.mode) {
-          setOpenDialog(args.mode)
-          setEstimatedCosts(args.estimatedCosts)
-          setTxToConfirm(args.tx)
-        } else {
-          closeTxDialog()
-        }
-      }}
+      openTxDialog={openTxDialog}
       submitTransaction={submitTransaction}
       estimatedCosts={estimatedCosts}
       txToConfirm={txToConfirm}
@@ -904,9 +889,10 @@ export default function RegisterPage() {
             )}
 
             {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
-              <BalanceCheck address={walletAddress} onSufficientBalance={handleNextStep}
-                minBalanceAmount={minBalanceAmount} hasEnoughBalance={hasEnoughBalance}
-                currentBalance={balance}
+              <BalanceCheck
+                onSufficientBalance={handleNextStep}
+                minBalanceAmount={minBalanceAmount}
+                hasEnoughBalance={hasEnoughBalance}
               />
             )}
 
@@ -958,17 +944,30 @@ export default function RegisterPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50">
-                      <p>
-                        <strong className="text-gray-300">Network:</strong>{" "}
-                        <span className="text-white font-medium">
-                          {networkDisplayName} {isNetworkEncrypted && "(Private)"}
+                    {/* TODO Display as profile design */}
+                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Network:</span>
+                        <span className="text-gray-300 text-sm font-mono">
+                          {chainStore.relay.name}
                         </span>
-                      </p>
-                      <p>
-                        <strong className="text-gray-300">Wallet Address:</strong>{" "}
-                        <span className="text-white font-medium font-mono break-all">{walletAddress}</span>
-                      </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Wallet Address:</span>
+                        <span className="text-gray-300 text-sm font-mono break-all">
+                          {accountStore.encodedAddress.substring(0, 10)}...{accountStore.encodedAddress.substring(accountStore.encodedAddress.length - 10)}
+                        </span>
+                      </div>
+                      {Object.entries(identityData)
+                        .filter(([key, value]) => value && value.trim() !== "" && getFieldStatus(key)?.status === "verified")
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between">
+                            <span className="text-gray-400 text-sm capitalize">
+                              {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}:
+                            </span>
+                            <span className="text-gray-300 text-sm font-mono break-all">{value}</span>
+                          </div>
+                        ))}
                     </div>
                     <Button
                       onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => { }}
@@ -990,41 +989,6 @@ export default function RegisterPage() {
                   </CardContent>
                 </Card>
               </>
-            )}
-
-            {currentStep === STEP_NUMBERS.linkExternalAccounts && (
-              <Card className="bg-gray-800/50 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white text-xl">
-                    <LinkIcon className="w-6 h-6 mr-3 text-pink-400" />
-                    Link External Accounts (Optional)
-                  </CardTitle>
-                  <CardDescription className="text-gray-400 text-sm">
-                    Enhance your account security and recovery options by linking external accounts. Your primary
-                    identity is secured with your wallet.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2 pb-6">
-                  <AuthProviderButton
-                    providerName="Google"
-                    icon={<GoogleIcon />}
-                    onClick={() => handleLinkExternalAccount("Google")}
-                    disabled={isLinkingAccount}
-                  />
-                  <AuthProviderButton
-                    providerName="Matrix"
-                    icon={<MatrixIcon />}
-                    onClick={() => handleLinkExternalAccount("Matrix")}
-                    disabled={isLinkingAccount}
-                  />
-                  <p className="text-xs text-gray-500 text-center pt-2">
-                    Linking accounts can help with identity verification and account recovery in the future.
-                  </p>
-                  <Button onClick={handleNextStep} className="w-full btn-primary mt-4" disabled={isLinkingAccount}>
-                    {isEditMode ? "Finish Update" : "Finish Registration"}
-                  </Button>
-                </CardContent>
-              </Card>
             )}
 
             {currentStep === STEP_NUMBERS.complete && (

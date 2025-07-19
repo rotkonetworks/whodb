@@ -37,6 +37,7 @@ export type OpenTxDialogArgs_modeSet = {
   mode: DialogMode
   tx: ApiTx
   estimatedCosts: EstimatedCostInfo
+  name?: string
 }
 export type OpenTxDialogArgs = OpenTxDialogArgs_modeSet | { mode: null }
 

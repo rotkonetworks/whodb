@@ -114,7 +114,7 @@ interface PolkadotApiContextType {
   // XCM
   xcmParams: any;
   relayAndParachains: any;
-  getTeleportCall: (params: any) => any;
+  getTeleportCall: (params: GetTeleportCallParams) => any;
   getParachainId: (api: any) => Promise<number | null>;
   teleportExpanded: boolean;
   setTeleportExpanded: (expanded: boolean) => void;
@@ -282,9 +282,18 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
       } catch {
         console.error({ id, })
       }
+      const relayId = id.split("_")[0];
       const newChainData = {
         name: CHAIN_CONFIG.chains[id as keyof typeof CHAIN_CONFIG.chains].name,
         registrarIndex: registrarIndex,
+        relay: {
+          id: relayId,
+          name: CHAIN_CONFIG.chains[relayId as keyof typeof CHAIN_CONFIG.chains].name,
+          parachains: Object.entries(CHAIN_CONFIG.chains)
+            .filter(([key]) => key.startsWith(relayId) && key !== relayId)
+            .map(([key, value]) => ({ id: key, name: value.name, paraId: value.paraId }))
+          ,
+        },
         ...chainProperties,
       }
       Object.assign(chainStore, newChainData)
@@ -585,7 +594,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     xcmParams,
     relayAndParachains,
     fromTypedApi,
-    getTeleportCall,
+    getTeleportCall: _getTeleportCall,
     getParachainId,
     teleportExpanded,
     setTeleportExpanded
@@ -595,6 +604,19 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   });
 
   const [parachainId, setParachainId] = useState<number>()
+  const getTeleportCall = useCallback(({
+    amount
+  }: {
+    amount: BigNumber
+  }) => {
+    return _getTeleportCall({
+      amount,
+      fromApi: fromTypedApi,
+      parachainId,
+      toAddress: accountStore.polkadotSigner,
+    })
+  }, [_getTeleportCall, fromTypedApi, parachainId, displayedAccounts])
+
   useEffect(() => {
     if (typedApi) {
       getParachainId(typedApi).then(id => {

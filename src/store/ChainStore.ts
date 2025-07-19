@@ -1,12 +1,17 @@
 import { proxy } from "valtio";
 
 export interface ChainInfo {
-  id: string | number | symbol; // TODO Leave this as string, as that's how we use it in the app
-  name?: string;
-  ss58Format?: number;
-  tokenDecimals?: number;
-  tokenSymbol?: string;
-  registrarIndex?: number;
+  id: string; // TODO Leave this as string, as that's how we use it in the app
+  name: string;
+  ss58Format: number;
+  tokenDecimals: number;
+  tokenSymbol: string;
+  registrarIndex: number;
+  relay: {
+    id: string;
+    name: string;
+    parachains: { id: string; name: string }[];
+  };
 }
 
 export const chainStore: ChainInfo = proxy({

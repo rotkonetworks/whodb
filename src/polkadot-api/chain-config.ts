@@ -16,23 +16,24 @@ import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 
 // TODO Have additional WebSocket endpoint for each chain
 
-export type ChainConfig = Config & {
-  chains: Record<
-    string,
-    ReactiveDotChainConfig & {
-      name: string;
-      symbol: string;
-      registrarIndex?: number;
-      // UI extra properties
-      description?: string;
-      iconStyle?: string;
-      primaryColor?: string;
-      badge?: string;
-      badgeColor?: string;
-      features?: string[];
-    }
-  >;
+type basicChainConfig = Config & {
+  name: string;
+  symbol: string;
 };
+
+type PeopleParachainConfig = basicChainConfig & {
+  paraId: number;
+  registrarIndex: number; // Optional, used for people parachains
+  // UI extra properties
+  description: string;
+  iconStyle: string;
+  primaryColor: string;
+  badge: string;
+  badgeColor: string;
+  features: string[]; // Array of feature names
+};
+
+export type ChainConfig = basicChainConfig | PeopleParachainConfig;
 
 export const CHAIN_CONFIG = defineConfig({
   chains: {
@@ -43,6 +44,7 @@ export const CHAIN_CONFIG = defineConfig({
       provider: withPolkadotSdkCompat(getWsProvider(import.meta.env.VITE_APP_POLKADOT_WS_URL)),
     },
     polkadot_people: {
+      paraId: 1004,
       name: "Polkadot People",
       symbol: "DOT",
       descriptor: polkadot_people,
@@ -64,6 +66,7 @@ export const CHAIN_CONFIG = defineConfig({
       provider: withPolkadotSdkCompat(getWsProvider(import.meta.env.VITE_APP_KUSAMA_WS_URL)),
     },
     ksmcc3_people: {
+      paraId: 1004,
       name: "Kusama People",
       symbol: "KSM",
       descriptor: ksmcc3_people,
@@ -85,6 +88,7 @@ export const CHAIN_CONFIG = defineConfig({
       provider: withPolkadotSdkCompat(getWsProvider(import.meta.env.VITE_APP_PASEO_WS_URL)),
     },
     paseo_people: {
+      paraId: 1004,
       descriptor: paseo_people,
       provider: withPolkadotSdkCompat(getWsProvider(import.meta.env.VITE_APP_PASEO_PEOPLE_WS_URL)),
       registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO,
