@@ -56,7 +56,7 @@ export const STEP_NUMBERS = {
   checkBalance: 4,
   fillIdentityInfo: 5,
   reviewAndSubmit: 6,
-  complete: 8,
+  complete: 7,
 } as const
 const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
 
@@ -394,6 +394,11 @@ export default function RegisterPage() {
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
+    if (identity.status === verifyStatuses.IdentityVerified) {
+      // If identity is already verified, we can proceed
+      return true
+    }
+    
     // For the fillIdentityInfo step, we only need displayName + at least one other field
     // No verification required at this step
     const hasDisplayName = identityData.display.trim() !== ""
@@ -405,6 +410,11 @@ export default function RegisterPage() {
   }, [identityData])
 
   const canProceedFromVerificationStep = useMemo(() => {
+    if (identity.status === verifyStatuses.IdentityVerified) {
+      // If identity is already verified, we can proceed
+      return true
+    }
+
     // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
     const filledFields = getAllFilledFields(identityData)
     const verifiableFields = filledFields.filter(f =>
