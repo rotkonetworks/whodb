@@ -38,11 +38,11 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   }, [urlParams.network])
 
 
-  const networkColor = networks?.primaryColor
-  const networkDisplayName = networks.name
+  const networkColor = networks[_network]?.primaryColor || "#000000" // Default to black if not defined
+  const networkDisplayName = networks[_network]?.name.replace(" People", "") || networks[_network]?.name
   // TODO Remove, maybe display if it's testnet, or if it has test tokens
-  const isEncrypted = true
-  const isFree = networks.features?.includes("Free Tokens") || false
+  const isEncrypted = networks[_network]?.isEncrypted || false
+  const isFree = networks[_network]?.isFree || false // True if it's a testnet or has free tokens
 
   return (
     <NetworkContext.Provider value={{ network: _network, setNetwork, networkColor, networkDisplayName, isEncrypted, isFree }}>
