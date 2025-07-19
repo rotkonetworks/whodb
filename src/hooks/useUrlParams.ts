@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export type UrlParamsArgs = Record<string, string | undefined>;
 export type UrlParams = {
@@ -8,6 +8,7 @@ export type UrlParams = {
 
 export function useUrlParams() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const urlParams = useMemo(() => {
     const searchParams = Object.fromEntries(new URLSearchParams(location.search));
@@ -19,8 +20,8 @@ export function useUrlParams() {
     const queryString = new URLSearchParams(
       Object.entries(params).filter(([, value]) => value)
     ).toString();
-    window.history.replaceState(null, "", `${location.pathname}${queryString ? "?" + queryString : ""}`);
-    console.debug({ queryString });
+    navigate(`${location.pathname}${queryString ? "?" + queryString : ""}`, { replace: true });
+    console.debug({ queryString, location });
   }, []);
 
   const setParam = useCallback((key: string, value: string | undefined) => {
