@@ -387,7 +387,7 @@ export default function RegisterPage() {
       // If identity is already verified, we can proceed
       return true
     }
-    
+
     // For the fillIdentityInfo step, we only need displayName + at least one other field
     // No verification required at this step
     const hasDisplayName = identityData.display.trim() !== ""
@@ -861,7 +861,7 @@ export default function RegisterPage() {
                 <Button
                   onClick={() => setOpenDialog("connectWallets")}
                   disabled={isWalletConnecting || isWalletConnected}
-                  className="w-full md:w-auto btn-primary"
+                  className="w-full md:w-auto"
                 >
                   {openDialog === "connectWallets" ? "Managing..." : "Manage Wallets"}
                 </Button>
@@ -909,7 +909,7 @@ export default function RegisterPage() {
                 <Button
                   onClick={onSetIdentity}
                   disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
-                  className="w-full btn-primary mt-6"
+                  className="w-full mt-6"
                 >
                   {isSubmittingIdentity
                     ? "Submitting Identity Data..."
@@ -974,7 +974,7 @@ export default function RegisterPage() {
                         (identity?.status === verifyStatuses.IdentitySet && false) || // Can request judgement
                         (identity?.status !== verifyStatuses.IdentitySet && !canProceedFromVerificationStep) // Need verification
                       }
-                      className="w-full btn-primary text-white mt-6 py-3 text-base"
+                      className="w-full mt-6 py-3 text-base"
                     >
                       {identity?.status === verifyStatuses.IdentitySet
                         ? "Request Judgement & Pay Fee"

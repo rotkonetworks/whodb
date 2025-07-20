@@ -232,7 +232,7 @@ export function ChipInRequestModal({
 
         <DialogFooter className="sm:justify-between">
           <DialogClose asChild>
-            <Button type="button" variant="outline" className="btn-outline">
+            <Button type="button" variant="outline">
               Cancel
             </Button>
           </DialogClose>
@@ -240,7 +240,6 @@ export function ChipInRequestModal({
             type="button"
             onClick={handleSendRequest}
             disabled={!selectedProfile || !selectedContactMethod || isSending}
-            className="btn-primary"
           >
             {isSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Send Request

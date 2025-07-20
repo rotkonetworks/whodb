@@ -205,7 +205,7 @@ export function VerifiableFormField({
                   className="text-xs h-auto p-1 mt-1.5 text-gray-300 hover:text-white"
                   onClick={() => copyToClipboard(challengeOrCode, "PGP Challenge copied!")}
                 >
-                  <ClipboardCopy className="w-3 h-3 mr-1" /> Copy Challenge
+                  <ClipboardCopy className="w-3 h-3 mr-1" />
                 </Button>
               </div>
               <p>2. Use this command to sign: <code className="bg-gray-700 px-1 rounded">gpg --clearsign --armor</code></p>
