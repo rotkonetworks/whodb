@@ -1,15 +1,6 @@
-import {
-  ArrowLeft,
-  Edit,
-  Info,
-  ListChecks,
-  Loader2,
-  Mail,
-  UserCheck,
-  WalletIcon,
-} from "lucide-react"
+import { ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { BalanceCheck } from "@/components/balance-check"
@@ -28,6 +19,7 @@ import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { useWallet } from "@/contexts/wallet-context"
+import { useUrlParams } from "@/hooks/useUrlParams"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
 import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
@@ -52,7 +44,6 @@ const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   const { network, setNetwork, networkDisplayName, networkColor, isEncrypted: isNetworkEncrypted } = useNetwork()
   const [_network, _setNetwork] = useState<AppNetwork | null>(network)
@@ -152,10 +143,13 @@ export default function RegisterPage() {
   const [txToConfirm, setTxToConfirm] = useState<any>(null)
   const [currentDialogMode, setCurrentDialogMode] = useState<DialogMode>(null)
 
-  const editIdParam = searchParams.get("editId")
-  const flowParam = searchParams.get("flow")
-  const parentIdParam = searchParams.get("parentId")
-  const isEditingCurrentUserFromParams = searchParams.get("edit") === "true"
+  const location = useLocation()
+  const { setParam, urlParams } = useUrlParams()
+
+  const editIdParam = urlParams["editId"]
+  const flowParam = urlParams["flow"]
+  const parentIdParam = urlParams["parentId"]
+  const isEditingCurrentUserFromParams = urlParams["edit"] === "true"
 
   const connectedWallets = useConnectedWallets();
 
@@ -334,21 +328,17 @@ export default function RegisterPage() {
   const handlePickAccount = (address: SS58String) => {
     accountStore.address = address // Update the accountStore with the selected account
     // Set address as search parameter to persist selection
-    const searchParams = new URLSearchParams(window.location.search)
-    searchParams.set("address", address)
-    navigate(`${window.location.pathname}?${searchParams.toString()}`, { replace: true })
+    setParam("address", address)
     console.debug("Selected account:", address)
   }
 
   useEffect(() => {
-    const searchAddress = searchParams.get("address")
+    const searchAddress = urlParams["address"]
     if (searchAddress && accounts.some((acc) => acc.address === searchAddress)) {
       setSelectedAccount(searchAddress as SS58String)
       accountStore.address = searchAddress as SS58String // Update the accountStore with the selected account
       // Set address as search parameter to persist selection
-      const searchParams = new URLSearchParams(window.location.search)
-      searchParams.set("address", searchAddress)
-      navigate(`${window.location.pathname}?${searchParams.toString()}`, { replace: true })
+      setParam("address", searchAddress)
       console.debug("Selected account from search params:", searchAddress)
     }
   }, [accounts])
