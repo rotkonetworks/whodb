@@ -1,5 +1,5 @@
 
-import { verifyStatuses } from "~/types/Identity";
+import { verifyStatuses } from "@/types/Identity";
 
 import { Badge } from "./ui/badge";
 

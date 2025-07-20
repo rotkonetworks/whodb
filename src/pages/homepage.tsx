@@ -34,18 +34,17 @@ export default function HomePage() {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4">
-        <div className="text-center max-w-4xl mx-auto">
-          <Logo className="mx-auto mb-8" />
-
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
-            Find Anyone on Web3
-          </h1>
-
-          <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto">
-            Search blockchain identities across multiple networks. Discover people by name, wallet address, or social handles.
-          </p>
+        <div className="w-full max-w-md mx-auto flex flex-col items-center">
+          <div className="mb-6 md:mb-8">
+            {/* Use the hero variant for the homepage logo */}
+            <Logo variant="hero" />
+          </div>
 
           <SearchForm />
+
+          <p className="mt-6 md:mt-8 text-gray-400 text-center text-sm px-4">
+            Search for identities by name, wallet address, or social handles
+          </p>
         </div>
       </main>
 

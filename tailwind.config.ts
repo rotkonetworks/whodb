@@ -6,46 +6,50 @@ const config: Config = {
 		"./index.html",
 		"./src/**/*.{js,ts,jsx,tsx}",
 	],
-	safelist: [
-		// Safelist our custom button classes to prevent purging
-		'btn-primary',
-		'btn-secondary',
-		'btn-outline',
-		'btn-ghost',
-		'search-suggestion-item',
-		'animation-reduce',
-		'line-clamp-2',
-		// Network classes
-		'network-paseo',
-		'network-polkadot',
-		'network-kusama',
-		// Theme classes
-		'day-theme',
-		'dark-theme',
-	],
 	theme: {
 		extend: {
 			colors: {
-				background: "rgb(var(--background-rgb) / <alpha-value>)",
-				foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
-				card: "rgb(var(--card-bg) / <alpha-value>)",
-				accent: "rgb(var(--accent-color) / <alpha-value>)",
+				background: "hsl(var(--background))",
+				foreground: "hsl(var(--foreground))",
+				card: {
+					DEFAULT: "hsl(var(--card))",
+					foreground: "hsl(var(--card-foreground))",
+				},
+				popover: {
+					DEFAULT: "hsl(var(--popover))",
+					foreground: "hsl(var(--popover-foreground))",
+				},
 				primary: {
-					DEFAULT: "rgb(var(--button-bg) / <alpha-value>)",
-					foreground: "rgb(var(--button-text-primary) / <alpha-value>)",
+					DEFAULT: "hsl(var(--primary))",
+					foreground: "hsl(var(--primary-foreground))",
 				},
 				secondary: {
-					DEFAULT: "rgb(var(--button-secondary-bg-rgb) / <alpha-value>)",
-					foreground: "rgb(var(--button-text-secondary-rgb) / <alpha-value>)",
+					DEFAULT: "hsl(var(--secondary))",
+					foreground: "hsl(var(--secondary-foreground))",
 				},
 				muted: {
-					DEFAULT: "rgb(var(--text-secondary) / <alpha-value>)",
-					foreground: "rgb(var(--text-primary) / <alpha-value>)",
+					DEFAULT: "hsl(var(--muted))",
+					foreground: "hsl(var(--muted-foreground))",
 				},
-				border: "rgb(var(--border-color) / <alpha-value>)",
+				accent: {
+					DEFAULT: "hsl(var(--accent))",
+					foreground: "hsl(var(--accent-foreground))",
+				},
+				destructive: {
+					DEFAULT: "hsl(var(--destructive))",
+					foreground: "hsl(var(--destructive-foreground))",
+				},
+				border: "hsl(var(--border))",
+				input: "hsl(var(--input))",
+				ring: "hsl(var(--ring))",
 			},
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
+			},
+			borderRadius: {
+				lg: "var(--radius)",
+				md: "calc(var(--radius) - 2px)",
+				sm: "calc(var(--radius) - 4px)",
 			},
 		},
 	},

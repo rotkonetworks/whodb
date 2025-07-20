@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
+import { Button } from "@/components/ui/button"
 import { ArrowLeft, User, Bell, Shield, Palette, Globe, Save } from "lucide-react"
 
 export default function SettingsPage() {
@@ -240,15 +241,14 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <button
-              type="button"
+            <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="btn-primary px-6 py-3 rounded-lg font-medium flex items-center space-x-2"
+              className="px-6 py-3 font-medium flex items-center space-x-2"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

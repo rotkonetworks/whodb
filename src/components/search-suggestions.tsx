@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { User, AtSign } from "lucide-react"
+import { AtSign, User } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 // This component will be loaded dynamically after the initial page load
 export default function SearchSuggestions({
@@ -10,7 +10,7 @@ export default function SearchSuggestions({
   query: string
   setShowSuggestions: (show: boolean) => void
 }) {
-  const router = useRouter()
+  const navigate = useNavigate()
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -70,7 +70,7 @@ export default function SearchSuggestions({
 
   const handleSuggestionClick = (profile: any) => {
     setShowSuggestions(false)
-    router.push(`/profile/${profile.id}`)
+    navigate(`/profile/${profile.id}`)
   }
 
   // Lazy load the profile images
