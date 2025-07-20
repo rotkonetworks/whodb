@@ -18,10 +18,13 @@ interface NetworkContextType {
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
-  const { urlParams, setParam } = useUrlParams()
+  const { urlParams, setParam, deleteParam } = useUrlParams()
   const [_network, _setNetwork] = useState<Network | undefined>(urlParams.network as Network | undefined)
 
   const setNetwork = (newNetwork: Network | undefined) => {
+    if (!newNetwork) {
+      deleteParam("network")
+    }
     setParam("network", newNetwork)
     _setNetwork(newNetwork)
   }
