@@ -16,6 +16,11 @@ export function useUrlParams() {
 
   const updateUrlParams = useCallback((params: UrlParamsArgs) => {
     const newParams = { ...query, ...params };
+    Object.keys(newParams).forEach((key) => {
+      if (newParams[key] === undefined) {
+        delete newParams[key];
+      }
+    });
     setQuery(newParams);
     console.debug({ queryString: newParams, location });
   }, [location, query, setQuery]);
