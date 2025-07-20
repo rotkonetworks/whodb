@@ -20,7 +20,7 @@ const mockProfile: Profile = {
   walletAddress: "13KVFr...HGKutQY",
   email: "alice@example.org",
   web: "https://alice.dev",
-  twitter: "@alicewonder", 
+  twitter: "@alicewonder",
   discord: "alice#1234",
   matrix: "@alice:matrix.org",
   github: "alicewonder",
@@ -38,7 +38,7 @@ const mockProfile: Profile = {
       judgement: "None"
     },
     {
-      id: "alice-treasury", 
+      id: "alice-treasury",
       displayName: "alice/dev",
       nickname: "13bcD...1MnOp",
       walletAddress: "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",
@@ -185,11 +185,11 @@ export default function ProfilePage() {
                     onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && setActiveTab(tab.id)}
                     onMouseDown={() => setActiveTab(tab.id)}
                     className={`flex items-center justify-center whitespace-nowrap px-2 py-2 sm:px-3 sm:py-2.5 font-medium text-xs sm:text-sm rounded-t-md transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-pink-500 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 cursor-pointer
-               ${
-                 activeTab === tab.id
-                   ? "text-pink-400 border-b-2 border-pink-500 bg-gray-800/40"
-                   : "text-gray-400 hover:text-white hover:bg-gray-700/40"
-               }`}
+                      ${activeTab === tab.id
+                        ? "text-pink-400 border-b-2 border-pink-500 bg-gray-800/40"
+                        : "text-gray-400 hover:text-white hover:bg-gray-700/40"
+                      }`
+                    }
                     aria-current={activeTab === tab.id ? "page" : undefined}
                     title={tab.label}
                   >
