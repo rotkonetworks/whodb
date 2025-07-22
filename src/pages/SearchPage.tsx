@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useSearchParams, useNavigate } from "react-router-dom"
+import { useSearchParams, useNavigate, Link } from "react-router-dom"
 import { useState, useEffect } from "react"
 import {
   Search,
@@ -12,16 +12,16 @@ import {
   Github,
   MessageCircle,
   Key,
-  ArrowLeft,
   Copy,
   Mail,
   Circle,
   User,
+  ArrowLeft,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Link } from "react-router-dom"
+import { PageHeader } from "@/components/page-header"
 
 import { shortenAddress } from "@/utils/format-address"
 import { Logo } from "@/components/logo"
@@ -186,24 +186,16 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <header className="border-b border-pink-500/30 bg-gray-800/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <Link to="/">
-                {/* Logo will use 'default' variant */}
-                <Logo />
-              </Link>
-            </div>
-            <Link to="/register">
-              <Button className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-4 md:py-2">
-                <User className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Register Identity</span>
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PageHeader backTo="/"
+        rightActions={
+          <Link to="/register">
+            <Button className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-4 md:py-2">
+              <User className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Register Identity</span>
+            </Button>
+          </Link>
+        }
+      />
 
       <div className="border-b border-gray-800 bg-gray-900">
         <div className="container mx-auto px-4 py-4">

@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, User, Bell, Palette, Globe, Save } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
+import { User, Bell, Palette, Globe, Save } from "lucide-react"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -50,33 +50,14 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <header className="border-b border-pink-500/30 bg-gray-800/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <Link to="/">
-                <Button variant="ghost" className="text-gray-400 p-2 md:px-3 md:py-2">
-                  <ArrowLeft className="w-4 h-4 md:mr-2" />
-                  <span className="hidden md:inline">Back to Home</span>
-                </Button>
-              </Link>
-              <div className="flex items-center">
-                <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-                  whodb
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHeader backTo="/" />
 
       <div className="container mx-auto py-10 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="space-y-3 mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
             <p className="text-gray-400">Manage your account settings and preferences</p>
           </div>
-          
+
           <Separator className="my-6 bg-gray-700" />
 
           <div className="space-y-8">
@@ -93,7 +74,7 @@ export default function SettingsPage() {
                     Profile Visibility
                   </div>
                   <div className="relative">
-                    <div 
+                    <div
                       className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-pink-500 focus:outline-none cursor-pointer"
                       role="button"
                       tabIndex={0}
@@ -119,7 +100,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('privacy', 'showEmail', !settings.privacy.showEmail)}
                 >
@@ -133,7 +114,7 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('privacy', 'showWallet', !settings.privacy.showWallet)}
                 >
@@ -157,7 +138,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('notifications', 'email', !settings.notifications.email)}
                 >
@@ -171,7 +152,7 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('notifications', 'push', !settings.notifications.push)}
                 >
@@ -185,7 +166,7 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('notifications', 'marketing', !settings.notifications.marketing)}
                 >
@@ -214,7 +195,7 @@ export default function SettingsPage() {
                     Theme
                   </div>
                   <div className="relative">
-                    <div 
+                    <div
                       className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-pink-500 focus:outline-none cursor-pointer"
                       role="button"
                       tabIndex={0}
@@ -245,7 +226,7 @@ export default function SettingsPage() {
                     Language
                   </div>
                   <div className="relative">
-                    <div 
+                    <div
                       className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-pink-500 focus:outline-none cursor-pointer"
                       role="button"
                       tabIndex={0}
@@ -287,7 +268,7 @@ export default function SettingsPage() {
                     Default Network
                   </div>
                   <div className="relative">
-                    <div 
+                    <div
                       className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:border-pink-500 focus:outline-none cursor-pointer"
                       role="button"
                       tabIndex={0}
@@ -313,7 +294,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-900/70 transition-colors"
                   onClick={() => updateSetting('network', 'autoConnect', !settings.network.autoConnect)}
                 >

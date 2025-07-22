@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
-import { ArrowLeft, Copy, Share2, Edit3, Users, ListChecks, Contact } from "lucide-react"
+import { Copy, Share2, Edit3, Users, ListChecks, Contact } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/page-header"
 import { ContactInformation } from "@/components/contact-information"
 import { AccountHierarchy } from "@/components/account-hierarchy"
 import { VerificationTimeline } from "@/components/verification-timeline"
@@ -66,48 +66,33 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
-      <header className="border-b border-pink-500/30 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-20">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <Link to="/search">
-                <Button variant="ghost" className="text-gray-400 p-2 md:px-3">
-                  <ArrowLeft className="w-5 h-5 md:mr-2" />
-                  <span className="hidden md:inline text-sm">Back</span>
-                </Button>
-              </Link>
-              <div className="flex items-center">
-                <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-                  whodb
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 md:space-x-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-pink-400 border border-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3"
-                onClick={() =>
-                  copyToClipboard(
-                    `${window.location.origin}/profile/${mockProfile.id}`,
-                    "Profile link",
-                  )
-                }
-              >
-                <Share2 className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline text-sm">{copiedField === "Profile link" ? "Copied!" : "Share"}</span>
-              </Button>
-              <Button
-                size="sm"
-                className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-3"
-              >
-                <Edit3 className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline text-sm">Edit Profile</span>
-              </Button>
-            </div>
+      <PageHeader backTo="/search"
+        rightActions={
+          <div className="flex items-center space-x-2 md:space-x-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-pink-400 border border-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3"
+              onClick={() =>
+                copyToClipboard(
+                  `${window.location.origin}/profile/${mockProfile.id}`,
+                  "Profile link",
+                )
+              }
+            >
+              <Share2 className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline text-sm">{copiedField === "Profile link" ? "Copied!" : "Share"}</span>
+            </Button>
+            <Button
+              size="sm"
+              className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-3"
+            >
+              <Edit3 className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline text-sm">Edit Profile</span>
+            </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <div className="container mx-auto p-3 sm:p-4 md:p-6">
         <div className="space-y-4 md:space-y-6">
