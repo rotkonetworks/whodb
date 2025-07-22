@@ -241,7 +241,7 @@ export default function SearchResults() {
                 className="bg-gray-800 border-pink-500/30 hover:border-pink-500/50 transition-colors"
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between m-3">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <img
                         src={profile.avatar || "/placeholder.svg"}
