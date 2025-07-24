@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { AccountDropdown } from "../ui/account-dropdown"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
+import { CHAINS } from "@/polkadot-api/chain-config"
 
 export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTeleportClick, }: {
   teleportAmount: BigNumber,
@@ -169,7 +169,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
           <div className="space-y-2">
             <Label className="text-gray-400">Current Chain:</Label>
             <Input
-              value={CHAIN_CONFIG.chains[toChainId].name}
+              value={CHAINS[toChainId].name}
               readOnly
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
@@ -181,11 +181,11 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
         <h3 className="text-white font-medium mb-4">Transferable Balances</h3>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{CHAIN_CONFIG.chains[fromChainId].name}</span>
+            <span className="text-gray-400">{CHAINS[fromChainId].name}</span>
             <span className="text-white font-mono text-sm">{formatAmount(fromBalance)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{CHAIN_CONFIG.chains[toChainId].name}</span>
+            <span className="text-gray-400">{CHAINS[toChainId].name}</span>
             <span className="text-white font-mono text-sm">{formatAmount(toBalance)}</span>
           </div>
         </div>

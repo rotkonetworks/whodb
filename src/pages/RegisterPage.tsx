@@ -15,21 +15,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { useWallet } from "@/contexts/wallet-context"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
 import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
-import { useConnectedWallets } from "@reactive-dot/react"
 import BigNumber from "bignumber.js"
 import { ConnectionDialog } from "dot-connect/react.js"
 import { Binary, SS58String } from "polkadot-api"
+import { CHAINS } from "@/polkadot-api/chain-config"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -151,7 +150,7 @@ export default function RegisterPage() {
   const parentIdParam = urlParams["parentId"]
   const isEditingCurrentUserFromParams = urlParams["edit"] === "true"
 
-  const connectedWallets = useConnectedWallets();
+  const connectedWallets = [];
 
   useEffect(() => {// Set up profile/idenity data based on URL parameters or logged in user
     // Wait for user data to be loaded before doing anything.
@@ -626,7 +625,7 @@ export default function RegisterPage() {
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
-  const networks = Object.entries(CHAIN_CONFIG.chains)
+  const networks = Object.entries(CHAINS)
     .filter(([key]) => key.endsWith("_people"))
     .map(([key, networkInfo]) => ({
       id: key,

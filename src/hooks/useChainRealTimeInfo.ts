@@ -78,7 +78,19 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   )
 
   useEffect(() => {
-    const systemEventsSub = (typedApi.query.System.Events as ApiStorage)
+    let systemEventsSub: Observable<any> | null = null;
+
+    const cleanUp = () => {
+      if (systemEventsSub) {
+      }
+      systemEventsSub?.unsubscribe?.();
+    };
+    
+    if (!typedApi) {
+      return cleanUp;
+    }
+
+    systemEventsSub = (typedApi.query.System.Events as ApiStorage)
       .watchValue("best").subscribe({
         next: (events) => {
           console.log({ events });
@@ -126,9 +138,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
           console.log({ event: "complete fetching events" })
         }
       })
-    return () => {
-      systemEventsSub.unsubscribe?.()
-    }
+    return cleanUp
   }, [typedApi, address, handlerEntries, handlers])
 
   return { constants, }

@@ -11,19 +11,17 @@ interface UseWalletAccountsProps {
 export function useWalletAccounts({
   chainSs58Format,
 }: UseWalletAccountsProps) {
-  const _accounts = useAccounts();
-  const _connectedWallets = useConnectedWallets();
+  //const _accounts = useAccounts();
+  //const _connectedWallets = useConnectedWallets();
   
   // Get accounts from wallet
-  const accounts = useDeferredValue(_accounts);
-  const connectedWallets = useDeferredValue(_connectedWallets);
+  // TODO Connect to wallet and fetch accounts
+  const accounts = [];
+  const connectedWallets = [];
 
-  const isLoading = useMemo(() => 
-    _.isEqual(_accounts, accounts) && _.isEqual(_connectedWallets, connectedWallets),
-    [_accounts, accounts, _connectedWallets, connectedWallets]
-  );
+  const isLoading = false; // TODO Replace with actual loading state if needed
 
-  const [__, disconnectWallet] = useWalletDisconnector();
+  const disconnectWallet = [] as (() => void)[];
 
   // Format accounts with proper SS58 format
   const formattedAccounts = useMemo(() => accounts

@@ -1,14 +1,11 @@
-import { ChainId, } from "@reactive-dot/core";
 import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { useTypedApi } from "@reactive-dot/react";
 import BigNumber from "bignumber.js";
 import _ from "lodash";
-import { TypedApi } from "polkadot-api";
-import { Binary } from "polkadot-api";
+import { Binary, TypedApi } from "polkadot-api";
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react";
 import { useProxy } from "valtio/utils";
 
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
+import { CHAINS } from "@/polkadot-api/chain-config";
 import { AccountData } from "@/store/AccountStore";
 import { xcmParameters as _xcmParams } from "@/store/XcmParameters";
 
@@ -32,7 +29,7 @@ export function useXcmParameters({
 
   // Get list of relay and parachains
   const relayAndParachains = useMemo(() =>
-    Object.entries(CHAIN_CONFIG.chains)
+    Object.entries(CHAINS)
       .filter(([id]) => id.includes(relayChainId) && id !== chainId)
       .map(([id, chain]) => ({ id, name: chain.name })),
     [relayChainId, chainId]
@@ -44,10 +41,8 @@ export function useXcmParameters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relayChainId]);
 
-  // Get typed API for from chain
-  const fromTypedApi = useTypedApi({
-    chainId: xcmParams.fromChain.id || relayChainId as ChainId
-  });
+  // TODO Init later when needed
+  const fromTypedApi = null;
 
   // Function to get parachain ID
   const getParachainId = useCallback(async (typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>) => {

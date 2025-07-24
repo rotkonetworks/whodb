@@ -36,6 +36,10 @@ export function useSupportedFields({ typedApi, registrarIndex, }: {
   }, []);
 
   useEffect(() => {
+    if (!typedApi) {
+      return;
+    }
+
     if (registrarIndex !== undefined) {
       (typedApi.query.Identity.Registrars as ApiStorage)
         .getValue()

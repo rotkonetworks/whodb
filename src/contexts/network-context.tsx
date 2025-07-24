@@ -1,5 +1,5 @@
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
+import { CHAINS } from "@/polkadot-api/chain-config"
 import type React from "react"
 
 import { createContext, useContext, useState, useEffect } from "react"
@@ -28,7 +28,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     setParam("network", newNetwork)
     _setNetwork(newNetwork)
   }
-  const networks = CHAIN_CONFIG.chains
+  const networks = CHAINS
 
   useEffect(() => {
     const urlNetwork = urlParams.network as Network | undefined

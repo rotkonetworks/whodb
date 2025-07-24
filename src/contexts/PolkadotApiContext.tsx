@@ -1,5 +1,5 @@
-import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { AlertToastBridge } from "@/components/AlertToastBridge";
+import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
@@ -11,27 +11,27 @@ import { useSupportedFields } from "@/hooks/useSupportedFields";
 import { UrlParamsArgs, useUrlParams } from "@/hooks/useUrlParams";
 import { useWalletAccounts } from "@/hooks/useWalletAccounts";
 import { useXcmParameters } from "@/hooks/useXcmParameters";
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
-import { Account, AccountData } from "@/store/AccountStore";
+import { AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
 import { ApiStorage, ApiTx } from "@/types/api";
 import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
+import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
 import { ChainId } from "@reactive-dot/core";
 import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, useTypedApi } from "@reactive-dot/react";
 import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
-import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, memo } from "react";
+import { createContext, memo, ReactNode, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
 import { useNetwork } from "./network-context";
 
-import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 import { accountStore as _accountStore } from "@/store/AccountStore";
+import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
+import { ChallengeStore as _challengeStore } from "@/store/challengesStore";
 import BigNumber from "bignumber.js";
-import { ChallengeStore } from "@/store/challengesStore";
+import { CHAINS } from "@/polkadot-api/chain-config";
 
 // Context interface definition
 interface PolkadotApiContextType {
@@ -141,8 +141,7 @@ interface PolkadotApiContextType {
   setErrorDetails: (error: Error | null) => void;
 }
 
-// Create the context
-const PolkadotApiContext = createContext<PolkadotApiContextType | undefined>(undefined);
+const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
 
 // Custom hook to use the context
 export const usePolkadotApi = () => {
@@ -153,31 +152,27 @@ export const usePolkadotApi = () => {
   return context;
 };
 
-const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  const { network } = useNetwork();
+interface PolkadotApiProviderProps {
+  children: ReactNode;
+}
 
-  return (
-    <ReactiveDotProvider config={CHAIN_CONFIG}>
-      <ChainProvider chainId={(network || import.meta.env.VITE_APP_DEFAULT_CHAIN) as keyof typeof CHAIN_CONFIG.chains}>
-        <Suspense>
-          {children}
-        </Suspense>
-      </ChainProvider>
-    </ReactiveDotProvider>
-  )
-})
+export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
+  // State
+  const [client, setClient] = useState<ReturnType<typeof createClient> | null>(null);
+  const [typedApi, setTypedApi] = useState<TypedApi<any> | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentChain, setCurrentChain] = useState<keyof typeof CHAINS | null>(null);
+  const [chainInfo, setChainInfo] = useState<any>(null);
 
-const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  //#region Hooks
   const {
     alerts, add: addAlert, remove: removeAlert, clearAll: clearAllAlerts, size: alertsCount
   } = useAlerts();
   const { isDark, setDark } = useDarkMode()
 
   const chainStore = useProxy(_chainStore);
-  const typedApi = useTypedApi({ chainId: chainStore.id as ChainId })
-
-  const accountStore = useProxy(_accountStore)
+  const accountStore = useProxy(_accountStore);
 
   const { urlParams, updateUrlParams } = useUrlParams()
 
@@ -258,9 +253,6 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   // Make sure to clear anything else that might change according to the chain or account
   useEffect(clearAllAlerts, [chainStore.id, accountStore.address, clearAllAlerts])
 
-  //#region chains
-  const chainClient = useClient({ chainId: chainStore.id as keyof Chains })
-
   // Use the new hook for supported fields
   const supportedFields = useSupportedFields({ typedApi, registrarIndex, });
 
@@ -273,24 +265,34 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }, [identity])
 
   useEffect(() => {
+    if (!typedApi) return;
+
     ((async () => {
       const id = chainStore.id;
 
       let chainProperties
       try {
-        chainProperties = (await chainClient.getChainSpecData()).properties
+        chainProperties = (await typedApi.rpc.system.properties()).toHuman()
+        if (chainProperties) {
+          chainProperties = {
+            ...chainProperties,
+            ss58Format: Number(chainProperties.ss58Format || 0),
+            tokenDecimals: Number(chainProperties.tokenDecimals[0] || 0),
+            tokenSymbol: chainProperties.tokenSymbol[0] || '',
+          }
+        }
         console.log({ id, chainProperties })
       } catch {
         console.error({ id, })
       }
       const relayId = id.split("_")[0];
       const newChainData = {
-        name: CHAIN_CONFIG.chains[id as keyof typeof CHAIN_CONFIG.chains].name,
+        name: CHAINS[id as keyof typeof CHAINS].name,
         registrarIndex: registrarIndex,
         relay: {
           id: relayId,
-          name: CHAIN_CONFIG.chains[relayId as keyof typeof CHAIN_CONFIG.chains].name,
-          parachains: Object.entries(CHAIN_CONFIG.chains)
+          name: CHAINS[relayId as keyof typeof CHAINS].name,
+          parachains: Object.entries(CHAINS)
             .filter(([key]) => key.startsWith(relayId) && key !== relayId)
             .map(([key, value]) => ({ id: key, name: value.name, paraId: value.paraId }))
           ,
@@ -300,7 +302,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
       Object.assign(chainStore, newChainData)
       console.log({ id, newChainData })
     })())
-  }, [chainStore, chainClient])
+  }, [chainStore])
   const onChainSelect = useCallback((chainId: string | number | symbol) => {
     updateUrlParams({ ...urlParams, chain: chainId as string })
     chainStore.id = chainId
@@ -397,6 +399,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   // Keep hashes of recent notifications to prevent duplicates, as a transaction might produce 
   //  multiple notifications
   const recentNotifsIds = useRef<string[]>([])
+  // TODO Might need to be refactored as per new logic to access chains
   const signSubmitAndWatch = useCallback((
     params: SignSubmitAndWatchParams
     // Awaiting for async function, so ignore this rule
@@ -634,13 +637,10 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }, [typedApi, getParachainId])
 
   //#region Balances
+  // TODO Init when needed
   const genericAddress = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" as SS58String // Alice
-  const fromBalance = BigNumber(useSpendableBalance(
-    xcmParams.fromAddress || genericAddress, { chainId: xcmParams.fromChain.id }
-  ).planck.toString())
-  const balance = BigNumber(useSpendableBalance(
-    accountStore.address || genericAddress, { chainId: chainStore.id as keyof Chains }
-  ).planck.toString())
+  const fromBalance = BigNumber(0)
+  const balance = BigNumber(0)
   //#endregion Balances
 
   const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
@@ -829,42 +829,174 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   const onRequestWalletConnection = useCallback(() => setWalletDialogOpen(true), [])
   //#endregion Hooks
 
+  // Connect to a specific chain
+  const connect = useCallback(async (chainId: keyof typeof CHAINS) => {
+    if (isConnecting) return;
+
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      // Disconnect existing client
+      if (client) {
+        await disconnect();
+      }
+
+      // Create new client and typed API
+      const newClient = createChainClient(chainId);
+      const newTypedApi = getTypedApi(chainId);
+
+      // Wait for connection
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout'));
+        }, 10000);
+
+        // Use finalizedBlock$ instead of chainHead$
+        const subscription = newClient.finalizedBlock$.subscribe({
+          next: (block: any) => {
+            clearTimeout(timeout);
+            subscription.unsubscribe();
+
+            setClient(newClient);
+            setTypedApi(newTypedApi);
+            setCurrentChain(chainId);
+            setIsConnected(true);
+
+            // Get chain info
+            setChainInfo({
+              ...CHAINS[chainId],
+              genesisHash: block.hash,
+              blockNumber: block.number,
+            });
+
+            resolve();
+          },
+          error: (err: any) => {
+            clearTimeout(timeout);
+            subscription.unsubscribe();
+            reject(err);
+          }
+        });
+      });
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setClient(null);
+      setTypedApi(null);
+      setCurrentChain(null);
+      setIsConnected(false);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [client, isConnecting]);
+
+  // Disconnect
+  const disconnect = useCallback(async () => {
+    if (client) {
+      // Clean up client connections
+      try {
+        client.destroy();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+
+    setClient(null);
+    setTypedApi(null);
+    setCurrentChain(null);
+    setChainInfo(null);
+    setIsConnected(false);
+    setError(null);
+  }, [client]);
+
+  // Switch chain
+  const switchChain = useCallback(async (chainId: keyof typeof CHAINS) => {
+    await connect(chainId);
+  }, [connect]);
+
+  const network = chainStore.id;
+  // Auto-connect on network change
+  useEffect(() => {
+    if (network && network !== currentChain) {
+      if (network in CHAINS) {
+        connect(network as keyof typeof CHAINS);
+      }
+    }
+  }, [network, currentChain, connect]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [disconnect]);
+
+  const value = useMemo(() => ({
+    alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
+    isDark, setDark,
+    chainStore, accountStore,
+    typedApi, fromTypedApi,
+    urlParams, updateUrlParams,
+    walletDialogOpen, setWalletDialogOpen,
+    accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
+    updateAccount, onAccountSelect, onRequestWalletConnection,
+    identityFormRef, registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
+    onChainSelect, chainConstants,
+    challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
+    formatAmount,
+    isTxBusy, signSubmitAndWatch, submitTransaction,
+    openDialog, setOpenDialog, openTxDialog, closeTxDialog, handleOpenChange,
+    estimatedCosts, setEstimatedCosts,
+    xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
+    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    txToConfirm, setTxToConfirm,
+    accountTree, accountTreeLoading, refreshAccountTree,
+    errorDetails, setErrorDetails,
+    client,
+    isConnected,
+    isConnecting,
+    error,
+    currentChain,
+    chainInfo,
+    connect,
+    disconnect,
+    switchChain,
+  }), [
+    alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
+    isDark, setDark,
+    chainStore, accountStore,
+    typedApi, fromTypedApi,
+    urlParams, updateUrlParams,
+    walletDialogOpen,
+    displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
+    updateAccount, onAccountSelect, onRequestWalletConnection,
+    registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
+    onChainSelect, chainConstants,
+    challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
+    formatAmount,
+    isTxBusy, signSubmitAndWatch, submitTransaction,
+    openDialog, openTxDialog, closeTxDialog, handleOpenChange,
+    estimatedCosts,
+    xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
+    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    txToConfirm,
+    accountTree, accountTreeLoading, refreshAccountTree,
+    errorDetails,
+    client,
+    isConnected,
+    isConnecting,
+    error,
+    currentChain,
+    chainInfo,
+    connect,
+    disconnect,
+    switchChain,
+  ]);
+
   return (
-    <PolkadotApiContext.Provider value={{
-      alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
-      isDark, setDark,
-      chainStore, accountStore,
-      typedApi, fromTypedApi,
-      urlParams, updateUrlParams,
-      walletDialogOpen, setWalletDialogOpen,
-      accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
-      updateAccount, onAccountSelect, onRequestWalletConnection,
-      identityFormRef, registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
-      chainClient, onChainSelect, chainConstants,
-      challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
-      formatAmount,
-      isTxBusy, signSubmitAndWatch, submitTransaction,
-      openDialog, setOpenDialog, openTxDialog, closeTxDialog, handleOpenChange,
-      estimatedCosts, setEstimatedCosts,
-      xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
-      fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
-      txToConfirm, setTxToConfirm,
-      accountTree, accountTreeLoading, refreshAccountTree,
-      errorDetails, setErrorDetails,
-    }}>
-      {/* Bridge component to convert PolkadotAPI alerts to toast notifications */}
-      <AlertToastBridge alerts={alerts.map(([_, alert]) => alert)} onDismissAlert={removeAlert} />
+    <PolkadotApiContext.Provider value={value}>
       {children}
     </PolkadotApiContext.Provider>
   );
-})
-
-export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  return (
-    <PolkadotApiProviderWrapper>
-      <InnerProvider>
-        {children}
-      </InnerProvider>
-    </PolkadotApiProviderWrapper>
-  );
-})
+};
