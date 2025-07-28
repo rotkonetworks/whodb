@@ -1,4 +1,4 @@
-import { ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
+import { AlertCircle, ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -11,16 +11,22 @@ import { NetworkSelection } from "@/components/network-selection-register"
 import { SimpleIdentityForm } from "@/components/simple-identity-form"; // New simple form
 import { useTheme } from "@/components/theme-provider-simple"
 import { AccountSelector } from "@/components/ui/account-selector"
+import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
+import { NetworkProvider, useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
-import { useWallet } from "@/contexts/wallet-context"
+import { AccountProvider, useWallet } from "@/contexts/wallet-context"
+import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
+import { useFormatAmount } from "@/hooks/useFormatAmount"
+import { usePolkadotWallet } from "@/hooks/usePolkadotWallet"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
+import { CHAINS } from "@/polkadot-api/chain-config"
+import { AccountData } from "@/store/AccountStore"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
@@ -28,7 +34,6 @@ import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import 
 import BigNumber from "bignumber.js"
 import { ConnectionDialog } from "dot-connect/react.js"
 import { Binary, SS58String } from "polkadot-api"
-import { CHAINS } from "@/polkadot-api/chain-config"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -44,14 +49,22 @@ const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
 export default function RegisterPage() {
   const navigate = useNavigate()
 
-  const { network, setNetwork, networkDisplayName, networkColor, isEncrypted: isNetworkEncrypted } = useNetwork()
+  const {
+    network,
+    setNetwork,
+    networkDisplayName,
+    networkColor,
+    isEncrypted: isNetworkEncrypted,
+    tokenDecimals,
+    tokenSymbol,
+  } = useNetwork()
   const [_network, _setNetwork] = useState<AppNetwork | null>(network)
 
   const polkadotApiContext = usePolkadotApi()
   const {
     chainStore,
     accountStore,
-    accounts,
+    //accounts,
     identity,
     fetchIdAndJudgement,
     challenges,
@@ -75,11 +88,6 @@ export default function RegisterPage() {
     })
     setTxName(args.name || null)
   }
-
-  const {
-    isConnected: isWalletConnected,
-    isConnecting: isWalletConnecting,
-  } = useWallet()
 
   const walletAddress = useMemo(() => accountStore.address, [accountStore.address])
 
@@ -150,7 +158,15 @@ export default function RegisterPage() {
   const parentIdParam = urlParams["parentId"]
   const isEditingCurrentUserFromParams = urlParams["edit"] === "true"
 
-  const connectedWallets = [];
+  const {
+    accounts,
+    extensions,
+    isLoading: isLoadingAccounts,
+    error: accountsError
+  } = usePolkadotWallet()
+  const isWalletConnecting = useMemo(() => isLoadingAccounts, [isLoadingAccounts])
+  const isWalletConnected = useMemo(() => accounts.length > 0, [accounts])
+  const connectedWallets = extensions;
 
   useEffect(() => {// Set up profile/idenity data based on URL parameters or logged in user
     // Wait for user data to be loaded before doing anything.
@@ -666,7 +682,7 @@ export default function RegisterPage() {
       return
     }
 
-    if (connectedWallets.length > 0) {
+    if (connectedWallets.length > 0 && accounts.length > 0) {
       setCurrentStep(STEP_NUMBERS.pickAccount)
     } else {
       setCurrentStep(STEP_NUMBERS.connectWallet)
@@ -695,7 +711,7 @@ export default function RegisterPage() {
 
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
-    if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
+    if (currentStep === STEP_NUMBERS.connectWallet && (connectedWallets.length < 1 || accounts.length < 1)) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
     if (currentStep === STEP_NUMBERS.checkBalance
       && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
@@ -730,10 +746,6 @@ export default function RegisterPage() {
   }
 
   return <>
-    <ConnectionDialog open={openDialog === "connectWallets"}
-      onClose={() => { setOpenDialog(null) }}
-      dark={isDark === "dark"}
-    />
     <ConfirmActionDialog
       openDialog={openDialog}
       name={txName}
@@ -842,17 +854,28 @@ export default function RegisterPage() {
                 <p className="text-gray-400">
                   In order to access your accounts, you need to connect your wallets.
                 </p>
-                {/* {wallets.length > 0 && (
-                )} */}
-                <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-md text-green-400">
-                  {connectedWallets.length} Wallet{connectedWallets.length > 1 ? "s" : ""} Connected
-                </div>
+                {/* TODO Add wallet connection buttons for each extension */}
+                {extensions.length > 0 && (<>
+                  {accounts <= 0 && (<Alert className="bg-red-900/20 border-red-500/30 text-red-400">
+                    <AlertCircle className="w-4 h-4 mr-2 inline-block" />
+                    No accounts connected. Please make sure at least one wallet is connected and has accounts available.
+                  </Alert>)}
+                  <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-md text-green-400">
+                    {connectedWallets.length} Wallet{connectedWallets.length > 1 ? "s" : ""} Connected
+                  </div>
+                </>)}
+                {extensions.length <= 0 && (
+                  <Alert className="bg-red-900/20 border-red-500/30 text-red-400">
+                    <AlertCircle className="w-4 h-4 mr-2 inline-block" />
+                    No wallets connected. Please connect a wallet to continue.
+                  </Alert>
+                )}
                 <Button
                   onClick={() => setOpenDialog("connectWallets")}
-                  disabled={isWalletConnecting || isWalletConnected}
+                  disabled={isWalletConnecting || !isWalletConnected}
                   className="w-full md:w-auto"
                 >
-                  {openDialog === "connectWallets" ? "Managing..." : "Manage Wallets"}
+                  Pick Account
                 </Button>
               </div>
             )}
@@ -868,6 +891,7 @@ export default function RegisterPage() {
                 </div>
 
                 <AccountSelector
+                  accounts={accounts}
                   selectedAccount={selectedAccount || walletAddress}
                   onSelect={(address: string) => setSelectedAccount(address as SS58String)}
                   hoveredAccount={hoveredAccount}
@@ -876,7 +900,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
+            {currentStep === STEP_NUMBERS.checkBalance && (
               <BalanceCheck
                 onSufficientBalance={handleNextStep}
                 minBalanceAmount={minBalanceAmount}
@@ -910,7 +934,7 @@ export default function RegisterPage() {
               </>
             )}
 
-            {currentStep === STEP_NUMBERS.reviewAndSubmit && walletAddress && (
+            {currentStep === STEP_NUMBERS.reviewAndSubmit && (
               <>
                 {/* Identity Verification Form - All verification happens here */}
                 <IdentityVerificationForm

@@ -48,7 +48,7 @@ export function useXcmParameters({
   const getParachainId = useCallback(async (typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>) => {
     if (typedApi) {
       try {
-        const paraId = await typedApi.constants.ParachainSystem.SelfParaId();
+        const paraId = await typedApi.consts.parachainSystem.selfParaId.toNumber();
         console.log({ paraId });
         return paraId;
       } catch (error) {

@@ -1,12 +1,9 @@
 // src/hooks/useChallengeWebSocket.tsx
-import _ from 'lodash';
 import { SS58String } from 'polkadot-api';
 import { useEffect, useCallback, useState, useRef } from 'react';
 
 import { ChallengeStatus, ChallengeStore } from '@/store/challengesStore';
 import { IdentityInfo, verifyStatuses } from '@/types/Identity';
-
-import { AlertPropsOptionalKey } from './useAlerts';
 
 interface VerificationState {
   fields: Record<string, boolean>;
@@ -19,7 +16,7 @@ export interface NotifyAccountState {
   verification_state: VerificationState;
 }
 
-interface ResponseAccountState {
+export interface ResponseAccountState {
   account: string;
   network?: string;
   hashed_info: string;
@@ -87,13 +84,13 @@ type WebSocketMessage = {
   message: string,
 };
 
-interface UseIdentityWebSocketProps {
-  url: string;
-  account: string;
-  network: string;
+export interface UseIdentityWebSocketProps {
+  url?: string;
+  account?: string;
+  network?: string;
 }
 
-interface UseIdentityWebSocketReturn {
+export interface UseIdentityWebSocketReturn {
   isConnected: boolean;
   error: string | null;
   challengeState: ResponseAccountState | null;
@@ -104,20 +101,24 @@ interface UseIdentityWebSocketReturn {
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
 }
 
+export interface UseChallengeWebSocketWrapperReturn extends UseIdentityWebSocketReturn {
+  challenges: ChallengeStore;
+}
+
 const keyMapping: Record<string, string> = {// WWorkaround for old API
   'p_g_p_fingerprint': 'pgp_fingerprint',
 }
 
 const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
-  url: string;
-  address: SS58String;
-  network: string;
-  identity: { info: IdentityInfo, status: verifyStatuses };
-}) => {
-  const challengeWebSocket = useChallengeWebSocket({
+  url?: string;
+  address?: SS58String;
+  network?: string;
+  identity?: { info: IdentityInfo, status: verifyStatuses };
+}): UseChallengeWebSocketWrapperReturn => {
+  const challengeWebSocket = useChallengeWebSocketBase({
     url,
     account: address,
-    network: network.split("_")[0],
+    network: network?.split("_")[0],
   });
   const { challengeState, error, isConnected } = challengeWebSocket
 
@@ -126,7 +127,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
     setChallenges({})
   }, [url, address, network])
 
-  const idWsDeps = [challengeState, error, address, identity.status, network]
+  const idWsDeps = [challengeState, error, address, identity?.status, network]
 
   useEffect(() => {
     console.log({ idWsDeps })
@@ -138,7 +139,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
       return
     }
     console.log({ challengeState })
-    if (challengeState) {
+    if (challengeState && identity) {
       const {
         pending_challenges,
         verification_state: { fields: verifyState },
@@ -160,7 +161,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
         .filter(([key, done]) => pendingChallenges[key] || done)
         .forEach(([key, done]) => {
           let status;
-          if (identity.status === verifyStatuses.IdentityVerified) {
+          if (identity?.status === verifyStatuses.IdentityVerified) {
             status = ChallengeStatus.Passed;
           } else {
             status = done ? ChallengeStatus.Passed : ChallengeStatus.Pending;
@@ -172,7 +173,10 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
             code: !done ? pendingChallenges[key] : undefined,
           };
         })
-      if (_.isEqual(challenges, _challenges)) {
+
+      // Simple deep equality check for challenges object
+      const hasChanges = JSON.stringify(challenges) !== JSON.stringify(_challenges)
+      if (!hasChanges) {
         console.log("No changes in challenges")
         return
       }
@@ -191,6 +195,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
 
   return {
     challenges,
+    challengeState: challengeWebSocket.challengeState,
     error: error,
     isConnected,
     loading: challengeWebSocket.loading,
@@ -202,7 +207,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
 }
 
 // Generic WebSocket hook with challenge verification support
-const useChallengeWebSocket = (
+const useChallengeWebSocketBase = (
   { url, account, network }: UseIdentityWebSocketProps
 ): UseIdentityWebSocketReturn => {
   const ws = useRef<WebSocket | null>(null);
@@ -210,6 +215,12 @@ const useChallengeWebSocket = (
   const [error, setError] = useState<string | null>(null);
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Use environment variable as default URL
+  const wsUrl = url || import.meta.env.VITE_APP_CHALLENGES_API_URL as string;
+
+  // Only connect if we have required parameters
+  const canConnect = Boolean(wsUrl && account && network);
 
   // Track if we've already subscribed for this connection
   const hasSubscribed = useRef(false);
@@ -321,12 +332,12 @@ const useChallengeWebSocket = (
             } else if (message.payload.message && typeof message.payload.message === 'object') {
               // Handle object responses (AccountState)
               const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
-              response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] | [[string, string]] => {
-                let value: [string, string];                
+              response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] => {
+                let value: [string, string];
                 if (Array.isArray(key)) {
-                  value =  [key[0], key[1]];
+                  value = [key[0], key[1]];
                 } else {
-                  value =  [key, code];
+                  value = [key, code];
                 }
                 const newKey = keyMapping[value[0]] || value[0];
                 return [newKey, value[1]];
@@ -399,6 +410,12 @@ const useChallengeWebSocket = (
 
   // Set up WebSocket connection
   const connect = useCallback(() => {
+    // Don't connect if we don't have required parameters
+    if (!canConnect) {
+      console.log("Cannot connect: missing URL, account, or network");
+      return;
+    }
+
     const now = Date.now();
     const timeSinceLastAttempt = now - lastConnectionAttempt.current;
 
@@ -433,7 +450,7 @@ const useChallengeWebSocket = (
       reconnectTimeout.current = null;
     }
 
-    console.log(`Attempting WebSocket connection #${connectionAttempts.current} to ${url}`);
+    console.log(`Attempting WebSocket connection #${connectionAttempts.current} to ${wsUrl}`);
     setLoading(true);
     setIsConnected(false);
     setError(null);
@@ -450,7 +467,7 @@ const useChallengeWebSocket = (
     }
 
     try {
-      ws.current = new WebSocket(url);
+      ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
         console.log({ callBack: "onopen", attempt: connectionAttempts.current });
@@ -515,11 +532,11 @@ const useChallengeWebSocket = (
       isReconnecting.current = false;
       setLoading(false);
     }
-  }, [url]); // Only depend on url to prevent recreation
+  }, [wsUrl, canConnect]); // Depend on wsUrl and canConnect
 
-  // Initialize connection when URL changes
+  // Initialize connection when URL or connection parameters change
   useEffect(() => {
-    if (url) {
+    if (canConnect) {
       // Debounce the initial connection to prevent rapid calls
       const timeoutId = setTimeout(() => {
         connect();
@@ -529,8 +546,11 @@ const useChallengeWebSocket = (
         clearTimeout(timeoutId);
         disconnect();
       };
+    } else {
+      // Disconnect if we no longer have required parameters
+      disconnect();
     }
-  }, [url, connect, disconnect]); // Include connect and disconnect in deps
+  }, [wsUrl, canConnect, connect, disconnect]); // Include canConnect in deps
 
   // Subscribe when connection is ready and we have account/network
   useEffect(() => {
@@ -556,4 +576,4 @@ const useChallengeWebSocket = (
   };
 };
 
-export { useChallengeWebSocketWrapper as useChallengeWebSocket };
+export { useChallengeWebSocketWrapper as useChallengeWebSocket, useChallengeWebSocketBase };

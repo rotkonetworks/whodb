@@ -36,23 +36,23 @@ export function useSupportedFields({ typedApi, registrarIndex, }: {
   }, []);
 
   useEffect(() => {
-    if (!typedApi) {
+    (async () => {
+      if (!typedApi) {
       return;
-    }
+      }
 
-    if (registrarIndex !== undefined) {
-      (typedApi.query.Identity.Registrars as ApiStorage)
-        .getValue()
-        .then((result) => {
-          const fields = result[registrarIndex]?.fields;
-          const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
-          setSupportedFields(_supportedFields);
-          console.log({ supportedFields: _supportedFields, result });
-        })
-        .catch(error => {
-          console.error("Error fetching supported fields:", error);
-        });
-    }
+      if (registrarIndex !== undefined) {
+      try {
+        const result = await typedApi.query.identity.registrars()
+        const fields = result[registrarIndex]?.value.fields;
+        const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
+        setSupportedFields(_supportedFields);
+        console.log({ supportedFields: _supportedFields, result });
+      } catch (error) {
+        console.error("Error fetching supported fields:", error);
+      }
+      }
+    })();
   }, [typedApi, registrarIndex, getSupportedFields]);
 
   return supportedFields;

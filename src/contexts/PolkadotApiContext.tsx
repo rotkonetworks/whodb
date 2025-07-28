@@ -24,14 +24,20 @@ import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, use
 import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
 import { createContext, memo, ReactNode, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
-import { useNetwork } from "./network-context";
+import { Network, useNetwork } from "./network-context";
 
 import { accountStore as _accountStore } from "@/store/AccountStore";
 import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
-import { ChallengeStore as _challengeStore } from "@/store/challengesStore";
+import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
 import BigNumber from "bignumber.js";
-import { CHAINS } from "@/polkadot-api/chain-config";
+import { CHAINS, createChainClient, getTypedApi, cleanupConnection, cleanupAllConnections } from "@/polkadot-api/chain-config";
+import { ApiPromise, WsProvider } from '@polkadot/api';
+
+// Define the missing type based on the usage in useXcmParameters
+type GetTeleportCallParams = {
+  amount: BigNumber;
+};
 
 // Context interface definition
 interface PolkadotApiContextType {
@@ -51,8 +57,8 @@ interface PolkadotApiContextType {
   accountStore: AccountData;
 
   // APIs
-  typedApi: TypedApi<any> | undefined;
-  fromTypedApi: TypedApi<any> | undefined;
+  typedApi: ApiPromise | undefined;
+  fromTypedApi: ApiPromise | null;
 
   // URL params
   urlParams: UrlParamsArgs;
@@ -124,7 +130,7 @@ interface PolkadotApiContextType {
   // Balances
   fromBalance: BigNumber;
   balance: BigNumber;
-  hasEnoughBalance: boolean;
+  hasEnoughBalance: boolean | null;
   minimunTeleportAmount: BigNumber;
 
   // Transaction confirmation
@@ -139,6 +145,9 @@ interface PolkadotApiContextType {
   // Error details
   errorDetails: Error | null;
   setErrorDetails: (error: Error | null) => void;
+
+  connect: (network: Network) => void;
+  isConnected: boolean;
 }
 
 const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
@@ -158,13 +167,18 @@ interface PolkadotApiProviderProps {
 
 export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   // State
-  const [client, setClient] = useState<ReturnType<typeof createClient> | null>(null);
-  const [typedApi, setTypedApi] = useState<TypedApi<any> | null>(null);
+  const [client, setClient] = useState<WsProvider | null>(null);
+  const [typedApi, setTypedApi] = useState<ApiPromise | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentChain, setCurrentChain] = useState<keyof typeof CHAINS | null>(null);
   const [chainInfo, setChainInfo] = useState<any>(null);
+
+  // Add refs to track cleanup and debouncing
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentProviderRef = useRef<WsProvider | null>(null);
+  const currentApiRef = useRef<ApiPromise | null>(null);
 
   const {
     alerts, add: addAlert, remove: removeAlert, clearAll: clearAllAlerts, size: alertsCount
@@ -380,7 +394,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [isTxBusy])
 
   //#region Transactions
-  const getNonce = useCallback(async (api: TypedApi<ChainDescriptorOf<ChainId>>, address: SS58String) => {
+  const getNonce = useCallback(async (api: ApiPromise, address: SS58String) => {
     try {
       return (await (api.query.System.Account as ApiStorage).getValue(address, { at: "best" })).nonce
     } catch (error) {
@@ -832,75 +846,74 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   // Connect to a specific chain
   const connect = useCallback(async (chainId: keyof typeof CHAINS) => {
     if (isConnecting) return;
+    if (currentChain === chainId && isConnected) return; // Already connected to this chain
+
+    console.debug("Connecting to chain:", chainId);
+
+    // Clear any existing timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
 
     setIsConnecting(true);
     setError(null);
 
     try {
-      // Disconnect existing client
-      if (client) {
+      // Disconnect from previous chain if different
+      if (currentChain && currentChain !== chainId) {
         await disconnect();
       }
 
-      // Create new client and typed API
-      const newClient = createChainClient(chainId);
-      const newTypedApi = getTypedApi(chainId);
+      // Create new client and typed API (using cached connections)
+      const newProvider = createChainClient(chainId);
+      const newTypedApi = await getTypedApi(chainId, newProvider);
 
-      // Wait for connection
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
-        }, 10000);
+      // Store refs for cleanup
+      currentProviderRef.current = newProvider;
+      currentApiRef.current = newTypedApi;
 
-        // Use finalizedBlock$ instead of chainHead$
-        const subscription = newClient.finalizedBlock$.subscribe({
-          next: (block: any) => {
-            clearTimeout(timeout);
-            subscription.unsubscribe();
+      const currentBlock = (await newTypedApi.rpc.chain.getFinalizedHead()).toHuman();
+      console.debug("Current block:", currentBlock);
 
-            setClient(newClient);
-            setTypedApi(newTypedApi);
-            setCurrentChain(chainId);
-            setIsConnected(true);
-
-            // Get chain info
-            setChainInfo({
-              ...CHAINS[chainId],
-              genesisHash: block.hash,
-              blockNumber: block.number,
-            });
-
-            resolve();
-          },
-          error: (err: any) => {
-            clearTimeout(timeout);
-            subscription.unsubscribe();
-            reject(err);
-          }
-        });
-      });
+      // Set up the client and typed API
+      setClient(newProvider);
+      setTypedApi(newTypedApi);
+      setCurrentChain(chainId);
+      setIsConnected(true);
 
     } catch (err) {
+      console.error("Connection error:", err);
       setError(err instanceof Error ? err.message : 'Failed to connect');
       setClient(null);
       setTypedApi(null);
       setCurrentChain(null);
       setIsConnected(false);
+
+      // Clean up refs on error
+      currentProviderRef.current = null;
+      currentApiRef.current = null;
     } finally {
       setIsConnecting(false);
     }
-  }, [client, isConnecting]);
+  }, [isConnecting, currentChain, isConnected]);
 
   // Disconnect
   const disconnect = useCallback(async () => {
-    if (client) {
-      // Clean up client connections
-      try {
-        client.destroy();
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+    // Clear any pending connection timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
     }
+
+    // Clean up using the central cleanup function
+    if (currentChain) {
+      await cleanupConnection(currentChain);
+    }
+
+    // Clean up refs
+    currentApiRef.current = null;
+    currentProviderRef.current = null;
 
     setClient(null);
     setTypedApi(null);
@@ -908,7 +921,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     setChainInfo(null);
     setIsConnected(false);
     setError(null);
-  }, [client]);
+  }, [currentChain]);
 
   // Switch chain
   const switchChain = useCallback(async (chainId: keyof typeof CHAINS) => {
@@ -916,21 +929,37 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [connect]);
 
   const network = chainStore.id;
-  // Auto-connect on network change
+  // Auto-connect on network change with debouncing
   useEffect(() => {
-    if (network && network !== currentChain) {
-      if (network in CHAINS) {
-        connect(network as keyof typeof CHAINS);
-      }
+    if (isConnected || isConnecting) return;
+    if (!network || network === currentChain) return;
+    if (!(network in CHAINS)) return;
+
+    // Clear existing timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
     }
-  }, [network, currentChain, connect]);
+
+    // Debounce connection attempts
+    connectionTimeoutRef.current = setTimeout(() => {
+      connect(network as keyof typeof CHAINS);
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+    };
+  }, [network, currentChain, connect, isConnected, isConnecting]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      disconnect();
+      // Cleanup all connections when the provider unmounts
+      cleanupAllConnections().catch(console.warn);
     };
-  }, [disconnect]);
+  }, []);
 
   const value = useMemo(() => ({
     alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
@@ -942,6 +971,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
     updateAccount, onAccountSelect, onRequestWalletConnection,
     identityFormRef, registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
+    chainClient: client,
     onChainSelect, chainConstants,
     challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
     formatAmount,

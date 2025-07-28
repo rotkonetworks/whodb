@@ -2,6 +2,7 @@ import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import { SS58String, TypedApi } from "polkadot-api";
 import { useEffect, useMemo, useState } from "react";
 
+import { Network } from "@/contexts/network-context";
 import { ApiStorage } from "@/types/api";
 
 /**
@@ -22,7 +23,7 @@ export interface ChainConstants {
 
 export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
-  chainId: string | number | symbol;
+  chainId: Network;
   address: SS58String;
   handlers: Record<string, {
     onEvent: (data: object) => void;
@@ -39,9 +40,9 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
         const fetchConstants = async (retryCount = 0): Promise<void> => {
           try {
             const constants = {
-              byteDeposit: await typedApi.constants.Identity.ByteDeposit(),
-              basicDeposit: await typedApi.constants.Identity.BasicDeposit(),
-              existentialDeposit: await typedApi.constants.Balances.ExistentialDeposit(),
+              byteDeposit: await typedApi.consts.identity.byteDeposit.toNumber(),
+              basicDeposit: await typedApi.consts.identity.basicDeposit.toNumber(),
+              existentialDeposit: await typedApi.consts.balances.existentialDeposit.toNumber(),
             }
             
             // Validate all constants are present
@@ -90,54 +91,45 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
       return cleanUp;
     }
 
-    systemEventsSub = (typedApi.query.System.Events as ApiStorage)
-      .watchValue("best").subscribe({
-        next: (events) => {
-          console.log({ events });
-          events
-            .filter(({
-              event: {
-                type: _pallet,
-                value: {
-                  type: _type,
-                  value: { who, target },
-                }
-              }
-            }) =>
-              handlerEntries.some(({ pallet, call }) => pallet === _pallet && call === _type)
-              && [who, target].includes(address)
-            )
-            .map(({
-              event: {
-                type: _pallet,
-                value: {
-                  type: _type,
-                  value: { who, target },
-                }
-              }
-            }) => {
-              const type = `${_pallet}.${_type}`
-              const data = { type, who: who || target, priority: handlers[type].priority }
-              return data
-            })
-            .sort((b1, b2) => b2.priority - b1.priority)
-            .forEach(data => {
-              const { onEvent, onError } = handlers[data.type]
-              try {
-                onEvent(data)
-              } catch (error) {
-                onError?.(error)
-                console.error(`Error processing ${data.type}`, error);
-              }
-            })
-        },
-        error: (error) => {
-          console.error("Error fetching events", error)
-        },
-        complete: () => {
-          console.log({ event: "complete fetching events" })
-        }
-      })
+    systemEventsSub = (typedApi.query.system.events as ApiStorage)((events) => {
+      console.log({ events });
+      events
+        .filter(({
+          event: {
+            type: _pallet,
+            value: {
+              type: _type,
+              value: { who, target },
+            }
+          }
+        }) =>
+          handlerEntries.some(({ pallet, call }) => pallet === _pallet && call === _type)
+          && [who, target].includes(address)
+        )
+        .map(({
+          event: {
+            type: _pallet,
+            value: {
+              type: _type,
+              value: { who, target },
+            }
+          }
+        }) => {
+          const type = `${_pallet}.${_type}`
+          const data = { type, who: who || target, priority: handlers[type].priority }
+          return data
+        })
+        .sort((b1, b2) => b2.priority - b1.priority)
+        .forEach(data => {
+          const { onEvent, onError } = handlers[data.type]
+          try {
+            onEvent(data)
+          } catch (error) {
+            onError?.(error)
+            console.error(`Error processing ${data.type}`, error);
+          }
+        })
+    })
     return cleanUp
   }, [typedApi, address, handlerEntries, handlers])
 
