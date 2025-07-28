@@ -1,12 +1,13 @@
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { CHAINS } from "@/polkadot-api/chain-config"
 import type React from "react"
+import type { ChainInfo } from "@/store/ChainStore"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, Key } from "react"
 
-export type Network = "paseo" | "polkadot" | "kusama"
+export type Network = keyof typeof CHAINS
 
-interface NetworkContextType {
+interface NetworkContextType extends ChainInfo {
   network: Network
   setNetwork: (network: Network) => void
   networkColor: string
@@ -17,7 +18,7 @@ interface NetworkContextType {
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
 
-export function NetworkProvider({ children }: { children: React.ReactNode }) {
+export function NetworkProvider({ children }: { children: React.ReactNode, network?: Network }) {
   const { urlParams, setParam, deleteParam } = useUrlParams()
   const [_network, _setNetwork] = useState<Network | undefined>(urlParams.network as Network | undefined)
 
@@ -47,8 +48,30 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const isEncrypted = networks[_network]?.isEncrypted || false
   const isFree = networks[_network]?.isFree || false // True if it's a testnet or has free tokens
 
+  const relayId = _network?.split("_")[0] || "";
+  const relay = _network ? {
+    id: relayId,
+    name: networks[relayId]?.name || "",
+    parachains: Object.keys(networks)
+      .filter(key => key.startsWith(relayId))
+      .map(key => ({
+        id: key,
+        name: networks[key]?.name || "",
+      }))
+    ,
+  } : null;
+
   return (
-    <NetworkContext.Provider value={{ network: _network, setNetwork, networkColor, networkDisplayName, isEncrypted, isFree }}>
+    <NetworkContext.Provider value={{ 
+      network: _network, setNetwork, networkColor, networkDisplayName, isEncrypted, isFree,
+      id: networks[_network]?.id,
+      name: networks[_network]?.name || "",
+      ss58Format: networks[_network]?.ss58Format,
+      tokenDecimals: networks[_network]?.tokenDecimals,
+      tokenSymbol: networks[_network]?.tokenSymbol,
+      registrarIndex: networks[_network]?.registrarIndex,
+      relay,
+    }}>
       {children}
     </NetworkContext.Provider>
   )
