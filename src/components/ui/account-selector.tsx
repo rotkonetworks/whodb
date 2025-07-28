@@ -1,6 +1,6 @@
 import { Check, User } from "lucide-react";
 import { SS58String } from "polkadot-api";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 
 import { AccountData } from "@/store/AccountStore";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
@@ -8,15 +8,33 @@ import { Card, CardContent } from "./card";
 import { useSpendableBalance } from "@reactive-dot/react";
 import { Badge } from "./badge";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
+import { BigNumber } from "bignumber.js";
+import { useNetwork } from "@/contexts/network-context";
 
 // Component to display individual account balance
 const AccountBalance = ({ address, chainId }: { address: SS58String; chainId: string }) => {
-  const { formatAmount } = usePolkadotApi();
-  const balance = useSpendableBalance(address, { chainId: chainId as any });
-  
+  const { network } = useNetwork();
+  const { formatAmount, typedApi, connect: apiConnect, isConnected: isApiConnected } = usePolkadotApi();
+
+  /* useEffect(() => {
+    if (!isApiConnected) {
+      apiConnect(network).then(() => {
+        console.debug("Connected to Polkadot API for chain:", network);
+        console.debug({ typedApi });
+      }).catch((error) => {
+        console.error("Failed to connect to Polkadot API:", error);
+      });
+    }
+  }, [isApiConnected, apiConnect]); */
+
+  const balance = useMemo(() => typedApi?.query.system.account(address), [typedApi, address]);
+  useEffect(() => {
+    console.debug("AccountBalance component mounted for ", address, " balance:", balance);
+  }, [address, balance]);
+
   return (
     <span className="text-xs text-gray-400">
-      {formatAmount ? formatAmount(balance.planck) : `${balance.planck.toString()} units`}
+      {formatAmount ? formatAmount(balance?.planck) : `${balance.planck.toString()} units`}
     </span>
   );
 };

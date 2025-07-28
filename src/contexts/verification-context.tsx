@@ -1,7 +1,11 @@
 import { ChallengeStore } from "@/store/challengesStore"
 import type React from "react"
-import { createContext, useCallback, useContext, useState } from "react"; // Added useCallback
+import { createContext, useCallback, useContext, useState, useEffect } from "react";
 import { toast } from "sonner"
+import { SS58String } from 'polkadot-api';
+
+import { IdentityInfo, verifyStatuses } from '@/types/Identity';
+import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKey } from '../hooks/useChallengeWebSocket';
 
 type ChallengeType = keyof Omit<ChallengeStore, "display">
 type pgpSigningInfo = {
@@ -53,6 +57,17 @@ interface VerificationContextType {
   setChallenges: (challenges: Record<string, { code: string; status: any }>) => void
   // Add PGP verification function
   setSendPGPVerification: (fn: (payload: { pubkey: string; signed_challenge: string; network: string; account: string }) => Promise<void>) => void
+
+  // WebSocket integration
+  setWebSocketParams: (params: { address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }) => void
+  wsConnected: boolean
+  wsError: string | null
+  wsLoading: boolean
+  wsChallengeState: ResponseAccountState | null
+  wsSubscribe: () => void
+  wsConnect: () => void
+  wsDisconnect: () => void
+  wsSendPGPVerification: (payload: VerifyPGPKey) => Promise<void>
 }
 
 const VerificationContext = createContext<VerificationContextType | undefined>(undefined)
@@ -61,7 +76,7 @@ const initialVerificationFields: FieldVerification[] = [
   { field: "email", status: "unverified" },
   { field: "matrix", status: "unverified" },
   { field: "twitter", status: "unverified" },
-  { field: "website", status: "unverified" },
+  { field: "web", status: "unverified" },
   { field: "github", status: "unverified" },
   { field: "pgp_fingerprint", status: "unverified" },
   { field: "discord", status: "unverified" },
@@ -74,6 +89,44 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   const [verifyingFields, setVerifyingFields] = useState<Set<string>>(new Set())
   const [challenges, setChallenges] = useState<Record<string, { code: string; status: any }>>({})
   const [sendPGPVerification, setSendPGPVerification] = useState<((payload: { pubkey: string; signed_challenge: string; network: string; account: string }) => Promise<void>) | null>(null)
+
+  // WebSocket parameters
+  const [wsParams, setWsParams] = useState<{ address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }>({})
+
+  // Initialize WebSocket hook with optional parameters
+  const challengeWebSocket = useChallengeWebSocket({
+    address: wsParams.address,
+    network: wsParams.network,
+    identity: wsParams.identity,
+    // URL will be automatically set from VITE_APP_CHALLENGES_API_URL
+  })
+
+  // Update local challenges state when WebSocket provides new data
+  useEffect(() => {
+    if (challengeWebSocket.challenges) {
+      // Convert ChallengeStore to the expected format
+      const newChallenges: Record<string, { code: string; status: any }> = {};
+      Object.entries(challengeWebSocket.challenges).forEach(([key, challenge]) => {
+        if (challenge && typeof challenge === 'object' && 'code' in challenge && 'status' in challenge) {
+          newChallenges[key] = {
+            code: challenge.code || '',
+            status: challenge.status,
+          };
+        }
+      });
+
+      setChallenges(newChallenges);
+    }
+  }, [challengeWebSocket.challenges])
+
+  // Set up PGP verification function from WebSocket
+  useEffect(() => {
+    setSendPGPVerification(() => challengeWebSocket.sendPGPVerification);
+  }, [challengeWebSocket.sendPGPVerification])
+
+  const setWebSocketParams = useCallback((params: { address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }) => {
+    setWsParams(params);
+  }, []);
 
   const isVerifying = useCallback((field: string) => verifyingFields.has(field), [verifyingFields])
 
@@ -104,7 +157,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
 
   const startVerification = async (
     field: string,
-    methodType: "code" | "oauth" | "dns-challenge" | "challenge" | "challenge-url" | "gpg-challenge",
+    _methodType: "code" | "oauth" | "dns-challenge" | "challenge" | "challenge-url" | "gpg-challenge",
     label: string,
   ): Promise<string | null> => {
     setVerifyingFields((prev) => new Set(prev).add(field))
@@ -188,11 +241,11 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     }
 
     // For other verification types, use the existing simulation logic
-    if (field === "pgp_fingerprint" && signedChallenge) {
+    if (field === "pgp_fingerprint" && extraConfirmationData && 'signed_challenge' in extraConfirmationData) {
       console.log("PGP Verification Data:", {
         fingerprint: "USER_FINGERPRINT_HERE", // This should be the actual fingerprint from form
         originalChallenge: fieldState?.verificationPayload,
-        signedChallenge: signedChallenge,
+        signedChallenge: extraConfirmationData.signed_challenge,
       })
       await new Promise((resolve) => setTimeout(resolve, 3500))
     } else {
@@ -259,6 +312,16 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
         setInitialVerifications,
         setChallenges,
         setSendPGPVerification,
+        // WebSocket integration
+        setWebSocketParams,
+        wsConnected: challengeWebSocket.isConnected,
+        wsError: challengeWebSocket.error,
+        wsLoading: challengeWebSocket.loading,
+        wsChallengeState: challengeWebSocket.challengeState || null,
+        wsSubscribe: challengeWebSocket.subscribe,
+        wsConnect: challengeWebSocket.connect,
+        wsDisconnect: challengeWebSocket.disconnect,
+        wsSendPGPVerification: challengeWebSocket.sendPGPVerification,
       }}
     >
       {children}
