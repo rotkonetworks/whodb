@@ -161,7 +161,6 @@ export default function RegisterPage() {
     accounts,
     extensions,
     isLoading: isLoadingAccounts,
-    error: accountsError
   } = usePolkadotWallet()
   const isWalletConnecting = useMemo(() => isLoadingAccounts, [isLoadingAccounts])
   const isWalletConnected = useMemo(() => accounts.length > 0, [accounts])
