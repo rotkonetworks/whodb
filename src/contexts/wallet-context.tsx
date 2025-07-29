@@ -1,6 +1,6 @@
 import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react"
-import { usePolkadotWallet, type ExtendedAccountData, type SignRawParams } from "../hooks/usePolkadotWallet"
+import { usePolkadotWallet, type ExtendedAccountData, type SignRawParams } from "../contexts/PolkadotWalletContext"
 import { PolkadotSigner, SS58String } from "polkadot-api"
 
 interface AccountContextType {

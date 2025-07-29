@@ -249,7 +249,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
     // ESLint Expects us to add accountStore as a dependency, but it will cause an infinite loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountStore.polkadotSigner, urlParams.address, getWalletAccount, addAlert, removeAlert, chainStore.ss58Format]);
+  }, [
+    accountStore.polkadotSigner,
+    urlParams.address,
+    getWalletAccount,
+    addAlert,
+    removeAlert,
+    chainStore.ss58Format
+  ]);
 
   const updateAccount = useCallback(({ name, address, polkadotSigner }: AccountData) => {
     const account = { name, address, polkadotSigner };
@@ -314,7 +321,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         ...chainProperties,
       }
       Object.assign(chainStore, newChainData)
-      console.log({ id, newChainData })
+      console.log({ id, newChainData });
     })())
   }, [chainStore])
   const onChainSelect = useCallback((chainId: string | number | symbol) => {
