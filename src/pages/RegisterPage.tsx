@@ -33,6 +33,7 @@ import { DialogMode } from "@/types"
 import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
 import BigNumber from "bignumber.js"
 import { Binary, SS58String } from "polkadot-api"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -124,6 +125,8 @@ export default function RegisterPage() {
   }, [challenges, setInitialVerifications])
 
   const [currentStep, setCurrentStep] = useState(1)
+  useTriggerLog(currentStep, "currentStep") // TODO Tracking why it becomes null
+  
   const [identityData, setIdentityData] = useState<IdentityData>({
     display: "",
     email: "",
