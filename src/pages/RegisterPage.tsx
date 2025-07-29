@@ -22,7 +22,7 @@ import { FieldVerification, useVerification } from "@/contexts/verification-cont
 import { AccountProvider, useWallet } from "@/contexts/wallet-context"
 import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
 import { useFormatAmount } from "@/hooks/useFormatAmount"
-import { usePolkadotWallet } from "@/hooks/usePolkadotWallet"
+import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
 import { CHAINS } from "@/polkadot-api/chain-config"
@@ -32,7 +32,6 @@ import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
 import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
 import BigNumber from "bignumber.js"
-import { ConnectionDialog } from "dot-connect/react.js"
 import { Binary, SS58String } from "polkadot-api"
 
 export const STEP_NUMBERS = {

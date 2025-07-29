@@ -30,7 +30,6 @@ export function BalanceCheck({
 
   // Use passed balance or fall back to context balance
   const address = accountStore.encodedAddress
-  console.debug("BalanceCheck address:", address, "balance:", balance.toString())
   const isLoading = balance === undefined
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
