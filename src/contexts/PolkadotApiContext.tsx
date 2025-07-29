@@ -663,9 +663,6 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   // TODO Init when needed
   const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi);
   const { balance } = useSystemAccountData(accountStore.address, typedApi);
-  //#endregion Balances
-
-  const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
 
   const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
@@ -681,6 +678,11 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   useEffect(() => {
     balanceRef.current = balance
   }, [balance])
+  //#endregion Balances
+
+  //#region Transactions
+  const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
+
   const submitTransaction = async () => {
     if (xcmParams.enabled) {
       try {
@@ -786,6 +788,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
     closeTxDialog()
   }
+  //#endregion Transactions
 
   const {
     accountTree,
