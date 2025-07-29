@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode, use } from "react";
 import { web3Enable, web3AccountsSubscribe, web3FromAddress } from "@polkadot/extension-dapp";
 import { u8aToHex } from "@polkadot/util";
+import { decodeAddress, encodeAddress } from "@polkadot/keyring";
 import { PolkadotSigner, SS58String } from "polkadot-api";
 import { AccountData } from "../store/AccountStore";
+import { useTriggerLog } from "@/hooks/use-trigger-log";
 
 // Define the account type based on what we actually get from the extension
 export interface InjectedAccountWithMeta {
@@ -47,6 +49,12 @@ export interface PolkadotWalletContextType {
   signRaw: (params: SignRawParams) => Promise<{ signature: string }>;
   signMessage: (address: string, message: string) => Promise<{ signature: string }>;
   error: string | null;
+
+  // Additional functionality from useWalletAccounts
+  getFormattedAccounts: (chainSs58Format: number) => ExtendedAccountData[];
+  getWalletAccount: (address: SS58String | Uint8Array, chainSs58Format?: number) => ExtendedAccountData | null;
+  connectedWallets: InjectedExtension[];
+  disconnectAllWallets: () => void;
 }
 
 const PolkadotWalletContext = createContext<PolkadotWalletContextType | undefined>(undefined);
@@ -59,6 +67,7 @@ export interface PolkadotWalletProviderProps {
 export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }: PolkadotWalletProviderProps) {
   const [extensions, setExtensions] = useState<InjectedExtension[]>([]);
   const [accounts, setAccounts] = useState<ExtendedAccountData[]>([]);
+  useTriggerLog(accounts, "PolkadotWalletProvider accounts");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,17 +104,20 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
 
         // Transform InjectedAccountWithMeta to ExtendedAccountData
         const transformedAccounts: ExtendedAccountData[] = injectedAccounts.map((account) => {
-          // Create a placeholder PolkadotSigner - in a real implementation, 
-          // you'd need to properly create this from the extension's signer
+          // Extract the publicKey from the account address
+          const publicKey = decodeAddress(account.address);
+
+          // Create a PolkadotSigner with the proper publicKey
+          // TODO Use injector.signer as in signRaw
           const polkadotSigner: PolkadotSigner = {
-            publicKey: new Uint8Array(), // This would need proper implementation
+            publicKey,
           } as PolkadotSigner;
 
           return {
             // AccountData properties
             name: account.meta.name || account.address,
             address: account.address as SS58String,
-            encodedAddress: account.address as SS58String, // You might want to encode this properly
+            encodedAddress: account.address as SS58String,
             polkadotSigner,
             disabled: false,
 
@@ -175,6 +187,44 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
     });
   }, [signRaw]);
 
+  // Get formatted accounts with specific SS58 format
+  const getFormattedAccounts = useCallback((chainSs58Format: number) => {
+    return accounts
+      // Filter out accounts with invalid public keys, such as EVM accounts
+      .filter(account => account.polkadotSigner?.publicKey && [1, 2, 4, 8, 32, 33].includes(account.polkadotSigner.publicKey.length))
+      .map(account => ({
+        ...account,
+        encodedAddress: encodeAddress(account.polkadotSigner.publicKey, chainSs58Format),
+      }));
+  }, [accounts]);
+
+  // Get wallet account by address
+  const getWalletAccount = useCallback((address: SS58String | Uint8Array, chainSs58Format = 42) => {
+    if (!address) return null;
+
+    const decodedAddress: Uint8Array = typeof address === "string" ? decodeAddress(address) : address;
+    const foundAccount = accounts.find(account =>
+      account.polkadotSigner?.publicKey &&
+      account.polkadotSigner.publicKey.every((byte, index) => byte === decodedAddress[index])
+    );
+
+    if (!foundAccount) {
+      return null;
+    }
+
+    return {
+      ...foundAccount,
+      encodedAddress: encodeAddress(foundAccount.polkadotSigner.publicKey, chainSs58Format),
+    };
+  }, [accounts]);
+
+  // Disconnect all wallets
+  const disconnectAllWallets = useCallback(() => {
+    // Browser extensions don't typically support programmatic disconnection
+    // This would need to be handled at the application level by clearing state
+    console.warn("Disconnect requested - browser extensions cannot be programmatically disconnected");
+  }, []);
+
   const value: PolkadotWalletContextType = {
     extensions,
     accounts,
@@ -182,6 +232,12 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
     signRaw,
     signMessage,
     error,
+
+    // Additional functionality from useWalletAccounts
+    getFormattedAccounts,
+    getWalletAccount,
+    connectedWallets: extensions,
+    disconnectAllWallets,
   };
 
   return (

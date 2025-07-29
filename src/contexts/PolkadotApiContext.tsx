@@ -33,6 +33,7 @@ import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/chall
 import BigNumber from "bignumber.js";
 import { CHAINS, createChainClient, getTypedApi, cleanupConnection, cleanupAllConnections } from "@/polkadot-api/chain-config";
 import { ApiPromise, WsProvider } from '@polkadot/api';
+import { useSystemAccountData } from "@/hooks/use-system-account-data";
 
 // Define the missing type based on the usage in useXcmParameters
 type GetTeleportCallParams = {
@@ -323,7 +324,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       Object.assign(chainStore, newChainData)
       console.log({ id, newChainData });
     })())
-  }, [chainStore])
+  }, [chainStore.id, typedApi]);
+
   const onChainSelect = useCallback((chainId: string | number | symbol) => {
     updateUrlParams({ ...urlParams, chain: chainId as string })
     chainStore.id = chainId
@@ -659,9 +661,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   //#region Balances
   // TODO Init when needed
-  const genericAddress = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" as SS58String // Alice
-  const fromBalance = BigNumber(0)
-  const balance = BigNumber(0)
+  const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi);
+  const { balance } = useSystemAccountData(accountStore.address, typedApi);
   //#endregion Balances
 
   const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
