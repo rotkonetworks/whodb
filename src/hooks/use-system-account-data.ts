@@ -1,6 +1,7 @@
 import { ApiPromise } from "@polkadot/api";
 import { SS58String } from "polkadot-api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import BigNumber from "bignumber.js";
 
 /**
  * Custom React hook that fetches and manages system account data for a given address.
@@ -29,19 +30,27 @@ export const useSystemAccountData = (address?: SS58String, typedApi?: ApiPromise
   const [nonce, setNonce] = useState<number | null>(null);
   const [balance, setBalance] = useState<BigNumber | null>(null);
 
+  const subscription = useRef(null)
   useEffect(() => {
     if (typedApi && address) {
-      typedApi.query.system.account(address, (result) => {
-        const availableBalance = BigNumber(result.data.free)
-          .minus(BigNumber(result.data.frozen))
-          .minus(BigNumber(result.data.reserved))
-        ;
-        setBalance(availableBalance);
-        const nonce = result.nonce.toNumber();
-        setNonce(nonce);
-        console.debug("AccountData for ", address, " balance:", availableBalance.toString(), " nonce:", nonce);
-      });
+      (async () => {
+        subscription.current = await typedApi.query.system.account(address, (result) => {
+          const availableBalance = BigNumber(result.data.free)
+            .minus(BigNumber(result.data.frozen))
+            .minus(BigNumber(result.data.reserved));
+          setBalance(availableBalance);
+          const nonce = result.nonce.toNumber();
+          setNonce(nonce);
+          console.debug("AccountData for ", address, " balance:", availableBalance.toString(), " nonce:", nonce);
+        });
+      })();
     }
+
+    return () => {
+      if (subscription.current) {
+        subscription.current();
+      }
+    };
   }, [typedApi, address]);
 
   return { nonce, balance, };
