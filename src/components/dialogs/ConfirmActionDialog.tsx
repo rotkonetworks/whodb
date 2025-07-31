@@ -53,7 +53,9 @@ export default function ConfirmActionDialog({
       <DialogContent className="dark:bg-gray-900/50 bg-gray-100/50 backdrop-blur-sm">
         <DialogHeader>
           {/* TODO Add transaction name */}
-          <DialogTitle>{name || "Confirm Transaction"}</DialogTitle>
+          <DialogTitle>
+            Confirm <i>{name}</i> transaction
+          </DialogTitle>
           <DialogDescription>
             Please review the following information before confirming this transaction.
           </DialogDescription>
@@ -70,22 +72,22 @@ export default function ConfirmActionDialog({
               <CardContent className="pt-0">
                 <div className="space-y-3">
                   {estimatedCosts.fees && (
-                    <div className="flex items-center justify-between py-2 border-b border-gray-600 last:border-b-0">
-                      <span className="text-gray-400">Total estimated cost:</span>
+                    <div className="flex items-center justify-between border-gray-600 last:border-b-0">
+                      <span className="text-gray-400">Estimated cost:</span>
                       <span className="text-white font-mono text-sm">
                         {formatAmount(estimatedCosts.fees)}
                       </span>
                     </div>
                   )}
                   {estimatedCosts.deposits && (
-                    <div className="flex items-center justify-between py-2 border-b border-gray-600 last:border-b-0">
+                    <div className="flex items-center justify-between border-gray-600 last:border-b-0">
                       <span className="text-gray-400">Existential deposit:</span>
                       <span className="text-white font-mono text-sm">
                         {formatAmount(estimatedCosts.deposits)}
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center justify-between py-2 border-t">
                     <span className="text-gray-400">Current balance:</span>
                     <span className="text-white font-mono text-sm">
                       {formatAmount(balance)}
