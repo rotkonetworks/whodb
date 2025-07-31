@@ -48,6 +48,7 @@ export interface PolkadotWalletContextType {
   isLoading: boolean;
   signRaw: (params: SignRawParams) => Promise<{ signature: string }>;
   signMessage: (address: string, message: string) => Promise<{ signature: string }>;
+  getSignerForAddress: (address: string) => Promise<PolkadotSigner | null>;
   error: string | null;
 
   // Additional functionality from useWalletAccounts
@@ -147,6 +148,19 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
     };
   }, [extensions]);
 
+  const getSignerForAddress = useCallback(async (address: string): Promise<PolkadotSigner | null> => {
+    if (!address) {
+      throw new Error("No address provided for getting signer");
+    }
+
+    const injector = await web3FromAddress(address);
+    if (!injector || !injector.signer) {
+      console.warn(`No signer found for address ${address}`);
+      return null;
+    }
+    return injector.signer;
+  }, []);
+
   // Sign raw data function
   const signRaw = useCallback(async (params: SignRawParams): Promise<{ signature: string }> => {
     if (!params.address) {
@@ -231,6 +245,7 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
     isLoading,
     signRaw,
     signMessage,
+    getSignerForAddress,
     error,
 
     // Additional functionality from useWalletAccounts

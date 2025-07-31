@@ -31,6 +31,8 @@ import BigNumber from "bignumber.js";
 import { CHAINS, createChainClient, getTypedApi, cleanupConnection, cleanupAllConnections } from "@/polkadot-api/chain-config";
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { useSystemAccountData } from "@/hooks/use-system-account-data";
+import { useTriggerLog } from "@/hooks/use-trigger-log";
+import { usePolkadotWallet } from "./PolkadotWalletContext";
 
 // Define the missing type based on the usage in useXcmParameters
 type GetTeleportCallParams = {
@@ -199,6 +201,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   } = useWalletAccounts({
     chainSs58Format: chainStore.ss58Format
   });
+
+  const { getSignerForAddress } = usePolkadotWallet();
 
   // UI-specific account handling
   useEffect(() => {
@@ -432,7 +436,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     const { call, name } = params;
     let api = params.api;
 
-    console.log({ call: call.decodedCall, signSubmitAndWatchParams: params })
+    console.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
 
     if (!api) {
       api = typedApi
@@ -460,10 +464,20 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       return
     }
 
-    const signer = params.signer ?? accountStore.polkadotSigner
-    const signedCall = call.signSubmitAndWatch(signer,
-      { at: "best", nonce: nonce }
-    )
+    const signer = params.signer ?? await getSignerForAddress(accountStore.address);
+    const signedCall = call.signAndSend(accountStore.address, {
+      at: "best",
+      nonce: nonce,
+      signer: signer,
+    }, (result) => {
+      console.log("Transaction result:", result);
+      if (result.status.isInBlock || result.status.isFinalized) {
+        console.log("Transaction included in block");
+      } else if (result.status.isBroadcast) {
+        console.log("Transaction broadcasted");
+      }
+    })
+    return
     let txHash: HexString | null = null
 
     const disposeSubscription = (callback?: () => void) => {
