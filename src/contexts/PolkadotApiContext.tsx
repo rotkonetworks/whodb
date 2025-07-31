@@ -2,7 +2,7 @@ import { AlertToastBridge } from "@/components/AlertToastBridge";
 import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
-import { useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
+import { ChainConstants, useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
 import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useFormatAmount } from "@/hooks/useFormatAmount";
@@ -89,7 +89,7 @@ interface PolkadotApiContextType {
   // Chain
   chainClient: any;
   onChainSelect: (chainId: string | number | symbol) => void;
-  chainConstants: any;
+  chainConstants: ChainConstants | null;
 
   // Challenges
   challenges: ChallengeStore;
