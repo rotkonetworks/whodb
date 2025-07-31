@@ -554,16 +554,12 @@ export default function RegisterPage() {
           Object.entries(dataToSubmit)
             .filter(([_, value]) => value && value.trim() !== "")
             .map(([key, value]) => {
-              // Map field names to blockchain field names
-              const blockchainField = key || key
-
+              value = value.trim()
               if (key === "pgp_fingerprint") {
                 return [null, null] // Handle separately
               }
 
-              return [blockchainField, {
-                raw: Binary.fromText(value)
-              }]
+              return [key, { raw: value }]
             })
             .filter(([key]) => key !== null)
         )
