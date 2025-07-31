@@ -579,7 +579,8 @@ export default function RegisterPage() {
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.paymentInfo(walletAddress)
+        fees: await getTxFees(tx)(walletAddress),
+        deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
       }
 
       // Set dialog state for transaction confirmation
