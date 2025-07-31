@@ -537,16 +537,15 @@ export default function RegisterPage() {
 
       // Transform the data to the format expected by the blockchain
       const initialInfo = {
-        display: { type: "None" },
-        legal: { type: "None" },
-        web: { type: "None" },
-        matrix: { type: "None" },
-        email: { type: "None" },
-        image: { type: "None" },
-        twitter: { type: "None" },
-        github: { type: "None" },
-        discord: { type: "None" },
-        pgp_fingerprint: { type: "None" }
+        display: { none: undefined },
+        legal: { none: undefined },
+        web: { none: undefined },
+        matrix: { none: undefined },
+        email: { none: undefined },
+        image: { none: undefined },
+        twitter: { none: undefined },
+        github: { none: undefined },
+        discord: { none: undefined },
       }
 
       const info: any = {
@@ -563,8 +562,7 @@ export default function RegisterPage() {
               }
 
               return [blockchainField, {
-                type: `Raw${value.length}`,
-                value: Binary.fromText(value)
+                raw: Binary.fromText(value)
               }]
             })
             .filter(([key]) => key !== null)
