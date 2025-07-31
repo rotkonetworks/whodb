@@ -1,6 +1,4 @@
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { TypedApi } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
 import { SS58String } from "polkadot-api";
 import { useCallback, useEffect, useState } from "react";
 
@@ -10,7 +8,7 @@ import { ApiTx } from "@/types/api";
 import { fetchIdentity } from "@/utils/fetchIdentity";
 
 export function useIdentity({ typedApi, address, }: {
-  typedApi: TypedApi<ChainDescriptorOf<ChainId>>,
+  typedApi: ApiPromise,
   address: SS58String,
 }) {
   // Please note _setIdentity is only for internal state management and does not set on-chain 
@@ -50,15 +48,15 @@ export function useIdentity({ typedApi, address, }: {
 
   // Transaction preparation methods
   const prepareSetIdentityTx = useCallback((identityData: IdentityFormData): ApiTx => {
-    return typedApi.tx.Identity.set_identity({ info: identityData });
+    return typedApi.tx.identity.setIdentity(identityData);
   }, [typedApi]);
 
   const prepareRequestJudgementTx = useCallback((regIndex: number, maxFee: bigint = 0n): ApiTx => {
-    return typedApi.tx.Identity.request_judgement({ reg_index: regIndex, max_fee: maxFee });
+    return typedApi.tx.identity.requestJudgement(regIndex, maxFee);
   }, [typedApi]);
 
   const prepareClearIdentityTx = useCallback((): ApiTx => {
-    return typedApi.tx.Identity.clear_identity({});
+    return typedApi.tx.identity.clearIdentity();
   }, [typedApi]);
 
   return {

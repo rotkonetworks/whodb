@@ -126,7 +126,7 @@ export default function RegisterPage() {
 
   const [currentStep, setCurrentStep] = useState(1)
   useTriggerLog(currentStep, "currentStep") // TODO Tracking why it becomes null
-  
+
   const [identityData, setIdentityData] = useState<IdentityData>({
     display: "",
     email: "",
@@ -581,11 +581,11 @@ export default function RegisterPage() {
       }
 
       // Create the transaction
-      const tx = (typedApi.tx.Identity as any).set_identity({ info })
+      const tx = typedApi.tx.identity.setIdentity(info)
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
+        fees: await tx.paymentInfo(walletAddress)
       }
 
       // Set dialog state for transaction confirmation
@@ -608,14 +608,14 @@ export default function RegisterPage() {
     try {
       // Create the request judgement transaction
       const registrarIndex = 0 // This should be dynamic based on your registrar
-      const tx = (typedApi.tx.Identity as any).request_judgement({
-        reg_index: registrarIndex,
-        max_fee: BigInt(1000000000000) // This should be dynamic based on registrar fee
-      })
+      const tx = typedApi.tx.identity.requestJudgement(
+        registrarIndex,
+        BigInt(1000000000000) // This should be dynamic based on registrar fee
+      )
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
+        fees: await tx.paymentInfo(walletAddress)
       }
 
       // Set dialog state for transaction confirmation

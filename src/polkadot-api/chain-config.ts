@@ -1,19 +1,8 @@
-import {
-  ksmcc3,
-  ksmcc3_people,
-  paseo,
-  paseo_people,
-  polkadot,
-  polkadot_people,
-} from "@polkadot-api/descriptors";
 import { InjectedWalletProvider } from "@reactive-dot/core/wallets.js";
 import { LedgerWallet } from "@reactive-dot/wallet-ledger";
 import { WalletConnect } from "@reactive-dot/wallet-walletconnect";
 import { registerDotConnect } from "dot-connect";
-import { createClient } from "polkadot-api";
 import { ApiPromise, WsProvider } from '@polkadot/api';
-import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
-import { getWsProvider } from "polkadot-api/ws-provider/web";
 
 // Chain configuration type
 export type ChainConfig = {
@@ -21,7 +10,6 @@ export type ChainConfig = {
   symbol: string;
   ss58Format: number;
   decimals?: number;
-  descriptor: any;
   paraId?: number;
   registrarIndex?: number;
   endpoint: string; // Endpoint URL for the chain
@@ -41,7 +29,6 @@ export const CHAINS = {
     symbol: "DOT",
     ss58Format: 0,
     decimals: 10,
-    descriptor: polkadot,
     endpoint: import.meta.env.VITE_APP_POLKADOT_WS_URL,
   },
   polkadot_people: {
@@ -50,7 +37,6 @@ export const CHAINS = {
     symbol: "DOT",
     ss58Format: 0,
     decimals: 10,
-    descriptor: polkadot_people,
     registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT,
     endpoint: import.meta.env.VITE_APP_POLKADOT_PEOPLE_WS_URL,
     // UI properties
@@ -66,7 +52,6 @@ export const CHAINS = {
     symbol: "KSM",
     ss58Format: 2,
     decimals: 12,
-    descriptor: ksmcc3,
     endpoint: import.meta.env.VITE_APP_KUSAMA_WS_URL,
   },
   ksmcc3_people: {
@@ -75,7 +60,6 @@ export const CHAINS = {
     symbol: "KSM",
     ss58Format: 2,
     decimals: 12,
-    descriptor: ksmcc3_people,
     registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA,
     endpoint: import.meta.env.VITE_APP_KUSAMA_PEOPLE_WS_URL,
     description: "A privacy-focused network for radical innovation.",
@@ -90,12 +74,10 @@ export const CHAINS = {
     symbol: "PAS",
     ss58Format: 42,
     decimals: 12,
-    descriptor: paseo,
     endpoint: import.meta.env.VITE_APP_PASEO_WS_URL,
   },
   paseo_people: {
     paraId: 1004,
-    descriptor: paseo_people,
     registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO,
     endpoint: import.meta.env.VITE_APP_PASEO_PEOPLE_WS_URL,
     name: "Paseo People",
@@ -192,13 +174,9 @@ export async function getTypedApi(chainId: keyof typeof CHAINS, provider?: WsPro
   }
 
   const client = provider || createChainClient(chainId);
-  const config = CHAINS[chainId];
   
   const api = await ApiPromise.create({
     provider: client,
-    types: (config.descriptor as any).types,
-    typesAlias: (config.descriptor as any).typesAlias,
-    typesBundle: (config.descriptor as any).typesBundle,
   });
   await api.isReady;
 

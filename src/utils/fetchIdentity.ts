@@ -1,7 +1,5 @@
-import { IdentityData } from "@polkadot-api/descriptors";
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { Binary, SS58String, TypedApi } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
+import { Binary, SS58String } from "polkadot-api";
 
 import { verifyStatuses } from "@/types/Identity";
 import { ApiStorage } from "@/types/api";
@@ -24,12 +22,12 @@ export interface IdentityInfo {
 /**
  * Fetches identity and judgement information for a given address
  * 
- * @param api - The typed API instance with access to identity pallet
+ * @param api - The ApiPromise instance with access to identity pallet
  * @param address - The SS58-encoded address to fetch identity for
  * @returns Promise with identity information or null if an error occurs
  */
 export const fetchIdentity = async (
-  api: TypedApi<ChainDescriptorOf<ChainId>>,
+  api: ApiPromise,
   address: SS58String
 ): Promise<IdentityInfo | null> => {
   if (!api || !address) {
@@ -42,18 +40,17 @@ export const fetchIdentity = async (
     const identityInfo: IdentityInfo = {
       status: verifyStatuses.NoIdentity,
       info: null,
-      deposit: null,
+      deposit: BigInt(0),
       judgements: []
     };
 
     // Fetch identity information from chain
-    const result = await (api.query.Identity.IdentityOf as ApiStorage)
-      .getValue(address, { at: "best" });
+    const result = await api.query.identity.identityOf(address);
 
-    if (!result) return identityInfo;
+    if (!result || (result as any).isNone) return identityInfo;
 
-    // For most chains, the result is an array of IdentityOf, but for Westend it's an object
-    const identityOf = result[0] || result;
+    // For most chains, the result is an Option containing IdentityOf  
+    const identityOf = (result as any).isSome ? (result as any).unwrap() : result;
     console.log("Fetched identityOf:", identityOf);
 
     // Extract identity data (raw text fields)

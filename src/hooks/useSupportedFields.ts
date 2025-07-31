@@ -1,6 +1,4 @@
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { TypedApi } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiStorage } from "@/types/api";
@@ -20,7 +18,7 @@ const IdentityField = {
 } as const;
 
 export function useSupportedFields({ typedApi, registrarIndex, }: {
-  typedApi: TypedApi<ChainDescriptorOf<ChainId>>,
+  typedApi: ApiPromise,
   registrarIndex?: number,
 }) {
   const [supportedFields, setSupportedFields] = useState<string[]>([]);
@@ -44,7 +42,8 @@ export function useSupportedFields({ typedApi, registrarIndex, }: {
       if (registrarIndex !== undefined) {
       try {
         const result = await typedApi.query.identity.registrars()
-        const fields = result[registrarIndex]?.value.fields;
+        const registrarEntry = (result as any)[registrarIndex];
+        const fields = registrarEntry?.fields;
         const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
         setSupportedFields(_supportedFields);
         console.log({ supportedFields: _supportedFields, result });

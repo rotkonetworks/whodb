@@ -18,10 +18,7 @@ import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, useTypedApi } from "@reactive-dot/react";
-import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
+import { HexString, InvalidTxError, SS58String } from "polkadot-api";
 import { createContext, memo, ReactNode, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
 import { Network, useNetwork } from "./network-context";
@@ -405,7 +402,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   //#region Transactions
   const getNonce = useCallback(async (api: ApiPromise, address: SS58String) => {
     try {
-      return (await (api.query.System.Account as ApiStorage).getValue(address, { at: "best" })).nonce
+      const accountInfo = await api.query.system.account(address);
+      return (accountInfo as any).nonce.toNumber();
     } catch (error) {
       console.error(error)
       return null
