@@ -104,7 +104,7 @@ interface UseIdentityWebSocketReturn {
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
 }
 
-const keyMapping: Record<string, string> = {// WWorkaround for old API
+const keyMapping: Record<string, string> = {
   'p_g_p_fingerprint': 'pgp_fingerprint',
 }
 
@@ -114,10 +114,12 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   network: string;
   identity: { info: IdentityInfo, status: verifyStatuses };
 }) => {
+  const cleanNetwork = network.split("_")[0].toLowerCase();
+
   const challengeWebSocket = useChallengeWebSocket({
     url,
     account: address,
-    network: network.split("_")[0],
+    network: cleanNetwork,
   });
   const { challengeState, error, isConnected } = challengeWebSocket
 
@@ -145,7 +147,6 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
       } = challengeState;
       console.log({ pending_challenges, verifyState })
       const pendingChallenges = Object.fromEntries(pending_challenges
-        // new API assumes challenges are Array<[[string, string]]>, but we still support old format.
         .map(([key, code]: [string | [string, string], string | undefined]) => {
           if (Array.isArray(key)) {
             return [key[0], key[1]];
@@ -185,7 +186,6 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
         challenges: _challenges,
       })
     }
-    // DRY code, also, all required values are already in the deps array and null checked.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, idWsDeps)
 
@@ -201,7 +201,6 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   }
 }
 
-// Generic WebSocket hook with challenge verification support
 const useChallengeWebSocket = (
   { url, account, network }: UseIdentityWebSocketProps
 ): UseIdentityWebSocketReturn => {
@@ -211,14 +210,12 @@ const useChallengeWebSocket = (
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Track if we've already subscribed for this connection
   const hasSubscribed = useRef(false);
   const reconnectTimeout = useRef<number | null>(null);
   const isReconnecting = useRef(false);
   const connectionAttempts = useRef(0);
   const lastConnectionAttempt = useRef(0);
 
-  // Keep track of pending promises for responses
   const pendingRequests = useRef<Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
@@ -227,7 +224,6 @@ const useChallengeWebSocket = (
 
   const generateRequestId = () => Math.random().toString(36).substring(7);
 
-  // Clean up all pending requests
   const cleanupPendingRequests = useCallback(() => {
     for (const [, { reject, timeout }] of pendingRequests.current.entries()) {
       clearTimeout(timeout);
@@ -251,7 +247,6 @@ const useChallengeWebSocket = (
         ...message
       };
 
-      // Set up timeout for response
       const timeout = window.setTimeout(() => {
         const request = pendingRequests.current.get(requestId);
         if (request) {
@@ -269,7 +264,6 @@ const useChallengeWebSocket = (
     });
   }, []);
 
-  // Send PGP verification
   const sendPGPVerification = useCallback((payload: VerifyPGPKey): Promise<void> => {
     return sendMessage({
       type: 'VerifyPGPKey',
@@ -277,31 +271,33 @@ const useChallengeWebSocket = (
     });
   }, [sendMessage]);
 
-  // Subscribe to account state - only once per connection
   const subscribe = useCallback(() => {
     if (!hasSubscribed.current && ws.current?.readyState === WebSocket.OPEN && account && network) {
       hasSubscribed.current = true;
       console.log(`Subscribing to account state for ${account} on ${network}`);
 
-      // Send message directly without using sendMessage to avoid dependency issues
+      const cleanNetwork = network.toLowerCase().split("_")[0];
+
       const message = {
         version: '1.0',
         type: 'SubscribeAccountState' as const,
-        payload: { account, network },
+        payload: { 
+          account: account,
+          network: cleanNetwork 
+        },
       };
 
       try {
         ws.current.send(JSON.stringify(message));
-        console.log('Subscription message sent');
+        console.log('Subscription message sent:', message);
       } catch (err) {
         console.error('Subscription failed:', err);
         setError(err instanceof Error ? err.message : 'Subscription failed');
-        hasSubscribed.current = false; // Reset on error to allow retry
+        hasSubscribed.current = false;
       }
     }
   }, [account, network]);
 
-  // Note union of types for event.data. it's done because AccountStateMessage does not have `payload` field.
   type ChallengeMessageType = WebSocketMessage | AccountStateMessage;
 
   const handleMessage = useCallback((event: MessageEvent<ChallengeMessageType>) => {
@@ -312,14 +308,11 @@ const useChallengeWebSocket = (
       switch (message.type) {
         case 'JsonResult':
           if (message.payload.type === 'ok') {
-            // Handle different success scenarios
             if (typeof message.payload.message === 'string') {
-              // Handle string responses (like PGP verification)
               if (message.payload.message === 'PGP verification is done') {
               } else {
               }
             } else if (message.payload.message && typeof message.payload.message === 'object') {
-              // Handle object responses (AccountState)
               const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
               response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] | [[string, string]] => {
                 let value: [string, string];                
@@ -342,7 +335,6 @@ const useChallengeWebSocket = (
               }
             }
           } else {
-            // Handle error
             setError(message.payload.message);
             setLoading(false);
           }
@@ -354,7 +346,6 @@ const useChallengeWebSocket = (
           break;
       }
 
-      // Resolve any pending requests
       for (const [requestId, { resolve, timeout }] of pendingRequests.current.entries()) {
         clearTimeout(timeout);
         resolve(message);
@@ -364,10 +355,9 @@ const useChallengeWebSocket = (
       setError(err instanceof Error ? err.message : 'Failed to parse message');
       setLoading(false);
     }
-  }, [subscribe]);
+  }, []);
 
   const disconnect = useCallback(() => {
-    // Clear reconnection timeout
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = null;
@@ -375,13 +365,11 @@ const useChallengeWebSocket = (
 
     isReconnecting.current = false;
     hasSubscribed.current = false;
-    connectionAttempts.current = 0; // Reset connection attempts
-    lastConnectionAttempt.current = 0; // Reset throttling
+    connectionAttempts.current = 0;
+    lastConnectionAttempt.current = 0;
 
-    // Clean up pending requests
     cleanupPendingRequests();
 
-    // Close WebSocket if it exists and is open
     if (ws.current) {
       if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
         ws.current.onopen = null;
@@ -397,18 +385,15 @@ const useChallengeWebSocket = (
     setIsConnected(false);
   }, [cleanupPendingRequests]);
 
-  // Set up WebSocket connection
   const connect = useCallback(() => {
     const now = Date.now();
     const timeSinceLastAttempt = now - lastConnectionAttempt.current;
 
-    // Debounce connection attempts - minimum 1 second between attempts
     if (timeSinceLastAttempt < 1000) {
       console.log("Connection attempt throttled, too soon since last attempt");
       return;
     }
 
-    // Prevent multiple concurrent connection attempts
     if (isReconnecting.current || (ws.current && ws.current.readyState === WebSocket.CONNECTING)) {
       console.log("Connection attempt prevented - already connecting");
       return;
@@ -417,7 +402,6 @@ const useChallengeWebSocket = (
     lastConnectionAttempt.current = now;
     connectionAttempts.current += 1;
 
-    // Exponential backoff for multiple failed attempts
     const backoffDelay = Math.min(1000 * Math.pow(2, Math.min(connectionAttempts.current - 1, 5)), 30000);
     if (connectionAttempts.current > 1 && timeSinceLastAttempt < backoffDelay) {
       console.log(`Connection backoff: waiting ${backoffDelay}ms before attempt ${connectionAttempts.current}`);
@@ -427,7 +411,6 @@ const useChallengeWebSocket = (
       return;
     }
 
-    // Clear any existing timeout
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = null;
@@ -440,7 +423,6 @@ const useChallengeWebSocket = (
     hasSubscribed.current = false;
     isReconnecting.current = true;
 
-    // Close existing connection if any
     if (ws.current) {
       ws.current.onopen = null;
       ws.current.onerror = null;
@@ -458,21 +440,25 @@ const useChallengeWebSocket = (
         setError(null);
         setLoading(false);
         isReconnecting.current = false;
-        hasSubscribed.current = false; // Reset subscription flag for new connection
-        connectionAttempts.current = 0; // Reset connection attempts on successful connection
+        hasSubscribed.current = false;
+        connectionAttempts.current = 0;
 
-        // Subscribe immediately after connection - call subscribe directly to avoid closure issues
         if (account && network) {
+          const cleanNetwork = network.toLowerCase().split("_")[0];
+
           const message = {
             version: '1.0',
             type: 'SubscribeAccountState' as const,
-            payload: { account, network },
+            payload: { 
+              account: account,
+              network: cleanNetwork 
+            },
           };
 
           try {
             ws.current?.send(JSON.stringify(message));
             hasSubscribed.current = true;
-            console.log('Auto-subscription message sent on connection open');
+            console.log('Auto-subscription message sent on connection open:', message);
           } catch (err) {
             console.error('Auto-subscription failed:', err);
           }
@@ -485,7 +471,6 @@ const useChallengeWebSocket = (
         hasSubscribed.current = false;
         isReconnecting.current = false;
 
-        // Only attempt reconnection for abnormal closures and if not manually disconnected
         if (event.code !== 1000 && event.code !== 1001) {
           const reconnectDelay = Math.min(5000 * Math.pow(1.5, Math.min(connectionAttempts.current, 5)), 30000);
           console.log(`Scheduling reconnection in ${reconnectDelay}ms`);
@@ -497,7 +482,7 @@ const useChallengeWebSocket = (
           }, reconnectDelay);
         } else {
           setLoading(false);
-          connectionAttempts.current = 0; // Reset on clean close
+          connectionAttempts.current = 0;
         }
       };
 
@@ -515,12 +500,10 @@ const useChallengeWebSocket = (
       isReconnecting.current = false;
       setLoading(false);
     }
-  }, [url]); // Only depend on url to prevent recreation
+  }, [url, account, network, handleMessage]);
 
-  // Initialize connection when URL changes
   useEffect(() => {
     if (url) {
-      // Debounce the initial connection to prevent rapid calls
       const timeoutId = setTimeout(() => {
         connect();
       }, 100);
@@ -530,19 +513,17 @@ const useChallengeWebSocket = (
         disconnect();
       };
     }
-  }, [url, connect, disconnect]); // Include connect and disconnect in deps
+  }, [url, connect, disconnect]);
 
-  // Subscribe when connection is ready and we have account/network
   useEffect(() => {
     if (isConnected && account && network && !hasSubscribed.current) {
-      // Add a small delay to ensure connection is fully established
       const timeoutId = setTimeout(() => {
         subscribe();
       }, 50);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [isConnected, account, network]); // Remove subscribe from deps to prevent recreation
+  }, [isConnected, account, network, subscribe]);
 
   return {
     connect,
