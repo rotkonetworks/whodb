@@ -1,8 +1,8 @@
 import { ApiPromise } from "@polkadot/api";
-import { Binary, SS58String } from "polkadot-api";
+import { SS58String } from "polkadot-api";
 
 import { verifyStatuses } from "@/types/Identity";
-import { ApiStorage } from "@/types/api";
+import { decodeUint8Array, toHexString } from ".";
 
 export interface JudgementData {
   registrar: {
@@ -55,16 +55,13 @@ export const fetchIdentity = async (
 
     // Extract identity data (raw text fields)
     const identityData = Object.fromEntries(
-      Object.entries(identityOf.info)
-        .filter(([_, value]: [string, IdentityData]) => value?.type?.startsWith("Raw"))
-        .map(([key, value]: [string, IdentityData]) => [
-          key,
-          (value.value as Binary).asText()
-        ])
+      [...identityOf.info.entries()]
+        .filter(([_, { isRaw }]) => isRaw)
+        .map(([ key, { value } ]) => [ key, decodeUint8Array(value as Uint8Array) ])
     );
     // PGP fingerprint is a special case.
-    if (identityOf.info.pgp_fingerprint) {
-      identityData.pgp_fingerprint = (identityOf.info.pgp_fingerprint as Binary).asHex();
+    if (identityOf.info.pgpFingerprint.isSome) {
+      identityData.pgp_fingerprint = toHexString(identityOf.info.pgpFingerprint.value);
     }
 
     // Store the deposit
