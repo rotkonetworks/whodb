@@ -76,11 +76,11 @@ interface PolkadotApiContextType {
   onRequestWalletConnection: () => void;
 
   // Identity
-  identityFormRef: React.RefObject<IdentityFormRef>;
+  identityFormRef: React.RefObject<IdentityFormRef | null>;
   registrarIndex: number;
-  supportedFields: (keyof IdentityInfo)[];
+  supportedFields: string[];
   identity: Identity;
-  fetchIdAndJudgement: () => Promise<Identity>;
+  fetchIdAndJudgement: () => Promise<Identity | null>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
 
@@ -266,7 +266,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [accountStore, urlParams, updateUrlParams]);
 
   //#region identity
-  const identityFormRef = useRef<IdentityFormRef>()
+  const identityFormRef = useRef<IdentityFormRef>(null)
 
   const _formattedChainId = (chainStore.name as string)?.split(' ')[0]?.toUpperCase()
   const registrarIndex = import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${_formattedChainId}`] as number
@@ -463,120 +463,209 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
 
     const signer = params.signer ?? await getSignerForAddress(accountStore.address);
-    const signedCall = call.signAndSend(accountStore.address, {
-      at: "best",
-      nonce: nonce,
-      signer: signer,
-    }, (result) => {
-      console.log("Transaction result:", result);
-      if (result.status.isInBlock || result.status.isFinalized) {
-        console.log("Transaction included in block");
-      } else if (result.status.isBroadcast) {
-        console.log("Transaction broadcasted");
-      }
-    })
-    return
-    let txHash: HexString | null = null
+    if (!signer) {
+      setTxBusy(false);
+      addAlert({
+        type: "error",
+        message: "No signer available for the selected account",
+      });
+      reject(new Error("No signer available"));
+      return;
+    }
+
+    let txHash: string | null = null;
+    let unsubscribe: (() => void) | null = null;
 
     const disposeSubscription = (callback?: () => void) => {
       setTxBusy(false)
       if (txHash) {
         recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
       }
-      if (!subscription.closed)
-        subscription.unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
       callback?.()
     }
 
-    const subscription = signedCall.subscribe({
-      next: (txStateUpdate) => {
-        txHash = txStateUpdate.txHash;
-        // TODO Add result type as below
-        // Define type for transaction state updates
+    try {
+      unsubscribe = await call.signAndSend(accountStore.address, {
+        nonce: nonce,
+        signer: signer as any, // Type assertion needed for compatibility
+      }, (result) => {
+        console.log("Transaction result:", result);
 
-        const _txStateUpdate: TxStateUpdate = {
-          found: txStateUpdate["found"] || false,
-          ok: txStateUpdate["ok"] || false,
-          isValid: txStateUpdate["isValid"],
-          ...txStateUpdate,
-        };
-        if (txStateUpdate.type === "broadcasted") {
+        // Get transaction hash
+        if (!txHash && result.txHash) {
+          txHash = result.txHash.toHex();
+        }
+
+        // Handle different transaction states
+        if (result.status.isBroadcast) {
+          console.log("Transaction broadcasted");
           addAlert({
-            key: txStateUpdate.txHash,
+            key: txHash || 'unknown',
             type: "loading",
             closable: false,
             message: `${name} transaction broadcasted`,
           })
         }
-        else if (_txStateUpdate.type === "txBestBlocksState") {
-          if (_txStateUpdate.ok) {
+        else if (result.status.isInBlock) {
+          console.log("Transaction included in block");
+
+          // Check for system events to determine success/failure
+          const { events } = result;
+          let hasError = false;
+          let errorInfo: string | null = null;
+
+          // Look for system.ExtrinsicFailed or system.ExtrinsicSuccess
+          events.forEach(({ event }: any) => {
+            if (api && api.events.system.ExtrinsicFailed.is(event)) {
+              hasError = true;
+              const [dispatchError] = event.data;
+              try {
+                if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError((dispatchError as any).asModule);
+                  errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+                } else {
+                  errorInfo = dispatchError?.toString() || 'Unknown error';
+                }
+              } catch (e) {
+                errorInfo = 'Error parsing transaction failure details';
+              }
+            }
+          });
+
+          if (hasError) {
+            if (txHash && !recentNotifsIds.current.includes(txHash)) {
+              recentNotifsIds.current = [...recentNotifsIds.current, txHash]
+              addAlert({
+                key: txHash,
+                type: "error",
+                message: errorInfo || `${name} failed: transaction error`,
+                seeDetails: errorInfo ? () => setErrorDetails(new Error(errorInfo || 'Unknown error')) : undefined,
+              })
+              fetchIdAndJudgement()
+              disposeSubscription(() => reject(new Error(errorInfo || "Transaction failed")))
+            }
+          } else {
+            // Transaction succeeded
             if (params.awaitFinalization) {
               addAlert({
-                key: _txStateUpdate.txHash,
+                key: txHash || 'unknown',
                 type: "loading",
                 message: `Waiting for ${name.toLowerCase()} to finalize...`,
                 closable: false,
               })
             } else {
               addAlert({
-                key: _txStateUpdate.txHash,
+                key: txHash || 'unknown',
                 type: "success",
                 message: `${name} completed successfully`,
               })
               fetchIdAndJudgement()
+              const txStateUpdate: TxStateUpdate = {
+                found: true,
+                ok: true,
+                isValid: true,
+                type: "txBestBlocksState",
+                txHash: (txHash || 'unknown') as HexString,
+              };
               disposeSubscription(() => resolve(txStateUpdate))
-            }
-          } else if (!_txStateUpdate.isValid) {
-            if (!recentNotifsIds.current.includes(txHash)) {
-              recentNotifsIds.current = [...recentNotifsIds.current, txHash]
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "error",
-                message: `${name} failed: invalid transaction`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => reject(new Error("Invalid transaction")))
             }
           }
         }
-        else if (_txStateUpdate.type === "finalized") {
-          // Tx need only be processed successfully. If Ok, it's already been found in best blocks.
-          if (!_txStateUpdate.ok) {
+        else if (result.status.isFinalized) {
+          console.log("Transaction finalized");
+
+          if (params.awaitFinalization) {
+            // Check events again for finalized status
+            const { events } = result;
+            let hasError = false;
+            let errorInfo: string | null = null;
+
+            events.forEach(({ event }: any) => {
+              if (api && api.events.system.ExtrinsicFailed.is(event)) {
+                hasError = true;
+                const [dispatchError] = event.data;
+                try {
+                  if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
+                    const decoded = api.registry.findMetaError((dispatchError as any).asModule);
+                    errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+                  } else {
+                    errorInfo = dispatchError?.toString() || 'Unknown error';
+                  }
+                } catch (e) {
+                  errorInfo = 'Error parsing transaction failure details';
+                }
+              }
+            });
+
+            if (hasError) {
+              addAlert({
+                key: txHash || 'unknown',
+                type: "error",
+                message: errorInfo || `${name} failed`,
+              })
+              fetchIdAndJudgement()
+              disposeSubscription(() => reject(new Error(errorInfo || "Transaction failed")))
+            } else {
+              addAlert({
+                key: txHash || 'unknown',
+                type: "success",
+                message: `${name} completed successfully`,
+              })
+              fetchIdAndJudgement()
+              const txStateUpdate: TxStateUpdate = {
+                found: true,
+                ok: true,
+                isValid: true,
+                type: "finalized",
+                txHash: (txHash || 'unknown') as HexString,
+              };
+              disposeSubscription(() => resolve(txStateUpdate))
+            }
+          }
+        }
+        else if (result.status.isInvalid) {
+          console.log("Transaction invalid");
+          if (txHash && !recentNotifsIds.current.includes(txHash)) {
+            recentNotifsIds.current = [...recentNotifsIds.current, txHash]
             addAlert({
-              key: _txStateUpdate.txHash,
+              key: txHash,
               type: "error",
-              message: `${name} failed`,
+              message: `${name} failed: invalid transaction`,
             })
             fetchIdAndJudgement()
-            disposeSubscription(() => reject(new Error("Transaction failed")))
-          } else {
-            if (params.awaitFinalization) {
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "success",
-                message: `${name} completed successfully`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => resolve(txStateUpdate))
-            }
+            disposeSubscription(() => reject(new Error("Invalid transaction")))
           }
         }
-        console.log({ _txStateUpdate, recentNotifsIds: recentNotifsIds.current })
-      },
-      error: (error) => {
-        console.error(error);
-        if (error.message === "Cancelled") {
-          console.log("Cancelled");
+        else if (result.status.isDropped || result.status.isUsurped) {
+          console.log("Transaction dropped or usurped");
           addAlert({
+            key: txHash || 'unknown',
             type: "error",
-            message: `${name} transaction didn't get signed. Please sign it and try again`,
+            message: `${name} transaction was dropped or replaced`,
           })
-          disposeSubscription()
-          return
+          disposeSubscription(() => reject(new Error("Transaction dropped")))
         }
-        // TODO Handle other errors
-        if (!recentNotifsIds.current.includes(txHash)) {
-          if (error instanceof InvalidTxError || error.invalid) {
+      });
+    } catch (error: any) {
+      console.error("Transaction signing/sending error:", error);
+
+      if (error.message === "Cancelled") {
+        console.log("Transaction cancelled");
+        addAlert({
+          type: "error",
+          message: `${name} transaction didn't get signed. Please sign it and try again`,
+        })
+        disposeSubscription()
+        return
+      }
+
+      // Handle other errors
+      if (txHash && !recentNotifsIds.current.includes(txHash)) {
+        if (error instanceof InvalidTxError || error.invalid) {
+          try {
             const errorDetails: {
               type: string,
               value: {
@@ -593,26 +682,28 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
             console.log({ errorDetails });
             addAlert({
               type: "error",
-              message: errorMessages[pallet]?.[errorType] ?? errorMessages[pallet]?.default
-                ?? `Error with ${name}: Please try again`
-              ,
+              message: (errorMessages as any)[pallet]?.[errorType] ?? (errorMessages as any)[pallet]?.default
+                ?? `Error with ${name}: Please try again`,
               seeDetails: () => setErrorDetails(error),
             })
-            disposeSubscription(() => reject(error))
-            return
+          } catch (parseError) {
+            addAlert({
+              type: "error",
+              message: `Error with ${name}: ${error.message || "Please try again"}`,
+              seeDetails: () => setErrorDetails(error),
+            })
           }
-          addAlert({
-            type: "error",
-            message: `Error with ${name}: ${error.message || "Please try again"}`,
-          })
           disposeSubscription(() => reject(error))
+          return
         }
-      },
-      complete: () => {
-        console.log("Completed")
-        disposeSubscription()
+
+        addAlert({
+          type: "error",
+          message: `Error with ${name}: ${error.message || "Please try again"}`,
+        })
+        disposeSubscription(() => reject(error))
       }
-    })
+    }
     // Still, proposed deps remain inmutable, such as AddAlert and getNonce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [accountStore.polkadotSigner, accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
@@ -651,13 +742,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }: {
     amount: BigNumber
   }) => {
+    if (!fromTypedApi) return null;
     return _getTeleportCall({
       amount,
       fromApi: fromTypedApi,
       parachainId,
       toAddress: accountStore.polkadotSigner,
     })
-  }, [_getTeleportCall, fromTypedApi, parachainId, displayedAccounts])
+  }, [_getTeleportCall, fromTypedApi, parachainId, accountStore.polkadotSigner])
 
   useEffect(() => {
     if (typedApi) {
@@ -671,8 +763,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   //#region Balances
   // TODO Init when needed
-  const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi);
-  const { balance } = useSystemAccountData(accountStore.address, typedApi);
+  const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi || undefined);
+  const { balance } = useSystemAccountData(accountStore.address, typedApi || undefined);
 
   const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
@@ -696,16 +788,25 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const submitTransaction = async () => {
     if (xcmParams.enabled) {
       try {
+        if (!fromTypedApi) {
+          throw new Error("From API not available");
+        }
+        const fromAccount = getWalletAccount(xcmParams.fromAddress);
+        if (!fromAccount) {
+          throw new Error("From account not found");
+        }
+        const teleportCall = getTeleportCall({
+          amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
+        });
+        if (!teleportCall) {
+          throw new Error("Failed to create teleport call");
+        }
+
         await signSubmitAndWatch({
           nonce: await getNonce(fromTypedApi, xcmParams.fromAddress),
-          signer: getWalletAccount(xcmParams.fromAddress).polkadotSigner,
+          signer: fromAccount.polkadotSigner,
           awaitFinalization: true,
-          call: getTeleportCall({
-            amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
-            fromApi: fromTypedApi,
-            signer: getWalletAccount(xcmParams.fromAddress).polkadotSigner,
-            parachainId
-          }),
+          call: teleportCall,
           name: "Teleport Assets"
         })
       } catch (error) {
@@ -722,8 +823,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       for (awaitedBlocks = 0; awaitedBlocks < maxBlocksAwait; awaitedBlocks++) {
         await wait(CHAIN_UPDATE_INTERVAL)
         console.log({ awaitedBlocks })
-        if (balanceRef.current.isGreaterThanOrEqualTo(xcmParams.txTotalCost
-          .plus(chainConstants.existentialDeposit?.toString())
+        if (balanceRef.current && balanceRef.current.isGreaterThanOrEqualTo(xcmParams.txTotalCost
+          .plus(chainConstants?.existentialDeposit?.toString() || "0")
         )) {
           break
         }
@@ -749,51 +850,65 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         await onIdentityClear()
         break
       case "setIdentity":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Set Identity"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Set Identity"
+          })
+        }
         break
       case "requestJudgement":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Request Judgement"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Request Judgement"
+          })
+        }
         break
       case "addSubaccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Add Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after adding subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Add Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after adding subaccount
+        }
         break;
       case "removeSubaccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Remove Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after removing subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Remove Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after removing subaccount
+        }
         break;
       case "quitSub":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Quit Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after quitting subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Quit Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after quitting subaccount
+        }
         break;
       case "editSubAccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Edit Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after editing subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Edit Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after editing subaccount
+        }
         break;
       default:
         console.error("Unexpected openDialog value:", openDialog);
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Unknown Transaction"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Unknown Transaction"
+          })
+        }
         break;
     }
     closeTxDialog()
@@ -806,7 +921,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     refresh: refreshAccountTree,
   } = useAccountsTree({
     address: accountStore.encodedAddress,
-    api: typedApi,
+    api: typedApi as any, // Type assertion needed for compatibility
   })
 
   const openTxDialog = useCallback((args: OpenTxDialogArgs) => {
@@ -836,7 +951,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         break;
       case "Disconnect":
         disconnectAllWallets();
-        Object.keys(accountStore).forEach((k) => delete accountStore[k]);
+        Object.keys(accountStore).forEach((k) => delete (accountStore as any)[k]);
         break;
       case "Teleport":
         setOpenDialog("teleport")
@@ -847,7 +962,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           mode: "clearIdentity",
           tx: tx,
           estimatedCosts: {
-            fees: await tx.getEstimatedFees(accountStore.address, { at: "best" }),
+            fees: await (tx as any).getEstimatedFees?.(accountStore.address, { at: "best" }) || 0n,
           },
         })
         break;
@@ -986,7 +1101,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
     isDark, setDark,
     chainStore, accountStore,
-    typedApi, fromTypedApi,
+    typedApi: typedApi || undefined, fromTypedApi,
     urlParams, updateUrlParams,
     walletDialogOpen, setWalletDialogOpen,
     accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
