@@ -34,6 +34,7 @@ import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import 
 import BigNumber from "bignumber.js"
 import { Binary, SS58String } from "polkadot-api"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { getTxFees } from "@/utils/transactions"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -55,8 +56,6 @@ export default function RegisterPage() {
     networkDisplayName,
     networkColor,
     isEncrypted: isNetworkEncrypted,
-    tokenDecimals,
-    tokenSymbol,
   } = useNetwork()
   const [_network, _setNetwork] = useState<AppNetwork | null>(network)
 
@@ -64,7 +63,6 @@ export default function RegisterPage() {
   const {
     chainStore,
     accountStore,
-    //accounts,
     identity,
     fetchIdAndJudgement,
     challenges,
@@ -152,7 +150,6 @@ export default function RegisterPage() {
   const [txToConfirm, setTxToConfirm] = useState<any>(null)
   const [currentDialogMode, setCurrentDialogMode] = useState<DialogMode>(null)
 
-  const location = useLocation()
   const { setParam, urlParams } = useUrlParams()
 
   const editIdParam = urlParams["editId"]
@@ -766,10 +763,9 @@ export default function RegisterPage() {
       } as any}
       relayAndParachains={[]} // Simplified for now
       fromBalance={new BigNumber(0)} // Simplified for now
-      balance={new BigNumber(0)} // Simplified for now
+      balance={balance} // Simplified for now
       minimunTeleportAmount={new BigNumber(0)} // Simplified for now
       formatAmount={formatAmount}
-      config={{} as any} // Simplified for now
       identity={identity || { status: verifyStatuses.NoIdentity, deposit: BigInt(0) } as any}
       isTxBusy={isTxBusy}
     />

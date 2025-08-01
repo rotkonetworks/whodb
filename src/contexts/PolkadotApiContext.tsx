@@ -1,4 +1,3 @@
-import { AlertToastBridge } from "@/components/AlertToastBridge";
 import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
@@ -13,25 +12,24 @@ import { useWalletAccounts } from "@/hooks/useWalletAccounts";
 import { useXcmParameters } from "@/hooks/useXcmParameters";
 import { AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
-import { ApiStorage, ApiTx } from "@/types/api";
+import { ApiTx } from "@/types/api";
 import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
 import { HexString, InvalidTxError, SS58String } from "polkadot-api";
-import { createContext, memo, ReactNode, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
-import { Network, useNetwork } from "./network-context";
+import { Network } from "./network-context";
 
 import { accountStore as _accountStore } from "@/store/AccountStore";
 import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
-import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
-import BigNumber from "bignumber.js";
-import { CHAINS, createChainClient, getTypedApi, cleanupConnection, cleanupAllConnections } from "@/polkadot-api/chain-config";
-import { ApiPromise, WsProvider } from '@polkadot/api';
 import { useSystemAccountData } from "@/hooks/use-system-account-data";
-import { useTriggerLog } from "@/hooks/use-trigger-log";
+import { CHAINS, cleanupAllConnections, cleanupConnection, createChainClient, getTypedApi } from "@/polkadot-api/chain-config";
+import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
+import { ApiPromise, WsProvider } from '@polkadot/api';
+import BigNumber from "bignumber.js";
 import { usePolkadotWallet } from "./PolkadotWalletContext";
 
 // Define the missing type based on the usage in useXcmParameters
