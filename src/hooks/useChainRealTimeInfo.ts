@@ -43,17 +43,17 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
               basicDeposit: await typedApi.consts.identity.basicDeposit.toNumber(),
               existentialDeposit: await typedApi.consts.balances.existentialDeposit.toNumber(),
             }
-            
+
             // Validate all constants are present
             if (!constants.byteDeposit || !constants.basicDeposit || !constants.existentialDeposit) {
               throw new Error('Missing required constants')
             }
-            
+
             console.log({ constants })
             setConstants(constants)
           } catch (e) {
             console.error(`Attempt ${retryCount + 1} failed:`, e)
-            
+
             if (retryCount < 3) {
               const delay = Math.pow(2, retryCount) * 1000 // Exponential backoff
               setTimeout(() => fetchConstants(retryCount + 1), delay)
@@ -62,7 +62,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
             }
           }
         }
-        
+
         fetchConstants()
       })()
     }
@@ -85,7 +85,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
       }
       systemEventsSub?.unsubscribe?.();
     };
-    
+
     if (!typedApi) {
       return cleanUp;
     }
@@ -98,22 +98,22 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
             // Get the section (pallet) and method from the event
             const section = event.section;
             const method = event.method;
-            
+
             // Check if this event type is in our handlers
             if (!handlerEntries.some(({ pallet, call }) => pallet === section && call === method)) {
               return false;
             }
-            
+
             // Check if the event data contains our address
             const eventData = event.data;
             if (!eventData) return false;
-            
+
             // Look for address in various possible fields (who, target, account, etc.)
             const addressFound = eventData.some((data: any) => {
               const dataStr = data.toString();
               return dataStr === address;
             });
-            
+
             return addressFound;
           })
           .map(({ event }: any) => {
@@ -121,7 +121,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
             const method = event.method;
             const eventKey = `${section}.${method}`;
             const eventData = event.data;
-            
+
             // Extract relevant address from event data
             let relevantAddress = address;
             if (eventData && eventData.length > 0) {
@@ -131,10 +131,10 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
                 relevantAddress = foundAddress.toString();
               }
             }
-            
-            const data = { 
-              type: eventKey, 
-              who: relevantAddress, 
+
+            const data = {
+              type: eventKey,
+              who: relevantAddress,
               priority: handlers[eventKey]?.priority || 0,
               eventData: eventData?.map((d: any) => d.toHuman()) || []
             };
@@ -147,7 +147,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
               console.warn(`No handler found for event type: ${data.type}`);
               return;
             }
-            
+
             const { onEvent, onError } = handler;
             try {
               onEvent(data);
