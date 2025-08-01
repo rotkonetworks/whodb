@@ -599,15 +599,20 @@ export default function RegisterPage() {
 
     try {
       // Create the request judgement transaction
-      const registrarIndex = 0 // This should be dynamic based on your registrar
-      const tx = typedApi.tx.identity.requestJudgement(
-        registrarIndex,
-        BigInt(1000000000000) // This should be dynamic based on registrar fee
-      )
+      const registrarIndex = Number(import.meta.env[
+        `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
+      ])
+      if (isNaN(registrarIndex)) {  // If it's NaN, index is not defined
+        throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
+      }
+
+      const registrars = await typedApi.query.identity.registrars()
+      const registrarFee = BigInt(registrars[registrarIndex]?.value.fee)
+      const tx = await typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee)
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.paymentInfo(walletAddress)
+        fees: await getTxFees(tx)(walletAddress),
       }
 
       // Set dialog state for transaction confirmation
