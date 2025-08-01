@@ -1,18 +1,17 @@
-// All required dependencies are already in the dependency array.
-import { Chains } from "@reactive-dot/core/internal.js"
 import BigNumber from "bignumber.js"
 import { HelpCircle } from 'lucide-react'
 import { SS58String } from "polkadot-api"
-import React, { ReactNode, useEffect, useRef } from "react"
+import React, { ReactNode, useEffect } from "react"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+import { Network } from "@/contexts/network-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { CHAINS } from "@/polkadot-api/chain-config"
 import { AccountDropdown } from "../ui/account-dropdown"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
-import { CHAINS } from "@/polkadot-api/chain-config"
 
 export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTeleportClick, }: {
   teleportAmount: BigNumber,
@@ -71,8 +70,8 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   }
 
   const [selectedChain, setSelectedChain] = React.useState<string>(chainStore.relay.id)
-  const fromChainId = selectedChain as keyof Chains
-  const toChainId = chainStore.id as keyof Chains
+  const fromChainId = selectedChain as Network
+  const toChainId = chainStore.id as Network
 
   const handleFromWalletChange = React.useCallback((address: SS58String) => {
     setFromAddress(address)
@@ -147,7 +146,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Select value={fromChainId as keyof Chains}
+                  <Select value={fromChainId as Network}
                     onValueChange={setSelectedChain as (value: string) => void}
                   >
                     <SelectTrigger className="bg-gray-800 border-gray-600 text-white">

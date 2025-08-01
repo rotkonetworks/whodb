@@ -1,9 +1,9 @@
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { SS58String, TypedApi } from "polkadot-api";
+import { SS58String } from "polkadot-api";
 import { useEffect, useMemo, useState } from "react";
 
 import { Network } from "@/contexts/network-context";
 import { ApiStorage } from "@/types/api";
+import { ApiPromise } from "@polkadot/api";
 
 /**
  * Chain constants retrieved from the Substrate runtime metadata.
@@ -22,7 +22,7 @@ export interface ChainConstants {
 }
 
 export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
-  typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
+  typedApi: ApiPromise;
   chainId: Network;
   address: SS58String;
   handlers: Record<string, {
@@ -79,7 +79,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   )
 
   useEffect(() => {
-    let systemEventsSub: Observable<any> | null = null;
+    let systemEventsSub = null;
 
     const cleanUp = () => {
       if (systemEventsSub) {
@@ -91,12 +91,13 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
       return cleanUp;
     }
 
-    systemEventsSub = (typedApi.query.system.events as ApiStorage)((events) => {
-      console.log({ events });
-      events
-        .filter(({
-          event: {
-            type: _pallet,
+    (async () => {
+      systemEventsSub = await typedApi.query.system.events((events) => {
+        console.log({ events });
+        events
+          .filter(({
+            event: {
+              type: _pallet,
             value: {
               type: _type,
               value: { who, target },
@@ -129,7 +130,8 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
             console.error(`Error processing ${data.type}`, error);
           }
         })
-    })
+    })}) ()
+    
     return cleanUp
   }, [typedApi, address, handlerEntries, handlers])
 

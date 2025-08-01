@@ -1,6 +1,5 @@
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import BigNumber from "bignumber.js";
-import { PolkadotSigner, TypedApi } from "polkadot-api"
+import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { Ref } from "react";
 
 import { AccountTreeNode } from "~/hooks/UseAccountsTree";
@@ -10,6 +9,7 @@ import { AccountData } from "~/store/AccountStore";
 import { ChainInfo } from "~/store/ChainStore";
 import { ChallengeStore } from "~/store/challengesStore";
 
+import { ApiPromise } from "@polkadot/api";
 import { Identity } from "./Identity";
 import { ApiTx } from "./api";
 
@@ -47,7 +47,7 @@ export type MainContentProps = {
   identity: Identity,
   challengeStore: { challenges: ChallengeStore, error: string | null, loading: boolean },
   chainStore: ChainInfo,
-  typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>,
+  typedApi: ApiPromise,
   accountStore: AccountData,
   chainConstants,
   addNotification: (alertProps: AlertPropsOptionalKey) => void,
@@ -69,7 +69,7 @@ export type MainContentProps = {
 export type SignSubmitAndWatchParams = {
   call: ApiTx;
   name: string;
-  api?: TypedApi<ChainDescriptorOf<keyof Chains>>;
+  api?: ApiPromise;
   awaitFinalization?: boolean;
   nonce?: number;
   signer?: PolkadotSigner;

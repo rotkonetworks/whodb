@@ -1,38 +1,12 @@
 import { Check, User } from "lucide-react";
 import { SS58String } from "polkadot-api";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { AccountData } from "@/store/AccountStore";
-import { BigNumber } from "bignumber.js";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
-import { Badge } from "./badge";
+import { AccountBalanceBadge } from "./balance-badge";
 import { Card, CardContent } from "./card";
-
-// Component to display individual account balance
-const AccountBalance = ({ address, chainId }: { address: SS58String; chainId: string }) => {
-  const { formatAmount, typedApi, connect: apiConnect, isConnected: isApiConnected } = usePolkadotApi();
-
-  const [balance, setBalance] = useState<BigNumber | null>(null);
-  useEffect(() => {
-    if (typedApi && address) {
-      typedApi.query.system.account(address, (result) => {
-        const availableBalance = BigNumber(result.data.free)
-          .minus(BigNumber(result.data.frozen))
-          .minus(BigNumber(result.data.reserved))
-        ;
-        console.debug("AccountBalance component mounted for ", address, " balance:", availableBalance.toString());
-        setBalance(availableBalance);
-      });
-    }
-  }, [typedApi, address]);
-
-  return (
-    <span className="text-xs text-gray-400">
-      {formatAmount(balance)}
-    </span>
-  );
-};
 
 interface AccountSelectorProps {
   accounts?: AccountData[];
@@ -103,9 +77,7 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                 </div>
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
                   {account.address && chainStore?.id && (
-                    <Badge className="bg-gray-700/50 text-gray-300 text-xs px-1.5 py-0.5">
-                      <AccountBalance address={account.address} chainId={chainStore.id} />
-                    </Badge>
+                    <AccountBalanceBadge address={account.address} chainId={chainStore.id} />
                   )}
                   {selectedAccount === account.address && (
                     <Check className="w-4 h-4 text-green-400" />

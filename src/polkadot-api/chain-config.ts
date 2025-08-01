@@ -1,7 +1,3 @@
-import { InjectedWalletProvider } from "@reactive-dot/core/wallets.js";
-import { LedgerWallet } from "@reactive-dot/wallet-ledger";
-import { WalletConnect } from "@reactive-dot/wallet-walletconnect";
-import { registerDotConnect } from "dot-connect";
 import { ApiPromise, WsProvider } from '@polkadot/api';
 
 // Chain configuration type
@@ -96,34 +92,6 @@ export const CHAINS = {
 export const targetChains = import.meta.env.VITE_APP_AVAILABLE_CHAINS
   ? import.meta.env.VITE_APP_AVAILABLE_CHAINS.split(',').map((key: string) => key.trim())
   : ["polkadot_people", "ksmcc3_people"];
-
-// Wallet configuration
-export const wallets = [
-  new InjectedWalletProvider(),
-  new LedgerWallet(),
-  new WalletConnect({
-    projectId: import.meta.env.VITE_APP_WALLET_CONNECT_PROJECT_ID,
-    providerOptions: {
-      metadata: {
-        name: "w3reg",
-        description: "web3 registrar.",
-        url: globalThis.origin,
-        icons: ["/logo.png"],
-      },
-    },
-    chainIds: [
-      "polkadot:67fa177a097bfa18f77ea95ab56e9bcd", // people-polkadot
-      "polkadot:c1af4cb4eb3918e5db15086c0cc5ec17", // people-ksmcc3
-    ],
-    optionalChainIds: [
-      "polkadot:91b171bb158e2d3848fa23a9f1c25182", // polkadot
-      "polkadot:b0a8d493285c2df73290dfb7e61f870f", // ksmcc3
-    ],
-  }),
-];
-
-// Register dot-connect
-registerDotConnect({ wallets });
 
 // Connection cache to prevent multiple connections to the same endpoint
 const connectionCache = new Map<string, { provider: WsProvider; api: ApiPromise }>();

@@ -1,10 +1,9 @@
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { SS58String, TypedApi } from "polkadot-api";
+import { SS58String } from "polkadot-api";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchIdentity } from "@/utils/fetchIdentity";
 import { fetchSubsOf, fetchSuperOf } from "@/utils/subaccounts";
+import { ApiPromise } from "@polkadot/api";
 
 export type AccountTreeNode = {
   address: SS58String,
@@ -21,7 +20,7 @@ export type AccountTreeNode = {
  * Parameter type for buildAccountHierarchy function
  */
 type BuildHierarchyParams = {
-  api: TypedApi<ChainDescriptorOf<ChainId>>,
+  api: ApiPromise,
   address: SS58String,
   currentAddress: SS58String,
   allNodes?: Record<SS58String, AccountTreeNode>,
@@ -199,7 +198,7 @@ export const useAccountsTree = ({
   api
 }: {
   address: SS58String,
-  api: TypedApi<ChainDescriptorOf<ChainId>>
+  api: ApiPromise
 }) => {
   const [accountTree, setAccountTree] = useState<AccountTreeNode | null>(null);
   // Keep logging for accountTree changes

@@ -1,25 +1,12 @@
-import { ChevronDown, Check, User, Wallet } from "lucide-react";
+import { Check, ChevronDown, Wallet } from "lucide-react";
 import { SS58String } from "polkadot-api";
 import { useState } from "react";
 
-import { AccountData } from "@/store/AccountStore";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
-import { Card, CardContent } from "./card";
-import { useSpendableBalance } from "@reactive-dot/react";
-import { Badge } from "./badge";
+import { AccountData } from "@/store/AccountStore";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
-
-// Component to display individual account balance
-const AccountBalance = ({ address, chainId }: { address: SS58String; chainId: string }) => {
-  const { formatAmount } = usePolkadotApi();
-  const balance = useSpendableBalance(address, { chainId: chainId as any });
-  
-  return (
-    <span className="text-xs text-gray-400">
-      {formatAmount ? formatAmount(balance.planck) : `${balance.planck.toString()} units`}
-    </span>
-  );
-};
+import { AccountBalanceBadge } from "./balance-badge";
+import { Card, CardContent } from "./card";
 
 export const AccountDropdown = ({
   accounts: providedAccounts, address, onAddressSelect: onAddressChange, id, open, handleOpen, disabled = false
@@ -120,9 +107,7 @@ export const AccountDropdown = ({
                       </div>
                       <div className="flex items-center space-x-1.5 flex-shrink-0">
                         {account.address && chainStore?.id && (
-                          <Badge className="bg-gray-700/50 text-gray-300 text-xs px-1.5 py-0.5">
-                            <AccountBalance address={account.address} chainId={chainStore.id} />
-                          </Badge>
+                          <AccountBalanceBadge address={account.address} chainId={chainStore.id} />
                         )}
                         {address === account.address && (
                           <Check className="w-4 h-4 text-green-400" />

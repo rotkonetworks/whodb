@@ -1,16 +1,16 @@
-import { Chains } from "@reactive-dot/core/internal.js";
+import { Network } from "@/contexts/network-context";
 import BigNumber from "bignumber.js";
 import { SS58String } from "polkadot-api";
 import { proxy } from "valtio";
 
-import { EstimatedCostInfo } from "~/types";
+import { EstimatedCostInfo } from "@/types";
 
 export type XcmParameters = {
   enabled: boolean;
   fromAddress: SS58String;
   fromChain: {
     name: string;
-    id: keyof Chains;
+    id: Network;
     paraId?: number;
   };
   txCosts: EstimatedCostInfo;
@@ -22,7 +22,7 @@ export const xcmParameters = proxy<XcmParameters>({
   fromAddress: "",
   fromChain: {
     name: "",
-    id: import.meta.env.VITE_DEFAULT_CHAIN as keyof Chains,
+    id: import.meta.env.VITE_DEFAULT_CHAIN as Network,
     paraId: undefined,
   },
   txCosts: {},
