@@ -2,7 +2,7 @@ import { ApiPromise } from "@polkadot/api";
 import { SS58String } from "polkadot-api";
 
 import { verifyStatuses } from "@/types/Identity";
-import { decodeUint8Array, toHexString } from ".";
+import { decodeUint8Array, toHexString } from "./binary";
 
 export interface JudgementData {
   registrar: {
@@ -57,7 +57,7 @@ export const fetchIdentity = async (
     const identityData = Object.fromEntries(
       [...identityOf.info.entries()]
         .filter(([_, { isRaw }]) => isRaw)
-        .map(([ key, { value } ]) => [ key, decodeUint8Array(value as Uint8Array) ])
+        .map(([key, { value }]) => [key, decodeUint8Array(value as Uint8Array)])
     );
     // PGP fingerprint is a special case.
     if (identityOf.info.pgpFingerprint.isSome) {
