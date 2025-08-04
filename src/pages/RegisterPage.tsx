@@ -35,6 +35,7 @@ import BigNumber from "bignumber.js"
 import { Binary, SS58String } from "polkadot-api"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { getTxFees } from "@/utils/transactions"
+import { fromHexString } from "@/utils/binary"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -565,11 +566,13 @@ export default function RegisterPage() {
 
       // Handle PGP fingerprint separately
       if (dataToSubmit.pgp_fingerprint && dataToSubmit.pgp_fingerprint.trim() !== "") {
-        info.pgp_fingerprint = Binary.fromHex(
-          dataToSubmit.pgp_fingerprint.startsWith('0x')
-            ? dataToSubmit.pgp_fingerprint.slice(2)
-            : dataToSubmit.pgp_fingerprint
-        )
+        const formattedPgpFingerprint = dataToSubmit.pgp_fingerprint.startsWith('0x')
+          ? dataToSubmit.pgp_fingerprint.slice(2)
+          : dataToSubmit.pgp_fingerprint
+        ;
+        // Workaround for the 0x prefix, 14_16 = 20 bytes. Necessary as PAPI seems to use it for 
+        //  some reason, maybe as length...
+        info.pgp_fingerprint = fromHexString(`14${formattedPgpFingerprint}`)
       }
 
       // Create the transaction
