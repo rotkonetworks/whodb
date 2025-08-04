@@ -802,12 +802,12 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         if (!fromAccount) {
           throw new Error("From account not found");
         }
-        
+
         const fromSigner = await getSignerForAddress(fromAccount.address);
         if (!fromSigner) {
           throw new Error("Signer not available for from account");
         }
-        
+
         const teleportCall = getTeleportCall({
           amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
         });

@@ -14,7 +14,7 @@ import { ApiPromise } from "@polkadot/api";
 import { Identity } from "./Identity";
 import { ApiTx } from "./api";
 
-export type DialogMode = 
+export type DialogMode =
   "connectWallets" |
   "clearIdentity" |
   "disconnect" |

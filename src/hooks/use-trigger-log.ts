@@ -25,8 +25,6 @@ export const useTriggerLog = (value: any, name: string) => {
   const times = useRef(0);
   useEffect(() => {
     times.current += 1;
-    const stack = new Error().stack;
-    const caller = stack?.split('\n')[2]?.trim() || 'unknown';
-    console.log(`useTriggerLog [${name}] times: ${times.current}, caller: ${caller}, value:`, value);
+    console.debug(`useTriggerLog [${name}] times: ${times.current}, value:`, value);
   }, [value]);
 };

@@ -15,4 +15,9 @@ export type AccountData = {
 }
 export type Account = AccountData
 
-export const accountStore = proxy<Account>({  })
+export const accountStore = proxy<Account>({
+  name: "",
+  address: "" as SS58String,
+  encodedAddress: "" as SS58String,
+  disabled: false,
+})
