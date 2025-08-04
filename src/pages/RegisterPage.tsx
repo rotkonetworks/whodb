@@ -121,6 +121,12 @@ export default function RegisterPage() {
 
   const [currentStep, setCurrentStep] = useState(1)
   useTriggerLog(currentStep, "currentStep") // TODO Tracking why it becomes null
+  useEffect(() => {
+    if (!currentStep || !Object.values(STEP_NUMBERS).includes(currentStep)) {
+      throw new Error("currentStep is null or undefined")
+    }
+  }, [currentStep])
+
 
   const [identityData, setIdentityData] = useState<IdentityData>({
     display: "",
@@ -685,7 +691,7 @@ export default function RegisterPage() {
     }
 
     if (accountStore.address) {
-      setCurrentStep(STEP_NUMBERS.checkBalancet)
+      setCurrentStep(STEP_NUMBERS.checkBalance)
     } else {
       setCurrentStep(STEP_NUMBERS.pickAccount)
       return
