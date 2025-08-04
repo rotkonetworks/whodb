@@ -518,6 +518,7 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Transaction submission error:", error)
       toast.error(`Failed to submit transaction: ${error.message}`)
+    } finally {
       setIsSubmittingIdentity(false)
     }
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
