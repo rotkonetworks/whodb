@@ -166,7 +166,7 @@ export function VerifiableFormField({
           className="bg-gray-700 border-pink-500/30 text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
           disabled={isInputDisabled || isVerifyingThisField}
         />
-        {identity.status === verifyStatuses.FeePaid && renderVerificationButton()}
+        {renderVerificationButton()}
       </div>
 
       {fieldStatus?.status === "pending" && challengeOrCode && (
