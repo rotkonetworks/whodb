@@ -476,7 +476,10 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     let txHash: string | null = null;
     let unsubscribe: (() => void) | null = null;
 
-    const disposeSubscription = (callback?: () => void) => {
+    const disposeSubscription = (callback: () => void) => {
+      if (!callback || typeof callback !== 'function') {
+        throw new Error("Callback must be a function");
+      }
       setTxBusy(false)
       if (txHash) {
         recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
@@ -658,7 +661,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           type: "error",
           message: `${name} transaction didn't get signed. Please sign it and try again`,
         })
-        disposeSubscription()
+        disposeSubscription(() => reject(new Error(`Transaction cancelled: ${error.message}`)))
         return
       }
 
