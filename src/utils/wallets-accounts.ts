@@ -5,6 +5,9 @@ const checkPublicKey = (publicKey: Uint8Array) => {
   if ([1, 2, 4, 8, 32, 33].includes(publicKey.length)) {
     return true;
   }
+  // Addresses with invalid public key length don't work well with Polkadot.js and the ecosystem.
+  //  This is the case for EVM chains like Moonbeam, which use 20-byte addresses.
+  console.warn("Invalid public key length:", publicKey.length);
   return false;
 };
 

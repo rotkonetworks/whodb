@@ -106,19 +106,30 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
         console.log("Accounts updated: count =", injectedAccounts.length);
 
         // Transform InjectedAccountWithMeta to ExtendedAccountData
-        const transformedAccounts: ExtendedAccountData[] = injectedAccounts.map((account) => {
-          return {
-            // AccountData properties
-            name: account.meta.name || account.address,
-            address: account.address as SS58String,
-            encodedAddress: account.address as SS58String,
-            disabled: false,
+        const transformedAccounts: ExtendedAccountData[] = injectedAccounts
+          .filter(account => {
+            try {
+              const publicKey = getPublicKey(account.address);
+              return Boolean(publicKey);
+            } catch {
+              // Filter out accounts with invalid addresses, such as EVM accounts, as they don't 
+              //  work well with Polkadot.js
+              return false;
+            }
+          })
+          .map((account) => {
+            return {
+              // AccountData properties
+              name: account.meta.name || account.address,
+              address: account.address as SS58String,
+              encodedAddress: account.address as SS58String,
+              disabled: false,
 
-            // InjectedAccountWithMeta properties
-            meta: account.meta,
-            type: account.type,
-          };
-        });
+              // InjectedAccountWithMeta properties
+              meta: account.meta,
+              type: account.type,
+            };
+          });
 
         setAccounts(transformedAccounts);
         setIsLoading(false);
