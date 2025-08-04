@@ -94,6 +94,18 @@ export function useXcmParameters({
     toAddress: SS58String;
     parachainId?: number;
   }) => {
+    // Input validation
+    if (!toAddress || typeof toAddress !== 'string') {
+      throw new Error('Invalid destination address for teleport');
+    }
+    
+    let publicKey: Uint8Array;
+    try {
+      publicKey = getPublicKey(toAddress);
+    } catch {
+      throw new Error('Unable to decode destination address for teleport');
+    }
+    
     // TODO Refacror as per PAPI conventions
     const txArguments = ({
       dest: {
@@ -117,7 +129,7 @@ export function useXcmParameters({
             value: {
               type: "AccountId32",
               value: {
-                id: Binary.fromBytes(getPublicKey(toAddress)),
+                id: Binary.fromBytes(publicKey),
               },
             },
           },

@@ -103,7 +103,7 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
   useEffect(() => {
     if (extensions.length > 0) {
       web3AccountsSubscribe((injectedAccounts) => {
-        console.log("Accounts updated:", injectedAccounts);
+        console.log("Accounts updated: count =", injectedAccounts.length);
 
         // Transform InjectedAccountWithMeta to ExtendedAccountData
         const transformedAccounts: ExtendedAccountData[] = injectedAccounts.map((account) => {
@@ -141,16 +141,29 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
   }, [extensions]);
 
   const getSignerForAddress = useCallback(async (address: string): Promise<Signer | null> => {
-    if (!address) {
-      throw new Error("No address provided for getting signer");
+    // Input validation
+    if (!address || typeof address !== 'string' || address.trim().length === 0) {
+      throw new Error("Invalid address provided for getting signer");
     }
 
-    const injector = await web3FromAddress(address);
-    if (!injector || !injector.signer) {
-      console.warn(`No signer found for address ${address}`);
+    try {
+      // Validate address format before making the call
+      decodeAddress(address);
+    } catch {
+      throw new Error("Invalid address format for getting signer");
+    }
+
+    try {
+      const injector = await web3FromAddress(address);
+      if (!injector || !injector.signer) {
+        console.warn(`No signer available for the requested address`);
+        return null;
+      }
+      return injector.signer;
+    } catch (error) {
+      console.error("Error getting signer:", error instanceof Error ? error.message : 'Unknown error');
       return null;
     }
-    return injector.signer;
   }, []);
 
   // Sign raw data function
@@ -196,47 +209,57 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
   // Get formatted accounts with specific SS58 format
   const getFormattedAccounts = useCallback((chainSs58Format: number) => {
     return accounts
-      // Filter out accounts with invalid addresses
-      .filter(account => {
+      // Map and filter in one pass to avoid double getPublicKey calls
+      .map(account => {
         try {
           const publicKey = getPublicKey(account.address);
-          return publicKey && [1, 2, 4, 8, 32, 33].includes(publicKey.length);
+          if (publicKey) {
+            return {
+              ...account,
+              encodedAddress: encodeAddress(publicKey, chainSs58Format),
+            };
+          }
+          return null;
         } catch {
-          return false;
+          return null;
         }
       })
-      .map(account => {
-        const publicKey = getPublicKey(account.address);
-        return {
-          ...account,
-          encodedAddress: encodeAddress(publicKey, chainSs58Format),
-        };
-      });
+      .filter((account): account is NonNullable<typeof account> => account !== null);
   }, [accounts]);
 
   // Get wallet account by address
   const getWalletAccount = useCallback((address: SS58String | Uint8Array, chainSs58Format = 42) => {
     if (!address) return null;
 
-    const decodedAddress: Uint8Array = typeof address === "string" ? decodeAddress(address) : address;
-    const foundAccount = accounts.find(account => {
-      try {
-        const publicKey = getPublicKey(account.address);
-        return publicKey && publicKey.every((byte: number, index: number) => byte === decodedAddress[index]);
-      } catch {
-        return false;
-      }
-    });
+    try {
+      const decodedAddress: Uint8Array = typeof address === "string" ? decodeAddress(address) : address;
+      const foundAccount = accounts.find(account => {
+        try {
+          const publicKey = getPublicKey(account.address);
+          return publicKey && publicKey.every((byte: number, index: number) => byte === decodedAddress[index]);
+        } catch {
+          return false;
+        }
+      });
 
-    if (!foundAccount) {
+      if (!foundAccount) {
+        return null;
+      }
+
+      try {
+        const publicKey = getPublicKey(foundAccount.address);
+        return {
+          ...foundAccount,
+          encodedAddress: encodeAddress(publicKey, chainSs58Format),
+        };
+      } catch {
+        console.warn("Failed to encode address for found account");
+        return null;
+      }
+    } catch {
+      console.warn("Invalid address provided to getWalletAccount");
       return null;
     }
-
-    const publicKey = getPublicKey(foundAccount.address);
-    return {
-      ...foundAccount,
-      encodedAddress: encodeAddress(publicKey, chainSs58Format),
-    };
   }, [accounts]);
 
   // Disconnect all wallets
