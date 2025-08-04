@@ -493,7 +493,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     try {
       unsubscribe = await call.signAndSend(accountStore.address, {
         nonce: nonce,
-        signer: signer as any, // Type assertion needed for compatibility
+        signer: signer,
       }, (result) => {
         console.log("Transaction result:", result);
 
@@ -540,6 +540,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
           if (hasError) {
             if (txHash && !recentNotifsIds.current.includes(txHash)) {
+              // TODO Move below to disposeSubscription callback
               recentNotifsIds.current = [...recentNotifsIds.current, txHash]
               addAlert({
                 key: txHash,
@@ -565,6 +566,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
                 type: "success",
                 message: `${name} completed successfully`,
               })
+              // TODO Pass fetching logic as success callback.
               fetchIdAndJudgement()
               const txStateUpdate: TxStateUpdate = {
                 found: true,
@@ -586,6 +588,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
             let hasError = false;
             let errorInfo: string | null = null;
 
+            // TODO: Similar code above to check for errors, consider for refactoring
             events.forEach(({ event }: any) => {
               if (api && api.events.system.ExtrinsicFailed.is(event)) {
                 hasError = true;
@@ -603,6 +606,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
               }
             });
 
+            // TODO: Similar code above to check for errors, consider for refactoring
             if (hasError) {
               addAlert({
                 key: txHash || 'unknown',

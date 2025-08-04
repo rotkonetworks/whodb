@@ -43,29 +43,6 @@ export type OpenTxDialogArgs = OpenTxDialogArgs_modeSet | { mode: null }
 
 export type IdentityFormRef = { reset: () => void; };
 
-export type MainContentProps = {
-  identity: Identity,
-  challengeStore: { challenges: ChallengeStore, error: string | null, loading: boolean },
-  chainStore: ChainInfo,
-  typedApi: ApiPromise,
-  accountStore: AccountData,
-  chainConstants,
-  addNotification: (alertProps: AlertPropsOptionalKey) => void,
-  formatAmount: FormatAmountFn,
-  supportedFields: string[],
-  identityFormRef: Ref<IdentityFormRef>,
-  urlParams: Record<string, string>,
-  updateUrlParams: (urlParams: UrlParamsArgs) => void,
-  setOpenDialog: (mode: DialogMode) => void,
-  isTxBusy: boolean,
-  accountTreeProps: {
-    tree: AccountTreeNode | null
-    loading: boolean,
-  },
-  openTxDialog: (params: OpenTxDialogArgs) => void,
-  sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>
-}
-
 export type SignSubmitAndWatchParams = {
   call: ApiTx;
   name: string;

@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { BalanceCheck } from "@/components/balance-check"
@@ -15,24 +15,20 @@ import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { NetworkProvider, useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
+import { useNetwork, type Network as AppNetwork } from "@/contexts/network-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
-import { AccountProvider, useWallet } from "@/contexts/wallet-context"
-import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
-import { useFormatAmount } from "@/hooks/useFormatAmount"
 import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
 import { CHAINS } from "@/polkadot-api/chain-config"
-import { AccountData } from "@/store/AccountStore"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
 import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
 import BigNumber from "bignumber.js"
-import { Binary, SS58String } from "polkadot-api"
+import { SS58String } from "polkadot-api"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { getTxFees } from "@/utils/transactions"
 import { fromHexString } from "@/utils/binary"
@@ -513,9 +509,6 @@ export default function RegisterPage() {
 
       // Close the dialog
       closeTxDialog()
-
-
-
     } catch (error: any) {
       console.error("Transaction submission error:", error)
       toast.error(`Failed to submit transaction: ${error.message}`)
