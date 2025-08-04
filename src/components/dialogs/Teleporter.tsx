@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { Network } from "@/contexts/network-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { CHAINS } from "@/polkadot-api/chain-config"
 import { AccountDropdown } from "../ui/account-dropdown"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
@@ -33,6 +34,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
     getWalletAccount,
     fromTypedApi,
   } = polkadotApi
+  const { getSignerForAddress } = usePolkadotWallet()
 
   useEffect(() => {
     if (teleportAmount) {
@@ -81,7 +83,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   const otherChains = [chainStore.relay, ...chainStore.relay.parachains]
     .filter((chain) => chain.id !== toChainId)
 
-  const handleTeleport = React.useCallback(() => {
+  const handleTeleport = React.useCallback(async () => {
     const tokenDecimals = chainStore.tokenDecimals
     const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
     console.log({ amount, newAmount })
@@ -89,11 +91,21 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
       amount: newAmount,
     })
 
+    const fromAccount = getWalletAccount(fromAddress);
+    if (!fromAccount) {
+      throw new Error("From account not found");
+    }
+    
+    const fromSigner = await getSignerForAddress(fromAccount.address);
+    if (!fromSigner) {
+      throw new Error("Signer not available for from account");
+    }
+
     signSubmitAndWatch({
       call: tx,
       name: `Teleport Assets from ${fromChainId} to ${toChainId}`,
       awaitFinalization: true,
-      signer: getWalletAccount(fromAddress).polkadotSigner, // Ensure to use the correct signer
+      signer: fromSigner, // Ensure to use the correct signer
       api: fromTypedApi, // Pass the API for the from chain
     })
   }, [amount, xcmParams, getTeleportCall, chainStore, signSubmitAndWatch, fromChainId, toChainId])

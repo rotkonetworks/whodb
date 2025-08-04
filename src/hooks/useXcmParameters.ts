@@ -1,11 +1,11 @@
 import BigNumber from "bignumber.js";
 import _ from "lodash";
-import { Binary } from "polkadot-api";
+import { SS58String, Binary } from "polkadot-api";
+import { getPublicKey } from "@/utils/wallets-accounts";
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react";
 import { useProxy } from "valtio/utils";
 
 import { CHAINS } from "@/polkadot-api/chain-config";
-import { AccountData } from "@/store/AccountStore";
 import { xcmParameters as _xcmParams } from "@/store/XcmParameters";
 import { Network } from "@/contexts/network-context";
 import { ApiPromise } from "@polkadot/api";
@@ -91,7 +91,7 @@ export function useXcmParameters({
   }: {
     amount: BigNumber;
     fromApi: ApiPromise;
-    toAddress: AccountData['polkadotSigner'];
+    toAddress: SS58String;
     parachainId?: number;
   }) => {
     // TODO Refacror as per PAPI conventions
@@ -117,7 +117,7 @@ export function useXcmParameters({
             value: {
               type: "AccountId32",
               value: {
-                id: Binary.fromBytes(toAddress.publicKey),
+                id: Binary.fromBytes(getPublicKey(toAddress)),
               },
             },
           },

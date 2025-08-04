@@ -1,6 +1,7 @@
 import BigNumber from "bignumber.js";
-import { PolkadotSigner, TypedApi } from "polkadot-api";
+import { TypedApi } from "polkadot-api";
 import { Ref } from "react";
+import { Signer } from "@polkadot/api/types";
 
 import { AccountTreeNode } from "~/hooks/UseAccountsTree";
 import { AlertPropsOptionalKey } from "~/hooks/useAlerts";
@@ -49,7 +50,7 @@ export type SignSubmitAndWatchParams = {
   api?: ApiPromise;
   awaitFinalization?: boolean;
   nonce?: number;
-  signer?: PolkadotSigner;
+  signer?: Signer;
 };
 
 export type FormatAmountOptions = {

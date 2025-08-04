@@ -1,14 +1,13 @@
 import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react"
 import { usePolkadotWallet, type ExtendedAccountData, type SignRawParams } from "../contexts/PolkadotWalletContext"
-import { PolkadotSigner, SS58String } from "polkadot-api"
+import { SS58String } from "polkadot-api"
 
 interface AccountContextType {
   // Properties from AccountData
   name: string | null
   address: SS58String | null
   encodedAddress: SS58String | null
-  polkadotSigner: PolkadotSigner | null
   disabled: boolean
 
   // Connection state
@@ -89,7 +88,6 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     name: selectedAccount?.name || null,
     address: selectedAccount?.address || null,
     encodedAddress: selectedAccount?.encodedAddress || null,
-    polkadotSigner: selectedAccount?.polkadotSigner || null,
     disabled: selectedAccount?.disabled || false,
 
     // Connection state

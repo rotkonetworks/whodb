@@ -89,12 +89,6 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 flex-shrink-0"></div>
                   <span>Ready to sign transactions</span>
                 </div>
-                {account.polkadotSigner && (
-                  <div className="flex items-center text-xs text-gray-300">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 flex-shrink-0"></div>
-                    <span>Signer available</span>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

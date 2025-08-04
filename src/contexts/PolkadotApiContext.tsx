@@ -250,7 +250,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     // ESLint Expects us to add accountStore as a dependency, but it will cause an infinite loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    accountStore.polkadotSigner,
+    accountStore.address,
     urlParams.address,
     getWalletAccount,
     addAlert,
@@ -258,8 +258,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     chainStore.ss58Format
   ]);
 
-  const updateAccount = useCallback(({ name, address, polkadotSigner }: AccountData) => {
-    const account = { name, address, polkadotSigner };
+  const updateAccount = useCallback(({ name, address }: Pick<AccountData, 'name' | 'address'>) => {
+    const account = { name, address };
     console.log({ account });
     Object.assign(accountStore, account);
     updateUrlParams({ ...urlParams, address });
@@ -713,7 +713,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
     // Still, proposed deps remain inmutable, such as AddAlert and getNonce
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [accountStore.polkadotSigner, accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
+  }), [accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
   //#endregion Transactions
 
   const onIdentityClear = useCallback(async () => {
@@ -754,9 +754,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       amount,
       fromApi: fromTypedApi,
       parachainId,
-      toAddress: accountStore.polkadotSigner,
+      toAddress: accountStore.address,
     })
-  }, [_getTeleportCall, fromTypedApi, parachainId, accountStore.polkadotSigner])
+  }, [_getTeleportCall, fromTypedApi, parachainId, accountStore.address])
 
   useEffect(() => {
     if (typedApi) {
@@ -802,6 +802,12 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         if (!fromAccount) {
           throw new Error("From account not found");
         }
+        
+        const fromSigner = await getSignerForAddress(fromAccount.address);
+        if (!fromSigner) {
+          throw new Error("Signer not available for from account");
+        }
+        
         const teleportCall = getTeleportCall({
           amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
         });
@@ -811,7 +817,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
         await signSubmitAndWatch({
           nonce: await getNonce(fromTypedApi, xcmParams.fromAddress),
-          signer: fromAccount.polkadotSigner,
+          signer: fromSigner,
           awaitFinalization: true,
           call: teleportCall,
           name: "Teleport Assets"
