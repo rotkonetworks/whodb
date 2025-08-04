@@ -10,6 +10,7 @@ import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet
 import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
+import { CopyButton } from "./ui/copy-button";
 
 interface BalanceCheckProps {
   onSufficientBalance: () => void
@@ -119,6 +120,7 @@ export function BalanceCheck({
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
                 {address ? `${address.substring(0, 10)}...${address.substring(address.length - 10)}` : null}
+                <CopyButton text={accountStore.encodedAddress} />
               </span>
             </div>
 
