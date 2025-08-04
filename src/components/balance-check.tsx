@@ -125,7 +125,7 @@ export function BalanceCheck({
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Network:</span>
               <span className="text-gray-300 text-sm font-mono">
-                {chainStore.relay.name}
+                {chainStore.relay?.name}
               </span>
             </div>
           </div>
