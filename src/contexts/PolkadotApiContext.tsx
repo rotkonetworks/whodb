@@ -439,6 +439,18 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     if (!api) {
       api = typedApi
     }
+    // Validate API availability
+    if (!api) {
+      const error = new Error("No API connection available")
+      reject(error)
+      addAlert({
+        type: "error",
+        message: "Connection to blockchain network is not available. Please try again.",
+      })
+      return
+    }
+
+    // Prevent concurrent transactions
     if (isTxBusy) {
       reject(new Error("Transaction already in progress"))
       addAlert({
