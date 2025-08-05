@@ -477,6 +477,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     recentNotifsIds.current = [...recentNotifsIds.current, txHash]
       .slice(-10); // Keep only the last 10 hashes
     let unsubscribe: (() => void) | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     const disposeSubscription = (callback: () => void) => {
       if (!callback || typeof callback !== 'function') {
@@ -488,6 +489,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       }
       if (unsubscribe) {
         unsubscribe();
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
       callback?.()
     }
@@ -557,6 +561,15 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
 
     try {
+      // Set a timeout to prevent hanging transactions (5 minutes)
+      timeoutId = setTimeout(() => {
+        dispatchFail(
+          new Error("Transaction timeout"), 
+          `${name} transaction timed out. The transaction may still be processing on the blockchain.`
+        );
+      }, 5 * 60 * 1000);
+      // TODO Set Transaction mortality so it's invalid if not signed in time
+
       unsubscribe = await call.signAndSend(accountStore.address, {
         nonce: nonce,
         signer: signer,
