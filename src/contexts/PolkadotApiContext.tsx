@@ -432,7 +432,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     reject: (err: Error) => void
   ) => {
     const { call, name } = params;
-    let api = params.api;
+    let api = params.api || null;
 
     console.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
 
@@ -473,7 +473,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       return;
     }
 
-    let txHash: string | null = null;
+    let txHash = call.hash.toHex();
+    recentNotifsIds.current = [...recentNotifsIds.current, txHash]
+      .slice(-10); // Keep only the last 10 hashes
     let unsubscribe: (() => void) | null = null;
 
     const disposeSubscription = (callback: () => void) => {
@@ -489,6 +491,70 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       }
       callback?.()
     }
+    const dispatchFail = (error: Error, alertMessage: string) => {
+      disposeSubscription(() => {
+        recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
+        addAlert({
+          key: txHash,
+          type: "error",
+          message: alertMessage,
+        })
+        reject(error)
+      })
+    }
+    const dispatchSuccess = (message: string) => {
+      disposeSubscription(() => {
+        recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
+        addAlert({
+          key: txHash,
+          type: "success",
+          message,
+        })
+        resolve({
+          txHash,
+          found: true,
+          ok: true,
+          isValid: true,
+          type: "txBestBlocksState",
+        })
+      })
+    }
+    const alertLoading = (message: string) => {
+      addAlert({
+        key: txHash,
+        type: "loading",
+        message,
+        closable: false,
+      })
+    }
+
+    const checkTxFail = (result: any) => {
+      // Check for system events to determine success/failure
+      const { events } = result;
+      let hasError = false;
+      let errorInfo: string | null = null;
+
+      // Look for system.ExtrinsicFailed or system.ExtrinsicSuccess
+      events.some(({ event }: any) => {
+        if (api && api.events.system.ExtrinsicFailed.is(event)) {
+          hasError = true;
+          const [dispatchError] = event.data;
+          try {
+            if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
+              const decoded = api.registry.findMetaError((dispatchError as any).asModule);
+              errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+            } else {
+              errorInfo = dispatchError?.toString() || 'Unknown error';
+            }
+          } catch (e) {
+            errorInfo = 'Error parsing transaction failure details';
+          }
+        }
+        return hasError; // Stop if we found an error
+      });
+
+      return errorInfo
+    }
 
     try {
       unsubscribe = await call.signAndSend(accountStore.address, {
@@ -497,180 +563,61 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       }, (result) => {
         console.log("Transaction result:", result);
 
-        // Get transaction hash
-        if (!txHash && result.txHash) {
-          txHash = result.txHash.toHex();
-        }
-
         // Handle different transaction states
         if (result.status.isBroadcast) {
-          console.log("Transaction broadcasted");
-          addAlert({
-            key: txHash || 'unknown',
-            type: "loading",
-            closable: false,
-            message: `${name} transaction broadcasted`,
-          })
+          console.log(`Transaction ${txHash} broadcasted`);
+          alertLoading(`${name} transaction sent...`);
         }
+
         else if (result.status.isInBlock) {
-          console.log("Transaction included in block");
+          console.log(`Transaction ${txHash} included in block`);
 
-          // Check for system events to determine success/failure
-          const { events } = result;
-          let hasError = false;
-          let errorInfo: string | null = null;
-
-          // Look for system.ExtrinsicFailed or system.ExtrinsicSuccess
-          events.forEach(({ event }: any) => {
-            if (api && api.events.system.ExtrinsicFailed.is(event)) {
-              hasError = true;
-              const [dispatchError] = event.data;
-              try {
-                if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError((dispatchError as any).asModule);
-                  errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                } else {
-                  errorInfo = dispatchError?.toString() || 'Unknown error';
-                }
-              } catch (e) {
-                errorInfo = 'Error parsing transaction failure details';
-              }
-            }
-          });
-
-          if (hasError) {
-            if (txHash && !recentNotifsIds.current.includes(txHash)) {
-              // TODO Move below to disposeSubscription callback
-              recentNotifsIds.current = [...recentNotifsIds.current, txHash]
-              addAlert({
-                key: txHash,
-                type: "error",
-                message: errorInfo || `${name} failed: transaction error`,
-                seeDetails: errorInfo ? () => setErrorDetails(new Error(errorInfo || 'Unknown error')) : undefined,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => reject(new Error(errorInfo || "Transaction failed")))
-            }
+          const errorInfo = checkTxFail(result)
+          if (errorInfo) {
+            return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
           } else {
             // Transaction succeeded
             if (params.awaitFinalization) {
-              addAlert({
-                key: txHash || 'unknown',
-                type: "loading",
-                message: `Waiting for ${name.toLowerCase()} to finalize...`,
-                closable: false,
-              })
+              console.log(`Transaction ${txHash} is waiting for finalization`);
+              alertLoading(`Waiting for ${name.toLowerCase()} to finalize...`);
             } else {
-              addAlert({
-                key: txHash || 'unknown',
-                type: "success",
-                message: `${name} completed successfully`,
-              })
-              // TODO Pass fetching logic as success callback.
-              fetchIdAndJudgement()
-              const txStateUpdate: TxStateUpdate = {
-                found: true,
-                ok: true,
-                isValid: true,
-                type: "txBestBlocksState",
-                txHash: (txHash || 'unknown') as HexString,
-              };
-              disposeSubscription(() => resolve(txStateUpdate))
+              console.log(`Transaction ${txHash} completed successfully`);
+              return dispatchSuccess(`${name} completed successfully`);
             }
           }
         }
+
         else if (result.status.isFinalized) {
-          console.log("Transaction finalized");
+          console.log(`Transaction ${txHash} finalized`);
 
           if (params.awaitFinalization) {
-            // Check events again for finalized status
-            const { events } = result;
-            let hasError = false;
-            let errorInfo: string | null = null;
-
-            // TODO: Similar code above to check for errors, consider for refactoring
-            events.forEach(({ event }: any) => {
-              if (api && api.events.system.ExtrinsicFailed.is(event)) {
-                hasError = true;
-                const [dispatchError] = event.data;
-                try {
-                  if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
-                    const decoded = api.registry.findMetaError((dispatchError as any).asModule);
-                    errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                  } else {
-                    errorInfo = dispatchError?.toString() || 'Unknown error';
-                  }
-                } catch (e) {
-                  errorInfo = 'Error parsing transaction failure details';
-                }
-              }
-            });
-
-            // TODO: Similar code above to check for errors, consider for refactoring
-            if (hasError) {
-              addAlert({
-                key: txHash || 'unknown',
-                type: "error",
-                message: errorInfo || `${name} failed`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => reject(new Error(errorInfo || "Transaction failed")))
+            const errorInfo = checkTxFail(result)
+            if (errorInfo) {
+              return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
             } else {
-              addAlert({
-                key: txHash || 'unknown',
-                type: "success",
-                message: `${name} completed successfully`,
-              })
-              fetchIdAndJudgement()
-              const txStateUpdate: TxStateUpdate = {
-                found: true,
-                ok: true,
-                isValid: true,
-                type: "finalized",
-                txHash: (txHash || 'unknown') as HexString,
-              };
-              disposeSubscription(() => resolve(txStateUpdate))
+              return dispatchSuccess(`${name} completed successfully`);
             }
           }
         }
+        
         else if (result.status.isInvalid) {
-          console.log("Transaction invalid");
-          if (txHash && !recentNotifsIds.current.includes(txHash)) {
-            recentNotifsIds.current = [...recentNotifsIds.current, txHash]
-            addAlert({
-              key: txHash,
-              type: "error",
-              message: `${name} failed: invalid transaction`,
-            })
-            fetchIdAndJudgement()
-            disposeSubscription(() => reject(new Error("Invalid transaction")))
-          }
+          console.log(`Transaction ${txHash} invalid`);
+          return dispatchFail(new Error("Transaction is invalid"), `${name} transaction is invalid. Please try again.`);
         }
         else if (result.status.isDropped || result.status.isUsurped) {
-          console.log("Transaction dropped or usurped");
-          addAlert({
-            key: txHash || 'unknown',
-            type: "error",
-            message: `${name} transaction was dropped or replaced`,
-          })
-          disposeSubscription(() => reject(new Error("Transaction dropped")))
+          console.log(`Transaction ${txHash} dropped or usurped`);
+          return dispatchFail(new Error("Transaction dropped or usurped"), `${name} transaction was dropped or replaced. Please try again.`);
         }
       });
     } catch (error: any) {
-      console.error("Transaction signing/sending error:", error);
+      console.error(`Transaction ${txHash} signing/sending error:`, error);
 
       if (error.message === "Cancelled") {
-        console.log("Transaction cancelled");
-        addAlert({
-          type: "error",
-          message: `${name} transaction didn't get signed. Please sign it and try again`,
-        })
-        disposeSubscription(() => reject(new Error(`Transaction cancelled: ${error.message}`)))
-        return
+        return dispatchFail(error, `${name} transaction cancelled by user`);
       }
 
       // Handle other errors
-      if (txHash && !recentNotifsIds.current.includes(txHash)) {
+      if (recentNotifsIds.current.includes(txHash)) {
         if (error instanceof InvalidTxError || error.invalid) {
           try {
             const errorDetails: {
@@ -686,29 +633,16 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
             const { type: pallet, value: { type: errorType } } = errorDetails;
 
-            console.log({ errorDetails });
-            addAlert({
-              type: "error",
-              message: (errorMessages as any)[pallet]?.[errorType] ?? (errorMessages as any)[pallet]?.default
-                ?? `Error with ${name}: Please try again`,
-              seeDetails: () => setErrorDetails(error),
-            })
+            const _errorMessage = (errorMessages as any)[pallet]?.[errorType] ?? (errorMessages as any)[pallet]?.default
+              ?? `Error with ${name}: Please try again`;
+            return dispatchFail(error, `${name} failed: ${_errorMessage}`);
           } catch (parseError) {
-            addAlert({
-              type: "error",
-              message: `Error with ${name}: ${error.message || "Please try again"}`,
-              seeDetails: () => setErrorDetails(error),
-            })
+            console.error("Error parsing error message:", parseError);
+            return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
           }
-          disposeSubscription(() => reject(error))
-          return
         }
 
-        addAlert({
-          type: "error",
-          message: `Error with ${name}: ${error.message || "Please try again"}`,
-        })
-        disposeSubscription(() => reject(error))
+        return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
       }
     }
     // Still, proposed deps remain inmutable, such as AddAlert and getNonce
