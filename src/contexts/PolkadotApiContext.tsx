@@ -547,11 +547,21 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
             if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
               const decoded = api.registry.findMetaError((dispatchError as any).asModule);
               errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+              // Enhanced logging for debugging
+              console.error(`Module error in ${name}:`, {
+                section: decoded.section,
+                name: decoded.name,
+                docs: decoded.docs,
+                dispatchError,
+                txHash
+              });
             } else {
               errorInfo = dispatchError?.toString() || 'Unknown error';
+              console.error(`Non-module error in ${name}:`, { dispatchError, txHash });
             }
           } catch (e) {
             errorInfo = 'Error parsing transaction failure details';
+            console.error(`Error parsing failure details for ${name}:`, { e, dispatchError, txHash });
           }
         }
         return hasError; // Stop if we found an error
@@ -612,7 +622,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
             }
           }
         }
-        
+
         else if (result.status.isInvalid) {
           console.log(`Transaction ${txHash} invalid`);
           return dispatchFail(new Error("Transaction is invalid"), `${name} transaction is invalid. Please try again.`);
