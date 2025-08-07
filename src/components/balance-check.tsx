@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
 import { CopyButton } from "./ui/copy-button";
+import { CHAINS } from "@/polkadot-api/chain-config";
 
 interface BalanceCheckProps {
   onSufficientBalance: () => void
@@ -79,18 +80,7 @@ export function BalanceCheck({
     onSufficientBalance()
   }
 
-  const getNetworkToken = () => {
-    switch (network) {
-      case "paseo":
-        return "PAS"
-      case "polkadot":
-        return "DOT"
-      case "kusama":
-        return "KSM"
-      default:
-        return "TOKEN"
-    }
-  }
+  const networkSymbol = CHAINS[network]?.symbol
 
   const amountNeededForChipIn = requiredBalanceFloat - balanceFloat > 0 ? requiredBalanceFloat - balanceFloat : 0
 
@@ -240,7 +230,7 @@ export function BalanceCheck({
                     </div>
                     <div className="p-4 bg-gray-700/30 rounded-md">
                       <p className="text-gray-300 text-sm mb-2">
-                        You need at least {requiredBalance.toFixed(2)} {getNetworkToken()} to register your identity on{" "}
+                        You need at least {requiredBalance.toFixed(2)} {networkSymbol} to register your identity on{" "}
                         {networkDisplayName}.
                       </p>
                       <p className="text-gray-400 text-xs">
@@ -292,7 +282,7 @@ export function BalanceCheck({
           currentUserAddress={walletAddress}
           networkDisplayName={networkDisplayName}
           requiredAmount={amountNeededForChipIn}
-          tokenSymbol={getNetworkToken()}
+          tokenSymbol={networkSymbol}
         />
       )}
 
