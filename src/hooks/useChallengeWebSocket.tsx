@@ -4,6 +4,7 @@ import { useEffect, useCallback, useState, useRef } from 'react';
 
 import { ChallengeStatus, ChallengeStore } from '@/store/challengesStore';
 import { IdentityInfo, verifyStatuses } from '@/types/Identity';
+import { toHexString } from '@/utils/binary';
 
 interface VerificationState {
   fields: Record<string, boolean>;
@@ -90,6 +91,20 @@ export interface UseIdentityWebSocketProps {
   network?: string;
 }
 
+interface SearchRecord {
+  wallet_id: string;
+  discord?: string;
+  display?: string;
+  email?: string;
+  matrix?: string;
+  twitter?: string;
+  github?: string;
+  legal?: string;
+  web?: string;
+  pgp_fingerprint?: string;
+}
+export type SearchResult = Array<SearchRecord>;
+
 export interface UseIdentityWebSocketReturn {
   isConnected: boolean;
   error: string | null;
@@ -99,6 +114,7 @@ export interface UseIdentityWebSocketReturn {
   connect: () => void;
   disconnect: () => void;
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
+  search: (query: string, limit?: number, options?: { supportedFields?: string[] }) => Promise<SearchResult>;
 }
 
 export interface UseChallengeWebSocketWrapperReturn extends UseIdentityWebSocketReturn {
@@ -203,6 +219,7 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
     connect: challengeWebSocket.connect,
     disconnect: challengeWebSocket.disconnect,
     sendPGPVerification: challengeWebSocket.sendPGPVerification,
+    search: challengeWebSocket.search,
   }
 }
 
@@ -220,7 +237,8 @@ const useChallengeWebSocketBase = (
   const wsUrl = url || import.meta.env.VITE_APP_CHALLENGES_API_URL as string;
 
   // Only connect if we have required parameters
-  const canConnect = Boolean(wsUrl && account && network);
+  const canConnect = Boolean(wsUrl);
+  const canSubscribe = canConnect && Boolean(account && network);
 
   // Track if we've already subscribed for this connection
   const hasSubscribed = useRef(false);
@@ -276,6 +294,87 @@ const useChallengeWebSocketBase = (
       ws.current.send(JSON.stringify(versionedMessage));
     });
   }, []);
+
+  const SEARCH_2_SUPPORTED_FIELDS = {
+    discord: 'Discord',
+    display: 'Display',
+    email: 'Email',
+    matrix: 'Matrix',
+    twitter: 'Twitter',
+    github: 'Github',
+    legal: 'Legal',
+    web: 'Web',
+    //pgp_fingerprint: 'PGPFingerprint',
+  }
+  const search = async (query: string, limit: number = 5, {
+    v2Request = false,
+    supportedFields = [
+      'discord',
+      'display',
+      'email',
+      'matrix',
+      'twitter',
+      'github',
+      'legal',
+      'web',
+      'pgp_fingerprint',
+    ]
+  }): Promise<any[]> => {
+    return new Promise(async (resolve, reject) => {
+      const searchOutputs = supportedFields
+        .map(field => SEARCH_2_SUPPORTED_FIELDS[field])
+        .filter(field => field !== undefined)
+      ;
+  
+      if (!canConnect) {
+        throw new Error('WebSocket is not connected');
+      }
+      //await connect();
+      const searchFields = searchOutputs.map(field => {
+        const _query = field === 'PGPFingerprint' ? toHexString(query) : query.trim().toLowerCase();
+        return ({
+          field: { [field]: _query },
+          strict: false
+        });
+      });
+      // Search across all fields for autocomplete
+      const searchParams = {
+        network: null, // Search all networks
+        // TODO Filter by supportedFields
+        outputs: searchOutputs,
+        filters: v2Request 
+          ? {
+              fields: searchFields,
+              result_size: limit,
+            }
+          : searchFields
+      }
+
+      const message = {
+        type: "SearchRegistration",
+        payload: searchParams
+      }
+
+      console.log('Sending search query:', message)
+      try {
+        return await sendMessage(message)
+          .then((response) => {
+            resolve(response);
+          })
+        ;
+      } catch (error) {
+        console.error('Search failed:', error);
+        const isParseError = error instanceof Error && error.message.startsWith('Failed to parse message');
+        if (!v2Request && isParseError) {
+          return search(query, limit, {
+            v2Request: true,
+            supportedFields
+          });
+        }
+        reject(error);
+      }
+    })
+  }
 
   const sendPGPVerification = useCallback((payload: VerifyPGPKey): Promise<void> => {
     return sendMessage({
@@ -558,6 +657,7 @@ const useChallengeWebSocketBase = (
     error,
     challengeState,
     sendPGPVerification,
+    search,
   };
 };
 

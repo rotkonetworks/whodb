@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { Search, User, Circle } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { SearchResult, useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
 
 // Mock profiles from all networks - in production this would query all databases
 const mockProfiles = [
@@ -55,6 +56,9 @@ export default function SearchForm() {
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
+  const url = new URL(import.meta.env.VITE_APP_CHALLENGES_API_URL).toString()
+  const { search } = useChallengeWebSocket(url)
+
   useEffect(() => {
     if (urlParams.q) {
       setQuery(urlParams.q)
@@ -62,22 +66,32 @@ export default function SearchForm() {
   }, [urlParams])
 
   useEffect(() => {
-    if (query.length >= 3) {
-      // Search across all networks seamlessly
-      const filtered = mockProfiles.filter(
-        (profile) =>
-          profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          profile.email.toLowerCase().includes(query.toLowerCase()) ||
-          profile.walletAddress.toLowerCase().includes(query.toLowerCase()),
-      )
-      setSuggestions(filtered.slice(0, 5))
+    (async () => {
+      if (query.length >= 3) {
+        // Search across all networks seamlessly
+        const filtered = (await search(query, 5, {
+          //supportedFields: ["displayName", "nickname", "walletAddress", "email"]
+        }))
+          .map((profile) => ({
+            id: profile.wallet_id,
+            wallet_id: profile.wallet_id,
+            discord: profile.discord,
+            display: profile.display,
+            email: profile.email,
+            matrix: profile.matrix,
+            twitter: profile.twitter,
+            github: profile.github,
+            legal: profile.legal,
+            web: profile.web,
+            pgp_fingerprint: profile.pgp_fingerprint,
+          }))
+      setSuggestions(filtered)
       setShowSuggestions(true)
       setSelectedIndex(-1)
     } else {
       setSuggestions([])
       setShowSuggestions(false)
-    }
+    }})()
   }, [query])
 
   const handleSubmit = (e: React.FormEvent) => {
