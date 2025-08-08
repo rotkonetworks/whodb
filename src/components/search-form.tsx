@@ -3,47 +3,9 @@ import { useState, useEffect, useRef } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { Search, User, Circle } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { SearchResult, useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
+import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
 
 // Mock profiles from all networks - in production this would query all databases
-const mockProfiles = [
-  {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    avatar: "/professional-woman-avatar.png",
-    network: "paseo",
-  },
-  {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    avatar: "/professional-man-avatar.png",
-    network: "polkadot",
-  },
-  {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    avatar: "/woman-developer-avatar.png",
-    network: "kusama",
-  },
-  {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    avatar: "/asian-man-developer-avatar.png",
-    network: "paseo",
-  },
-]
 
 export default function SearchForm() {
   const navigate = useNavigate()
