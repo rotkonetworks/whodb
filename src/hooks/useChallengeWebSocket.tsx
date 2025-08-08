@@ -146,9 +146,9 @@ const keyMapping: Record<string, string> = {// WWorkaround for old API
 
 const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   url: string;
-  address: SS58String;
-  network: string;
-  identity: { info: IdentityInfo, status: verifyStatuses };
+  address?: SS58String;
+  network?: string;
+  identity?: { info: IdentityInfo, status: verifyStatuses };
 }) => {
   const cleanNetwork = network?.toLowerCase().split("_")[0].toLowerCase();
 
