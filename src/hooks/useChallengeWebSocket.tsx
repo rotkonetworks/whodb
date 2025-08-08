@@ -92,9 +92,10 @@ export interface UseIdentityWebSocketProps {
 }
 
 interface SearchRecord {
-  wallet_id: string;
+  wallet_id?: string;
+  network?: string;
   discord?: string;
-  display?: string;
+  display_name?: string;
   email?: string;
   matrix?: string;
   twitter?: string;
@@ -102,6 +103,21 @@ interface SearchRecord {
   legal?: string;
   web?: string;
   pgp_fingerprint?: string;
+  timeline?: {
+    event: 'created' 
+      | 'verified' 
+      | 'discord' 
+      | 'display' 
+      | 'email' 
+      | 'matrix' 
+      | 'twitter' 
+      | 'github' 
+      | 'legal' 
+      | 'web' 
+      | 'pgp_fingerprint'
+    ;
+    date: Date;
+  }[];
 }
 export type SearchResult = Array<SearchRecord>;
 
@@ -114,7 +130,10 @@ export interface UseIdentityWebSocketReturn {
   connect: () => void;
   disconnect: () => void;
   sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
-  search: (query: string, limit?: number, options?: { supportedFields?: string[] }) => Promise<SearchResult>;
+  search: (query: string, limit?: number, options?: {
+    supportedFields?: string[]
+    v2Request?: boolean;
+  }) => Promise<SearchResult>;
 }
 
 export interface UseChallengeWebSocketWrapperReturn extends UseIdentityWebSocketReturn {

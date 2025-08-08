@@ -19,7 +19,7 @@ export default function SearchForm() {
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
   const url = new URL(import.meta.env.VITE_APP_CHALLENGES_API_URL).toString()
-  const { search } = useChallengeWebSocket(url)
+  const { search } = useChallengeWebSocket({ url })
 
   useEffect(() => {
     if (urlParams.q) {
@@ -31,14 +31,12 @@ export default function SearchForm() {
     (async () => {
       if (query.length >= 3) {
         // Search across all networks seamlessly
-        const filtered = (await search(query, 5, {
-          //supportedFields: ["displayName", "nickname", "walletAddress", "email"]
-        }))
-          .map((profile) => ({
-            id: profile.wallet_id,
+        const filtered = (await search(query, 5))
+          .map((profile, index) => ({
+            id: index,
             wallet_id: profile.wallet_id,
             discord: profile.discord,
-            display: profile.display,
+            displayName: profile.display_name,
             email: profile.email,
             matrix: profile.matrix,
             twitter: profile.twitter,
@@ -46,6 +44,9 @@ export default function SearchForm() {
             legal: profile.legal,
             web: profile.web,
             pgp_fingerprint: profile.pgp_fingerprint,
+            walletAddress: profile.wallet_id,
+            avatar: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
+            network: profile.network,
           }))
       setSuggestions(filtered)
       setShowSuggestions(true)
