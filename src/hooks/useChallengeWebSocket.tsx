@@ -286,7 +286,37 @@ const useChallengeWebSocketBase = (
     pendingRequests.current.clear();
   }, []);
 
-  const sendMessage = useCallback((message: WebSocketMessage): Promise<void> => {
+
+  /**
+   * Sends a versioned message over the active WebSocket connection and returns a promise
+   * that will later be resolved or rejected by the external message handler.
+   *
+   * This function only dispatches the outbound message; it does not handle or interpret
+   * incoming responses. Resolution and rejection of the returned promise are performed
+   * by `handleMessage`, which must correlate the incoming response with the internally
+   * generated request identifier and settle the associated pending request.
+   *
+   * Behavior:
+   * - Adds `version: '1.0'` to the outgoing payload.
+   * - Generates an internal request identifier and registers the promise's resolve/reject
+   *   callbacks in a pending-requests registry.
+   * - Starts a 30s timeout that rejects the promise with a "Request timeout" error if
+   *   no matching response is handled in time.
+   * - Sets a loading state while the request is in flight.
+   *
+   * Requirements:
+   * - The WebSocket connection must be open (`WebSocket.OPEN`) or the promise is rejected immediately.
+   * - The message handler (e.g., `handleMessage`) must correlate responses to the generated
+   *   request identifier and settle the stored promise accordingly.
+   *
+   * @param message Outbound WebSocket payload to send.
+   * @returns A promise that resolves with the corresponding `WebSocketResponse` when the
+   *          external handler settles it, or rejects on connection errors or timeout.
+   * @throws Error If the WebSocket is not connected (promise is rejected immediately).
+   * @throws Error If no response is correlated within 30 seconds (promise is rejected with "Request timeout").
+   * @see handleMessage
+   */
+  const sendMessage = useCallback((message: WebSocketResponse): Promise<WebSocketResponse> => {
     setLoading(true);
     return new Promise((resolve, reject) => {
       if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
@@ -433,8 +463,36 @@ const useChallengeWebSocketBase = (
     }
   }, [account, network]);
 
-  type ChallengeMessageType = WebSocketMessage | AccountStateMessage;
+  type ChallengeMessageType = WebSocketResponse | AccountStateMessage;
 
+  /**
+   * Handles incoming WebSocket messages for the challenge workflow and resolves
+   * pending requests initiated via sendMessage.
+   *
+   * This callback is the central response handler for all messages sent by sendMessage:
+   * it parses the incoming JSON payload, updates local loading/error state, normalizes
+   * and applies account state updates, and fulfills any awaiting sendMessage promises.
+   *
+   * Behavior:
+   * - Attempts to parse the event data as a ChallengeMessageType.
+   * - On a "JsonResult" with an "ok" payload:
+   *   - If the message is a string (e.g., "PGP verification is done"), it is acknowledged.
+   *   - If the message is an object, extracts AccountState from the payload, normalizes
+   *     pending_challenges by mapping and key transformation, and updates the challenge state.
+   *   - Clears loading and error states accordingly.
+   * - On a non-"ok" payload or an "error" message, sets the error state and clears loading.
+   * - Regardless of message content, resolves and cleans up all entries in pendingRequests
+   *   (clears associated timeouts and resolves the stored Promise with the received message),
+   *   thereby delivering the response back to the original sendMessage caller.
+   * - If JSON parsing fails, records a parsing error and clears loading.
+   *
+   * Note:
+   * - This function does not throw; errors are captured into state via setError.
+   * - Key normalization in pending_challenges uses keyMapping to convert known keys.
+   *
+   * @param event - Message event carrying a JSON-encoded ChallengeMessageType from the WebSocket.
+   * @see sendMessage
+   */
   const handleMessage = useCallback((event: MessageEvent<ChallengeMessageType>) => {
     try {
       const message = JSON.parse(event.data as never) as ChallengeMessageType;
