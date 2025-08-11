@@ -405,14 +405,16 @@ const useChallengeWebSocketBase = (
         payload: searchParams
       }
 
-      const handleResponse = async (response: Promise<WebSocketResponse>) => {
+      const handleResponse = async (response: Promise<WebSocketResponse>, shouldReject: boolean = true) => {
         try {
           const _response: SearchRecord[] | ErrorResponse = await response;
           if ((_response as ErrorResponse).type === 'error') {
             const errorResponse: ErrorResponse = _response as ErrorResponse;
             console.error('Search error:', errorResponse.message);
             const error = new Error(errorResponse.message);
-            reject(error);
+            if (shouldReject) {
+              reject(error);
+            }
             throw error;
           }
           if (Array.isArray(_response)) {
@@ -421,19 +423,21 @@ const useChallengeWebSocketBase = (
           }
         } catch (error) {
           console.error('Error handling search response:', error);
-          reject(error);
+          if (shouldReject) {
+            reject(error);
+          }
           throw error;
         }
       }
 
       console.log('Sending search query:', message)
       try {
-        return handleResponse(sendMessage(message))
+        return await handleResponse(sendMessage(message))
       } catch (error) {
         console.error('Search failed:', error);
         const isParseError = error instanceof Error && error.message.startsWith('Failed to parse message');
         if (!v2Request && isParseError) {
-          return handleResponse(search(query, limit, {
+          return await handleResponse(search(query, limit, {
             v2Request: true,
             supportedFields
           }));
