@@ -8,25 +8,18 @@ import { IdentityInfo, verifyStatuses } from '@/types/Identity';
 import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/useChallengeWebSocket';
 
 type ChallengeType = keyof Omit<ChallengeStore, "display">
-type pgpSigningInfo = {
-  pubkey: string
-  signed_challenge: string
-  network: string
-  account: string
-}
 type ExtraConfirmationData = {
   "email": never
   "matrix": never
   "twitter": never
   "website": never
   "github": never
-  "pgp_fingerprint": pgpSigningInfo
+  "pgp_fingerprint": VerifyPGPKeyMessage
   "discord": never
   "image": never
   "legal": never
   "web": never
 }
-
 
 export interface FieldVerification {
   field: ChallengeType
