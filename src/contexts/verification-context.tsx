@@ -95,10 +95,10 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
 
   // Initialize WebSocket hook with optional parameters
   const challengeWebSocket = useChallengeWebSocket({
+    url: import.meta.env.VITE_APP_CHALLENGES_API_URL,
     address: wsParams.address,
     network: wsParams.network,
     identity: wsParams.identity,
-    // URL will be automatically set from VITE_APP_CHALLENGES_API_URL
   })
 
   // Update local challenges state when WebSocket provides new data
