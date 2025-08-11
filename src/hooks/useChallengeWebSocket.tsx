@@ -246,6 +246,17 @@ const useChallengeWebSocketWrapper = ({ url, address, network, identity }: {
   }
 }
 
+const SEARCH_2_SUPPORTED_FIELDS = {
+  discord: 'Discord',
+  display: 'Display',
+  email: 'Email',
+  matrix: 'Matrix',
+  twitter: 'Twitter',
+  github: 'Github',
+  legal: 'Legal',
+  web: 'Web',
+  //pgp_fingerprint: 'PGPFingerprint',
+}
 // Generic WebSocket hook with challenge verification support
 const useChallengeWebSocketBase = (
   { url, account, network }: UseIdentityWebSocketProps
@@ -348,39 +359,25 @@ const useChallengeWebSocketBase = (
     });
   }, []);
 
-  const SEARCH_2_SUPPORTED_FIELDS = {
-    discord: 'Discord',
-    display: 'Display',
-    email: 'Email',
-    matrix: 'Matrix',
-    twitter: 'Twitter',
-    github: 'Github',
-    legal: 'Legal',
-    web: 'Web',
-    //pgp_fingerprint: 'PGPFingerprint',
-  }
-  const search = async (query: string, limit: number = 5, {
-    v2Request = false,
-    supportedFields = [
-      'discord',
-      'display',
-      'email',
-      'matrix',
-      'twitter',
-      'github',
-      'legal',
-      'web',
-      'pgp_fingerprint',
-    ]
-  }): Promise<any[]> => {
+  const search = (
+    query: string,
+    limit: number = 5,
+    options: {
+      v2Request?: boolean;
+      supportedFields?: string[];
+    }
+  ): Promise<any[]> => {
     return new Promise(async (resolve, reject) => {
+      const v2Request = options?.v2Request ?? false;
+      const supportedFields = options?.supportedFields ?? Object.keys(SEARCH_2_SUPPORTED_FIELDS);
+
       const searchOutputs = supportedFields
         .map(field => SEARCH_2_SUPPORTED_FIELDS[field])
         .filter(field => field !== undefined)
-      ;
-  
+        ;
+
       if (!canConnect) {
-        throw new Error('WebSocket is not connected');
+        return reject(new Error('WebSocket is not connected'));
       }
       //await connect();
       const searchFields = searchOutputs.map(field => {
@@ -395,11 +392,11 @@ const useChallengeWebSocketBase = (
         network: null, // Search all networks
         // TODO Filter by supportedFields
         outputs: searchOutputs,
-        filters: v2Request 
+        filters: v2Request
           ? {
-              fields: searchFields,
-              result_size: limit,
-            }
+            fields: searchFields,
+            result_size: limit,
+          }
           : searchFields
       }
 
@@ -408,21 +405,38 @@ const useChallengeWebSocketBase = (
         payload: searchParams
       }
 
+      const handleResponse = async (response: Promise<WebSocketResponse>) => {
+        try {
+          const _response: SearchRecord[] | ErrorResponse = await response;
+          if ((_response as ErrorResponse).type === 'error') {
+            const errorResponse: ErrorResponse = _response as ErrorResponse;
+            console.error('Search error:', errorResponse.message);
+            const error = new Error(errorResponse.message);
+            reject(error);
+            throw error;
+          }
+          if (Array.isArray(_response)) {
+            resolve(_response);
+            return _response;
+          }
+        } catch (error) {
+          console.error('Error handling search response:', error);
+          reject(error);
+          throw error;
+        }
+      }
+
       console.log('Sending search query:', message)
       try {
-        return await sendMessage(message)
-          .then((response) => {
-            resolve(response);
-          })
-        ;
+        return handleResponse(sendMessage(message))
       } catch (error) {
         console.error('Search failed:', error);
         const isParseError = error instanceof Error && error.message.startsWith('Failed to parse message');
         if (!v2Request && isParseError) {
-          return search(query, limit, {
+          return handleResponse(search(query, limit, {
             v2Request: true,
             supportedFields
-          });
+          }));
         }
         reject(error);
       }
@@ -648,9 +662,9 @@ const useChallengeWebSocketBase = (
           const message = {
             version: '1.0',
             type: 'SubscribeAccountState' as const,
-            payload: { 
+            payload: {
               account: account,
-              network: cleanNetwork 
+              network: cleanNetwork
             },
           };
 

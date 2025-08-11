@@ -30,8 +30,10 @@ export default function SearchForm() {
   useEffect(() => {
     (async () => {
       if (query.length >= 3) {
+        const filteredProfiles = await search(query, 5)
+        console.log({ filteredProfiles })
         // Search across all networks seamlessly
-        const filtered = (await search(query, 5))
+        const filtered = (filteredProfiles)
           .map((profile, index) => ({
             id: index,
             wallet_id: profile.wallet_id,
