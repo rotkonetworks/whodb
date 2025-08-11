@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { SS58String } from 'polkadot-api';
 
 import { IdentityInfo, verifyStatuses } from '@/types/Identity';
-import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKey } from '../hooks/useChallengeWebSocket';
+import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/useChallengeWebSocket';
 
 type ChallengeType = keyof Omit<ChallengeStore, "display">
 type pgpSigningInfo = {
@@ -67,7 +67,7 @@ interface VerificationContextType {
   wsSubscribe: () => void
   wsConnect: () => void
   wsDisconnect: () => void
-  wsSendPGPVerification: (payload: VerifyPGPKey) => Promise<void>
+  wsSendPGPVerification: (payload: VerifyPGPKeyMessage) => Promise<void>
 }
 
 const VerificationContext = createContext<VerificationContextType | undefined>(undefined)
