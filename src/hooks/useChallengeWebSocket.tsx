@@ -10,7 +10,7 @@ interface VerificationState {
   fields: Record<string, boolean>;
 }
 
-export interface NotifyAccountState {
+export interface NotifyAccountPayload {
   account: string;
   network?: string;
   info: IdentityInfo;
@@ -29,12 +29,12 @@ type ResponsePayload = {
   AccountState: ResponseAccountState;
 };
 
-type SubscribeAccountState = {
+type SubscribeAccountPayload = {
   network: string;
   account: string;
 };
 
-export type VerifyPGPKey = {
+export type VerifyPGPKeyMessage = {
   network: string;
   account: string;
   pubkey: string;
@@ -62,28 +62,32 @@ type AccountStateMessage = {
   verification_state: VerificationStateNew;
 }
 
-type WebSocketMessage = {
-  type: 'SubscribeAccountState';
-  payload: SubscribeAccountState
-} | {
-  type: 'NotifyAccountState';
-  payload: NotifyAccountState
-} | {
-  type: 'VerifyPGPKey';
-  payload: VerifyPGPKey;
-} | {
+type ErrorResponse = {
+  type: "error";
+  message: string;
+};
+
+type GenericJsonResponse = {
   type: 'JsonResult';
   payload: {
-    type: "ok",
-    message: ResponsePayload | string
+    type: "ok";
+    message: ResponsePayload | string;
   } | {
-    type: "err",
-    message: string
-  }
-} | {
-  type: "error",
-  message: string,
+    type: "err";
+    message: string;
+  };
 };
+
+type WebSocketResponse = {
+  type: 'SubscribeAccountState';
+  payload: SubscribeAccountPayload
+} | {
+  type: 'NotifyAccountState';
+  payload: NotifyAccountPayload
+} | {
+  type: 'VerifyPGPKey';
+  payload: VerifyPGPKeyMessage;
+} | GenericJsonResponse | ErrorResponse | Array<SearchRecord>;
 
 export interface UseIdentityWebSocketProps {
   url?: string;
@@ -104,16 +108,16 @@ interface SearchRecord {
   web?: string;
   pgp_fingerprint?: string;
   timeline?: {
-    event: 'created' 
-      | 'verified' 
-      | 'discord' 
-      | 'display' 
-      | 'email' 
-      | 'matrix' 
-      | 'twitter' 
-      | 'github' 
-      | 'legal' 
-      | 'web' 
+    event: 'created'
+      | 'verified'
+      | 'discord'
+      | 'display'
+      | 'email'
+      | 'matrix'
+      | 'twitter'
+      | 'github'
+      | 'legal'
+      | 'web'
       | 'pgp_fingerprint'
     ;
     date: Date;
@@ -129,7 +133,7 @@ export interface UseIdentityWebSocketReturn {
   subscribe: () => void;
   connect: () => void;
   disconnect: () => void;
-  sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>;
+  sendPGPVerification: (payload: VerifyPGPKeyMessage) => Promise<void>;
   search: (query: string, limit?: number, options?: {
     supportedFields?: string[]
     v2Request?: boolean;
@@ -395,7 +399,7 @@ const useChallengeWebSocketBase = (
     })
   }
 
-  const sendPGPVerification = useCallback((payload: VerifyPGPKey): Promise<void> => {
+  const sendPGPVerification = useCallback((payload: VerifyPGPKeyMessage): Promise<void> => {
     return sendMessage({
       type: 'VerifyPGPKey',
       payload,
@@ -412,9 +416,9 @@ const useChallengeWebSocketBase = (
       const message = {
         version: '1.0',
         type: 'SubscribeAccountState' as const,
-        payload: { 
+        payload: {
           account: account,
-          network: cleanNetwork 
+          network: cleanNetwork
         },
       };
 
