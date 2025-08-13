@@ -1,4 +1,4 @@
-import { ChallengeStore } from "@/store/challengesStore"
+import { Challenge, ChallengeStatus, ChallengeStore } from "@/store/challengesStore"
 import type React from "react"
 import { createContext, useCallback, useContext, useState, useEffect } from "react";
 import { toast } from "sonner"
@@ -85,6 +85,17 @@ type ChallengeWebSocketParameters = {
   identityStatus: verifyStatuses;
 };
 
+const CHALLENGE_STATUSES_TO_STATES: Partial<Record<ChallengeStatus, FieldVerification["status"]>> = {
+  [ChallengeStatus.Failed]: "failed",
+  [ChallengeStatus.Passed]: "verified",
+  [ChallengeStatus.Pending]: "pending",
+}
+
+const CHALLENGE_TYPES: Partial<Record<ChallengeType, string>> = {
+  "pgp_fingerprint": "gpg",
+  "github": "oauth",
+}
+
 export function VerificationProvider({ children }: { children: React.ReactNode }) {
   const [verifications, setVerifications] = useState<FieldVerification[]>(initialVerificationFields)
   const [verifyingFields, setVerifyingFields] = useState<Set<string>>(new Set())
@@ -162,6 +173,16 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     })
     setVerifications(updatedVerifications)
   }, [])
+  useEffect(() => {
+    const newChallenges: FieldVerification[] = Object.entries(challengeWebSocket.challenges)
+      .map(([key, challenge]: [string, Challenge]): FieldVerification => ({
+        field: key as ChallengeType,
+        status: CHALLENGE_STATUSES_TO_STATES[challenge.status] || "unverified",
+        verificationMethod: CHALLENGE_TYPES[key as ChallengeType] || "code",
+        verificationPayload: challenge.code,
+      }))
+    setVerifications(newChallenges)
+  }, [challengeWebSocket.challenges])
 
   const startVerification = async (
     field: string,
