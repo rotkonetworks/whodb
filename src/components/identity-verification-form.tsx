@@ -50,26 +50,22 @@ export function IdentityVerificationForm({
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
-      'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint', 'discord', 'image', 'legal'
+      'display', 
+      'email', 
+      'web', 
+      'twitter', 
+      'github', 
+      'matrix', 
+      'pgp_fingerprint', 
+      'discord', 
+      'image', 
+      'legal'
     ]
 
     // Only show fields that are actually filled
-    return supportedSet.filter(field => {
-      const fieldMapping: Record<string, keyof IdentityData> = {
-        'display': 'display',
-        'email': 'email',
-        'web': 'web',
-        'twitter': 'twitter',
-        'github': 'github',
-        'matrix': 'matrix',
-        'pgp_fingerprint': 'pgp_fingerprint',
-        'discord': 'discord',
-        'image': 'image',
-        'legal': 'legal',
-      }
-      const formFieldKey = fieldMapping[field]
-      return formFieldKey && identityData[formFieldKey] && identityData[formFieldKey].trim() !== ""
-    })
+    return supportedSet.filter(field => field && identityData[field] 
+      && identityData[field].trim() !== ""
+    )
   }, [supportedFields, identityData])
 
   // Field configuration with verification instructions
@@ -176,19 +172,18 @@ export function IdentityVerificationForm({
 
   // Create field components for verification
   const createVerificationComponent = useCallback((fieldKey: string) => {
-    const formFieldKey = fieldKey
-    if (!formFieldKey || formFieldKey === 'display') return null
+    if (!fieldKey || fieldKey === 'display') return null
 
-    const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
+    const config = fieldConfig[fieldKey as keyof typeof fieldConfig]
     if (!config) return null
 
     return (
       <VerifiableFormField
-        key={formFieldKey}
-        fieldId={formFieldKey as any}
+        key={fieldKey}
+        fieldId={fieldKey as any}
         label={config.label}
         icon={config.icon}
-        value={identityData[formFieldKey]}
+        value={identityData[fieldKey]}
         onChange={() => { }} // Read-only in verification step
         placeholder={config.placeholder}
         type={config.type}
