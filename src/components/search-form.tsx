@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { Search, User, Circle } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket"
+import { useSearchContext } from "@/contexts/web-socket-provider"
 
 // Mock profiles from all networks - in production this would query all databases
 
@@ -18,8 +18,7 @@ export default function SearchForm() {
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  const url = new URL(import.meta.env.VITE_APP_CHALLENGES_API_URL).toString()
-  const { search } = useChallengeWebSocket({ url })
+  const { search, results: _results } = useSearchContext()
 
   useEffect(() => {
     if (urlParams.q) {
@@ -31,32 +30,15 @@ export default function SearchForm() {
     (async () => {
       if (query.length >= 3) {
         const filteredProfiles = await search(query, 5)
-        console.log({ filteredProfiles })
-        // Search across all networks seamlessly
-        const filtered = (filteredProfiles)
-          .map((profile, index) => ({
-            id: index,
-            wallet_id: profile.wallet_id,
-            discord: profile.discord,
-            displayName: profile.display_name,
-            email: profile.email,
-            matrix: profile.matrix,
-            twitter: profile.twitter,
-            github: profile.github,
-            legal: profile.legal,
-            web: profile.web,
-            pgp_fingerprint: profile.pgp_fingerprint,
-            walletAddress: profile.wallet_id,
-            avatar: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
-            network: profile.network,
-          }))
-      setSuggestions(filtered)
-      setShowSuggestions(true)
-      setSelectedIndex(-1)
-    } else {
-      setSuggestions([])
-      setShowSuggestions(false)
-    }})()
+        setSuggestions(filteredProfiles)
+        setShowSuggestions(true)
+        setSelectedIndex(-1)
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    }
+  )()
   }, [query])
 
   const handleSubmit = (e: React.FormEvent) => {

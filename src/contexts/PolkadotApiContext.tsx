@@ -2,7 +2,6 @@ import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
 import { ChainConstants, useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
-import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import { useIdentity } from "@/hooks/useIdentity";
@@ -364,31 +363,13 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   //#endregion chains
 
   //#region challenges
-  const { challenges,
-    error: challengeError,
-    isConnected: isChallengeWsConnected,
-    loading: challengeLoading,
-    subscribe: subscribeToChallenges,
-    sendPGPVerification,
-  } = useChallengeWebSocket({
-    url: import.meta.env.VITE_APP_CHALLENGES_API_URL as string,
-    address: accountStore.encodedAddress,
-    network: (chainStore.id as string).split("_")[0],
-    identity: { info: identity.info, status: identity.status, },
-  });
-  useEffect(() => {
-    console.debug({
-      challenges, challengeError, isChallengeWsConnected, challengeLoading,
-    });
-  }, [challenges, challengeError, isChallengeWsConnected, challengeLoading]);
-
-  useEffect(() => {
-    if (isChallengeWsConnected && identity.status === verifyStatuses.FeePaid) {
-      subscribeToChallenges()
-    }
-    // Don't add suggested deps, as this somehow causes an infinite loop. Don't ask me why :D
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isChallengeWsConnected])
+  // Stub WebSocket variables, as useChallengeWebSocket is no longer used here
+  const challenges = {};
+  const challengeError = null;
+  const challengeLoading = false;
+  const isChallengeWsConnected = false;
+  const subscribeToChallenges = () => {};
+  const sendPGPVerification = () => {};
   //#endregion challenges
 
   const formatAmount = useFormatAmount({

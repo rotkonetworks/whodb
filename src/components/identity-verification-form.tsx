@@ -1,8 +1,9 @@
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { Separator } from "@/components/ui/separator"
 import { VerifiableFormField } from "@/components/verifiable-form-field"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { useUrlParams } from "@/hooks/useUrlParams"
 import { IdentityData, verifyStatuses } from "@/types/Identity"
 import {
   AlertTriangle,
@@ -19,7 +20,7 @@ import {
   User,
 } from "lucide-react"
 import type React from "react"
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
@@ -32,8 +33,19 @@ export function IdentityVerificationForm({
   identityStatus,
   supportedFields = [],
 }: IdentityVerificationFormProps) {
-  const { getVerifiedFields } = useVerification()
-  const { challengeError, challengeLoading, challenges } = usePolkadotApi()
+  const { urlParams: { address, network } } = useUrlParams()
+  const {
+    error: challengeError,
+    isLoading: challengeLoading,
+    challenges,
+    getVerifiedFields,
+    setWebSocketParams,
+  } = useVerification()
+  useTriggerLog(challenges, "IdentityVerificationForm Challenges")
+
+  useEffect(() => {
+    setWebSocketParams({ address, network, identityStatus })
+  }, [address, network, identityStatus, setWebSocketParams])
 
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {

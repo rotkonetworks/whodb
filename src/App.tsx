@@ -17,6 +17,7 @@ import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
 import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
 import { AccountProvider } from './contexts/wallet-context'
+import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
 
 export default function App() {
   // Enable modal-aware toast behavior
@@ -28,24 +29,40 @@ export default function App() {
           <PolkadotWalletProvider appName="Whodb Registrar">
             <AccountProvider>
               <BalanceProvider>
-                <VerificationProvider>
-                  <UserProvider>
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/register" element={
-                        <OptimizedPolkadotRoute>
-                          <RegisterPage />
-                        </OptimizedPolkadotRoute>
-                      } />
-                      <Route path="/search" element={<SearchPage />} />
-                      <Route path="/profile/:id?" element={<ProfilePage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<div>Page not found</div>} />
-                    </Routes>
-                    <Toaster />
-                  </UserProvider>
-                </VerificationProvider>
+                <UserProvider>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={
+                      <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL as string}>
+                        <Routes>
+                          <Route path="/register" element={
+                            <VerificationProvider>
+                              <OptimizedPolkadotRoute>
+                                <RegisterPage />
+                              </OptimizedPolkadotRoute>
+                            </VerificationProvider>
+                          } />
+                          <Route path="/profile/:id?" element={<ProfilePage />} />
+                          <Route path="*" element={
+                            <SearchProvider>
+                              <Routes>
+                                <Route path="/" element={<HomePage />} />
+                                <Route path="/search" element={<SearchPage />} />
+                                <Route path="*" element={
+                                  <p className="text-center text-gray-400 mt-10">
+                                    Page not found
+                                  </p>
+                                } />
+                              </Routes>
+                            </SearchProvider>
+                          } />
+                        </Routes>
+                      </WebSocketProvider>
+                    } />
+                  </Routes>
+                  <Toaster />
+                </UserProvider>
               </BalanceProvider>
             </AccountProvider>
           </PolkadotWalletProvider>

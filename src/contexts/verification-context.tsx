@@ -4,8 +4,10 @@ import { createContext, useCallback, useContext, useState, useEffect } from "rea
 import { toast } from "sonner"
 import { SS58String } from 'polkadot-api';
 
-import { IdentityInfo, verifyStatuses } from '@/types/Identity';
-import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/useChallengeWebSocket';
+import { verifyStatuses } from '@/types/Identity';
+import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/websocket/challenges';
+import { useTriggerLog } from "@/hooks/use-trigger-log";
+import { useWebSocketContext } from "./web-socket-provider";
 
 type ChallengeType = keyof Omit<ChallengeStore, "display">
 type ExtraConfirmationData = {
@@ -29,6 +31,7 @@ export interface FieldVerification {
   verificationPayload?: string
 }
 
+const VerificationContext = createContext<VerificationContextType | undefined>(undefined)
 interface VerificationContextType {
   verifications: FieldVerification[]
   startVerification: (
@@ -52,18 +55,17 @@ interface VerificationContextType {
   setSendPGPVerification: (fn: (payload: { pubkey: string; signed_challenge: string; network: string; account: string }) => Promise<void>) => void
 
   // WebSocket integration
-  setWebSocketParams: (params: { address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }) => void
-  wsConnected: boolean
-  wsError: string | null
-  wsLoading: boolean
-  wsChallengeState: ResponseAccountState | null
+  setWebSocketParams: (params: ChallengeWebSocketParameters) => void
+  isConnected: boolean
+  error: string | null
+  isLoading: boolean
+  challengeState: ResponseAccountState | null
+  challenges: ChallengeStore
   wsSubscribe: () => void
   wsConnect: () => void
   wsDisconnect: () => void
   wsSendPGPVerification: (payload: VerifyPGPKeyMessage) => Promise<void>
 }
-
-const VerificationContext = createContext<VerificationContextType | undefined>(undefined)
 
 const initialVerificationFields: FieldVerification[] = [
   { field: "email", status: "unverified" },
@@ -77,6 +79,12 @@ const initialVerificationFields: FieldVerification[] = [
   { field: "legal", status: "unverified" },
 ]
 
+type ChallengeWebSocketParameters = {
+  address?: SS58String;
+  network?: string;
+  identityStatus: verifyStatuses;
+};
+
 export function VerificationProvider({ children }: { children: React.ReactNode }) {
   const [verifications, setVerifications] = useState<FieldVerification[]>(initialVerificationFields)
   const [verifyingFields, setVerifyingFields] = useState<Set<string>>(new Set())
@@ -84,15 +92,21 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   const [sendPGPVerification, setSendPGPVerification] = useState<((payload: { pubkey: string; signed_challenge: string; network: string; account: string }) => Promise<void>) | null>(null)
 
   // WebSocket parameters
-  const [wsParams, setWsParams] = useState<{ address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }>({})
+  const [wsParams, setWsParams] = useState<ChallengeWebSocketParameters>({
+    address: undefined,
+    network: undefined,
+    identityStatus: verifyStatuses.Unknown,
+  })
 
   // Initialize WebSocket hook with optional parameters
-  const challengeWebSocket = useChallengeWebSocket({
-    url: import.meta.env.VITE_APP_CHALLENGES_API_URL,
-    address: wsParams.address,
-    network: wsParams.network,
-    identity: wsParams.identity,
-  })
+  const webSocketInstance = useWebSocketContext();
+  useTriggerLog(webSocketInstance, "verification-context webSocketInstance");
+  const challengeWebSocket = useChallengeWebSocket(
+    webSocketInstance,
+    wsParams.identityStatus,
+    wsParams.address,
+    wsParams.network,
+  )
 
   // Update local challenges state when WebSocket provides new data
   useEffect(() => {
@@ -116,8 +130,9 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     setSendPGPVerification(() => challengeWebSocket.sendPGPVerification);
   }, [challengeWebSocket.sendPGPVerification])
+  useTriggerLog(challengeWebSocket.sendPGPVerification, "sendPGPVerification")
 
-  const setWebSocketParams = useCallback((params: { address?: SS58String; network?: string; identity?: { info: IdentityInfo; status: verifyStatuses } }) => {
+  const setWebSocketParams = useCallback((params: ChallengeWebSocketParameters) => {
     setWsParams(params);
   }, []);
 
@@ -307,10 +322,11 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
         setSendPGPVerification,
         // WebSocket integration
         setWebSocketParams,
-        wsConnected: challengeWebSocket.isConnected,
-        wsError: challengeWebSocket.error,
-        wsLoading: challengeWebSocket.loading,
-        wsChallengeState: challengeWebSocket.challengeState || null,
+        isConnected: challengeWebSocket.isConnected,
+        error: challengeWebSocket.error,
+        isLoading: challengeWebSocket.loading,
+        challengeState: challengeWebSocket.challengeState || null,
+        challenges: challengeWebSocket.challenges,
         wsSubscribe: challengeWebSocket.subscribe,
         wsConnect: challengeWebSocket.connect,
         wsDisconnect: challengeWebSocket.disconnect,
