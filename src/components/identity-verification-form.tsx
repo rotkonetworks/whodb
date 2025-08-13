@@ -72,20 +72,6 @@ export function IdentityVerificationForm({
     })
   }, [supportedFields, identityData])
 
-  // Field mapping from blockchain field names to form field names
-  const fieldMapping = useMemo((): Record<string, keyof IdentityData> => ({
-    'display': 'display',
-    'email': 'email',
-    'web': 'web',
-    'twitter': 'twitter',
-    'github': 'github',
-    'matrix': 'matrix',
-    'pgp_fingerprint': 'pgp_fingerprint',
-    'discord': 'discord',
-    'image': 'image',
-    'legal': 'legal'
-  }), [])
-
   // Field configuration with verification instructions
   const fieldConfig = useMemo(() => ({
     email: {
@@ -209,7 +195,7 @@ export function IdentityVerificationForm({
         verificationInstructions={config.verificationInstructions}
       />
     )
-  }, [fieldMapping, identityData, fieldConfig])
+  }, [identityData, fieldConfig])
 
   // Group fields into sections
   const verificationSections = useMemo(() => {
