@@ -1,1 +1,0 @@
-export const CHAIN_UPDATE_INTERVAL = 6000
