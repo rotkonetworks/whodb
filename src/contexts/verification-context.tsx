@@ -290,12 +290,9 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     return success
   }
 
-  const getFieldStatus = useCallback(
-    (field: string) => {
-      return verifications.find((v) => v.field === field) || null
-    },
-    [verifications],
-  )
+  const getFieldStatus = useCallback((field: string) => {
+    return verifications.find((v) => v.field === field) || null
+  }, [verifications])
 
   const getVerifiedFields = useCallback(() => {
     return verifications.filter((v) => v.status === "verified")
