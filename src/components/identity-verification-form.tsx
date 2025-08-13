@@ -50,20 +50,20 @@ export function IdentityVerificationForm({
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
-      'display', 
-      'email', 
-      'web', 
-      'twitter', 
-      'github', 
-      'matrix', 
-      'pgp_fingerprint', 
-      'discord', 
-      'image', 
+      'display',
+      'email',
+      'web',
+      'twitter',
+      'github',
+      'matrix',
+      'pgp_fingerprint',
+      'discord',
+      'image',
       'legal'
     ]
 
     // Only show fields that are actually filled
-    return supportedSet.filter(field => field && identityData[field] 
+    return supportedSet.filter(field => field && identityData[field]
       && identityData[field].trim() !== ""
     )
   }, [supportedFields, identityData])
@@ -233,7 +233,7 @@ export function IdentityVerificationForm({
 
   console.debug({ identityData, identityStatus })
 
-  const verifiedFields = getVerifiedFields().filter(f => 
+  const verifiedFields = getVerifiedFields().filter(f =>
     !["", "display"].includes(f.field) && identityData[f.field] && identityData[f.field].trim() !== ""
   )
   const totalVerifiableFields = fieldsToShow.filter(f => f !== 'display').length

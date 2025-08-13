@@ -1,4 +1,3 @@
-import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
 import { ChainConstants, useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
@@ -16,7 +15,7 @@ import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { HexString, InvalidTxError, SS58String } from "polkadot-api";
+import { InvalidTxError, SS58String } from "polkadot-api";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
 import { Network } from "./network-context";
@@ -161,6 +160,8 @@ export const usePolkadotApi = () => {
 interface PolkadotApiProviderProps {
   children: ReactNode;
 }
+
+const CHAIN_UPDATE_INTERVAL = 6000
 
 export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   // State
@@ -368,8 +369,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const challengeError = null;
   const challengeLoading = false;
   const isChallengeWsConnected = false;
-  const subscribeToChallenges = () => {};
-  const sendPGPVerification = () => {};
+  const subscribeToChallenges = () => { };
+  const sendPGPVerification = () => { };
   //#endregion challenges
 
   const formatAmount = useFormatAmount({
@@ -567,7 +568,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       // Set a timeout to prevent hanging transactions (5 minutes)
       timeoutId = setTimeout(() => {
         dispatchFail(
-          new Error("Transaction timeout"), 
+          new Error("Transaction timeout"),
           `${name} transaction timed out. The transaction may still be processing on the blockchain.`
         );
       }, 5 * 60 * 1000);

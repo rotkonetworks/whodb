@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
-import { verifyStatuses } from "@/types/Identity"
 import { AlertTriangle, CheckCircle, ClipboardCopy, Github, Loader2, ShieldQuestion } from "lucide-react"
 import type React from "react"
 import { useState } from "react"
@@ -258,7 +257,6 @@ export function VerifiableFormField({
                     toast.error("GitHub verification failed. Please try again.")
                   }
                 }}
-                isVerified={fieldStatus?.status === "verified"}
               />
             )}
         </div>
