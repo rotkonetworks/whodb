@@ -39,7 +39,11 @@ export function GitHubVerification(
         toast.error('GitHub verification timed out. Please try again.');
       }, 10000); // Simulate loading time
     } catch (err) {
-      setError(err.message);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
       setLoading(false);
     }
   };
