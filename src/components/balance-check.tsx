@@ -4,7 +4,7 @@ import { useNetwork } from "@/contexts/network-context";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
-import { verifyStatuses } from "@/types/Identity";
+import { IdentityVerificationStatus } from "@/types/Identity";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -149,7 +149,7 @@ export function BalanceCheck({
 
           {!isLoading && (
             <>
-              {identity.status >= verifyStatuses.IdentitySet ? (
+              {identity.status >= IdentityVerificationStatus.IdentitySet ? (
                 <div className="space-y-4">
                   <div className="flex items-center p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
                     <AlertCircle className="w-5 h-5 text-yellow-400 mr-2" />

@@ -1,7 +1,7 @@
 import { ApiPromise } from "@polkadot/api";
 import { SS58String } from "polkadot-api";
 
-import { verifyStatuses } from "@/types/Identity";
+import { IdentityVerificationStatus } from "@/types/Identity";
 import { decodeUint8Array, toHexString } from "./binary";
 
 export interface JudgementData {
@@ -13,7 +13,7 @@ export interface JudgementData {
 }
 
 export interface IdentityInfo {
-  status: verifyStatuses;
+  status: IdentityVerificationStatus;
   info: Record<string, string> | null;
   deposit: bigint;
   judgements: JudgementData[];
@@ -38,7 +38,7 @@ export const fetchIdentity = async (
   try {
     // Default "no identity" state
     const identityInfo: IdentityInfo = {
-      status: verifyStatuses.NoIdentity,
+      status: IdentityVerificationStatus.NoIdentity,
       info: null,
       deposit: BigInt(0),
       judgements: []
@@ -67,7 +67,7 @@ export const fetchIdentity = async (
     // Store the deposit
     identityInfo.deposit = identityOf.deposit;
     identityInfo.info = identityData;
-    identityInfo.status = verifyStatuses.IdentitySet;
+    identityInfo.status = IdentityVerificationStatus.IdentitySet;
 
     // Process judgements
     const judgementsData: JudgementData[] = identityOf.judgements.map((judgement) => ({
@@ -78,16 +78,16 @@ export const fetchIdentity = async (
 
     if (judgementsData.length > 0) {
       identityInfo.judgements = judgementsData;
-      identityInfo.status = verifyStatuses.JudgementRequested;
+      identityInfo.status = IdentityVerificationStatus.JudgementRequested;
     }
 
     // Update status based on judgement states
     if (judgementsData.find(j => j.state === "FeePaid")) {
-      identityInfo.status = verifyStatuses.FeePaid;
+      identityInfo.status = IdentityVerificationStatus.FeePaid;
     }
 
     if (judgementsData.find(j => ["Reasonable", "KnownGood"].includes(j.state))) {
-      identityInfo.status = verifyStatuses.IdentityVerified;
+      identityInfo.status = IdentityVerificationStatus.IdentityVerified;
     }
 
     return identityInfo;

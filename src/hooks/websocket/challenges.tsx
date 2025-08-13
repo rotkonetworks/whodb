@@ -1,5 +1,5 @@
 import { ChallengeStatus, ChallengeStore } from '@/store/challengesStore';
-import { IdentityInfo, verifyStatuses } from '@/types/Identity';
+import { IdentityInfo, IdentityVerificationStatus } from '@/types/Identity';
 import { SS58String } from 'polkadot-api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTriggerLog } from '../use-trigger-log';
@@ -58,7 +58,7 @@ const keyMapping: Record<string, string> = {
  */
 export const useChallengeWebSocket = (
   _webSocketInstance: WebSocketHookReturn,
-  identityStatus: verifyStatuses,
+  identityStatus: IdentityVerificationStatus,
   _address?: SS58String,
   _network?: string,
 ): ChallengeWebSocketReturn => {
@@ -237,7 +237,7 @@ export const useChallengeWebSocket = (
         .filter(([key, done]) => pendingChallenges[key] || done)
         .forEach(([key, done]) => {
           let status;
-          if (identityStatus === verifyStatuses.IdentityVerified) {
+          if (identityStatus === IdentityVerificationStatus.IdentityVerified) {
             status = ChallengeStatus.Passed;
           } else {
             status = done ? ChallengeStatus.Passed : ChallengeStatus.Pending;

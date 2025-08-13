@@ -1,21 +1,21 @@
 import { Info } from "lucide-react";
 import { useMemo } from "react";
 
-import { verifyStatuses } from "@/types/Identity";
+import { IdentityVerificationStatus } from "@/types/Identity";
 
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
-export const IdentityStatusInfo = ({ status }: { status: verifyStatuses }) => {
+export const IdentityStatusInfo = ({ status }: { status: IdentityVerificationStatus }) => {
   const verifiyStatusColor = useMemo(() => {
     switch (status) {
-      case verifyStatuses.NoIdentity:
+      case IdentityVerificationStatus.NoIdentity:
         return "dark:text-red-300 text-red-700";
-      case verifyStatuses.IdentitySet:
+      case IdentityVerificationStatus.IdentitySet:
         return "dark:text-orange-300 text-orange-700";
-      case verifyStatuses.IdentityVerified:
+      case IdentityVerificationStatus.IdentityVerified:
         return "dark:text-green-300 text-green-700";
-      case verifyStatuses.JudgementRequested:
-      case verifyStatuses.FeePaid:
+      case IdentityVerificationStatus.JudgementRequested:
+      case IdentityVerificationStatus.FeePaid:
         return "dark:text-yellow-300 text-yellow-700";
       default:
         return "dark:text-gray-300 text-gray-700";
@@ -29,19 +29,19 @@ export const IdentityStatusInfo = ({ status }: { status: verifyStatuses }) => {
       <Info className="h-4 w-4" />
       <AlertTitle>On-chain Identity Status
         : <strong className={verifiyStatusColor}>
-          {verifyStatuses[status]?.match(/[A-Z][a-z]+/g).join(" ") || "Unknown"}
+          {IdentityVerificationStatus[status]?.match(/[A-Z][a-z]+/g).join(" ") || "Unknown"}
         </strong>
       </AlertTitle>
       <AlertDescription>
-        {status === verifyStatuses.NoIdentity
+        {status === IdentityVerificationStatus.NoIdentity
           && "Identity verification required. Set up your on-chain identity to proceed with verification."}
-        {status === verifyStatuses.IdentitySet
+        {status === IdentityVerificationStatus.IdentitySet
           && "Identity information is now set. You can now proceed to request verification from registrar."}
-        {status === verifyStatuses.JudgementRequested
+        {status === IdentityVerificationStatus.JudgementRequested
           && "Verification request submitted."}
-        {status === verifyStatuses.FeePaid
+        {status === IdentityVerificationStatus.FeePaid
           && "Payment confirmed. Complete the verification challenges to secure your identity."}
-        {status === verifyStatuses.IdentityVerified
+        {status === IdentityVerificationStatus.IdentityVerified
           && "Identity verified successfully! Your account now has verified status."}
       </AlertDescription>
     </Alert>

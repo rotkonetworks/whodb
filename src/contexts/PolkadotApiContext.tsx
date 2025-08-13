@@ -12,7 +12,7 @@ import { useXcmParameters } from "@/hooks/useXcmParameters";
 import { AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
 import { ApiTx } from "@/types/api";
-import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
+import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
@@ -337,7 +337,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     "Identity.JudgementGiven": {
       onEvent: async (_data: object) => {
         const newIdentity = await fetchIdAndJudgement()
-        if (newIdentity?.status === verifyStatuses.IdentityVerified) {
+        if (newIdentity?.status === IdentityVerificationStatus.IdentityVerified) {
           addAlert({
             type: "info",
             message: "Judgement Given! Identity verified successfully. Congratulations!",

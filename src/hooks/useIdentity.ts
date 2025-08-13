@@ -3,7 +3,7 @@ import { SS58String } from "polkadot-api";
 import { useCallback, useEffect, useState } from "react";
 
 import { IdentityFormData } from "@/components/tabs/IdentityForm";
-import { Identity, verifyStatuses } from "@/types/Identity";
+import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { ApiTx } from "@/types/api";
 import { fetchIdentity } from "@/utils/fetchIdentity";
 
@@ -17,7 +17,7 @@ export function useIdentity({ typedApi, address, }: {
   const _blankIdentity = {
     info: {},
     judgements: [],
-    status: verifyStatuses.Unknown,
+    status: IdentityVerificationStatus.Unknown,
   };
   const [identity, _setIdentity] = useState<Identity>(_blankIdentity);
 

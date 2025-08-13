@@ -26,7 +26,7 @@ import { CHAINS } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
-import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
+import { IdentityVerificationStatus, type IdentityData } from "@/types/Identity"; // Import IdentityData
 import BigNumber from "bignumber.js"
 import { SS58String } from "polkadot-api"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
@@ -389,7 +389,7 @@ export default function RegisterPage() {
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
-    if (identity.status === verifyStatuses.IdentityVerified) {
+    if (identity.status === IdentityVerificationStatus.IdentityVerified) {
       // If identity is already verified, we can proceed
       return true
     }
@@ -405,7 +405,7 @@ export default function RegisterPage() {
   }, [identityData])
 
   const canProceedFromVerificationStep = useMemo(() => {
-    if (identity.status === verifyStatuses.IdentityVerified) {
+    if (identity.status === IdentityVerificationStatus.IdentityVerified) {
       // If identity is already verified, we can proceed
       return true
     }
@@ -699,7 +699,7 @@ export default function RegisterPage() {
 
     if (hasEnoughBalance === true) {
       // If we have an identity set, go to verification, otherwise go to identity form
-      if (identity?.status === verifyStatuses.IdentitySet || identity?.status === verifyStatuses.JudgementRequested || identity?.status === verifyStatuses.FeePaid) {
+      if (identity?.status === IdentityVerificationStatus.IdentitySet || identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid) {
         setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
       } else {
         setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
@@ -715,7 +715,7 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.connectWallet && (connectedWallets.length < 1 || accounts.length < 1)) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
     if (currentStep === STEP_NUMBERS.checkBalance
-      && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
+      && !hasEnoughBalance && identity.status < IdentityVerificationStatus.IdentitySet
     ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
@@ -774,7 +774,7 @@ export default function RegisterPage() {
       balance={balance} // Simplified for now
       minimunTeleportAmount={new BigNumber(0)} // Simplified for now
       formatAmount={formatAmount}
-      identity={identity || { status: verifyStatuses.NoIdentity, deposit: BigInt(0) } as any}
+      identity={identity || { status: IdentityVerificationStatus.NoIdentity, deposit: BigInt(0) } as any}
       isTxBusy={isTxBusy}
     />
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
@@ -917,7 +917,7 @@ export default function RegisterPage() {
                   isEditMode={isEditMode}
                   onDataChange={handleIdentityDataFormChange}
                   supportedFields={supportedFields}
-                  identityStatus={identity?.status || verifyStatuses.NoIdentity}
+                  identityStatus={identity?.status || IdentityVerificationStatus.NoIdentity}
                 />
                 <Button
                   onClick={onSetIdentity}
@@ -926,7 +926,7 @@ export default function RegisterPage() {
                 >
                   {isSubmittingIdentity
                     ? "Submitting Identity Data..."
-                    : identity.status === verifyStatuses.NoIdentity
+                    : identity.status === IdentityVerificationStatus.NoIdentity
                       ? "Submit Identity Data"
                       : "Update Identity Data"
                   }
@@ -939,9 +939,9 @@ export default function RegisterPage() {
                 {/* Identity Verification Form - All verification happens here */}
                 <IdentityVerificationForm
                   identityData={identityData}
-                  identityStatus={identity?.status || verifyStatuses.Unknown}
+                  identityStatus={identity?.status || IdentityVerificationStatus.Unknown}
                   supportedFields={supportedFields}
-                  canVerifyFields={identity?.status === verifyStatuses.FeePaid}
+                  canVerifyFields={identity?.status === IdentityVerificationStatus.FeePaid}
                 />
 
                 <Card className="bg-gray-800/50 border-gray-700 mt-6">
@@ -982,18 +982,18 @@ export default function RegisterPage() {
                         ))}
                     </div>
                     <Button
-                      onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => { }}
+                      onClick={identity?.status === IdentityVerificationStatus.IdentitySet ? onRequestJudgement : () => { }}
                       disabled={
-                        (identity?.status === verifyStatuses.IdentitySet && false) || // Can request judgement
-                        (identity?.status !== verifyStatuses.IdentitySet && !canProceedFromVerificationStep) // Need verification
+                        (identity?.status === IdentityVerificationStatus.IdentitySet && false) || // Can request judgement
+                        (identity?.status !== IdentityVerificationStatus.IdentitySet && !canProceedFromVerificationStep) // Need verification
                       }
                       className="w-full mt-6 py-3 text-base"
                     >
-                      {identity?.status === verifyStatuses.IdentitySet
+                      {identity?.status === IdentityVerificationStatus.IdentitySet
                         ? "Request Judgement & Pay Fee"
-                        : identity?.status === verifyStatuses.FeePaid
+                        : identity?.status === IdentityVerificationStatus.FeePaid
                           ? "Complete All Verifications Above"
-                          : identity?.status === verifyStatuses.IdentityVerified
+                          : identity?.status === IdentityVerificationStatus.IdentityVerified
                             ? "Identity Fully Verified!"
                             : "Complete Verification Steps"
                       }

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useState, useEffect } from "rea
 import { toast } from "sonner"
 import { SS58String } from 'polkadot-api';
 
-import { verifyStatuses } from '@/types/Identity';
+import { IdentityVerificationStatus } from '@/types/Identity';
 import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/websocket/challenges';
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { useWebSocketContext } from "./web-socket-provider";
@@ -82,7 +82,7 @@ const initialVerificationFields: FieldVerification[] = [
 type ChallengeWebSocketParameters = {
   address?: SS58String;
   network?: string;
-  identityStatus: verifyStatuses;
+  identityStatus: IdentityVerificationStatus;
 };
 
 const CHALLENGE_STATUSES_TO_STATES: Partial<Record<ChallengeStatus, FieldVerification["status"]>> = {
@@ -106,7 +106,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   const [wsParams, setWsParams] = useState<ChallengeWebSocketParameters>({
     address: undefined,
     network: undefined,
-    identityStatus: verifyStatuses.Unknown,
+    identityStatus: IdentityVerificationStatus.Unknown,
   })
 
   // Initialize WebSocket hook with optional parameters

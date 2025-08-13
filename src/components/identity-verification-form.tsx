@@ -4,7 +4,7 @@ import { VerifiableFormField } from "@/components/verifiable-form-field"
 import { useVerification } from "@/contexts/verification-context"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { IdentityData, verifyStatuses } from "@/types/Identity"
+import { IdentityData, IdentityVerificationStatus } from "@/types/Identity"
 import {
   AlertTriangle,
   CheckCircle,
@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
-  identityStatus: verifyStatuses
+  identityStatus: IdentityVerificationStatus
   supportedFields?: string[]
 }
 
@@ -265,7 +265,7 @@ export function IdentityVerificationForm({
       </div>
 
       {/* Status-based instructions */}
-      {identityStatus < verifyStatuses.FeePaid
+      {identityStatus < IdentityVerificationStatus.FeePaid
         ? (
           <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
             <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
