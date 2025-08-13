@@ -1,5 +1,5 @@
 import { useTriggerLog } from "@/hooks/use-trigger-log";
-import { SearchOptions, SearchResults, useSearchWebSocket } from "@/hooks/websocket/search";
+import { SearchOptions, useSearchWebSocket } from "@/hooks/websocket/search";
 import { useWebSocket, WebSocketHookReturn } from "@/hooks/websocket";
 import { SS58String } from "polkadot-api";
 import { createContext, useCallback, useContext, useState } from "react";
