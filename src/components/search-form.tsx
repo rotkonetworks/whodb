@@ -114,7 +114,7 @@ export default function SearchForm() {
           <button
             type="submit"
             disabled={!query.trim() || isSubmitting}
-            className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-pink-500 hover:bg-pink-600 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Submit search"
           >
             <span className="md:hidden">Go</span>
