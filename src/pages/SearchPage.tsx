@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useSearchParams, useNavigate, Link } from "react-router-dom"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Search,
   Users,
@@ -24,81 +24,10 @@ import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 
 import { shortenAddress } from "@/utils/format-address"
-import { Logo } from "@/components/logo"
+import { useSearchContext } from "@/contexts/web-socket-provider"
+import { SearchResults as ProfileSearchResults } from "@/hooks/websocket/search"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
 
-const mockProfiles = [
-  {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    twitter: "@alice",
-    matrix: "@alice:matrix.org",
-    verified: false,
-    judgement: "Fee Paid",
-    deposit: "0.2005900000 PAS",
-    avatar: "/professional-woman-avatar.png",
-    connections: {
-      website: "alice.dev",
-      github: "alice-dev",
-      discord: "alice#1234",
-    },
-  },
-  {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    matrix: "@bob:matrix.org",
-    verified: true,
-    judgement: "Reasonable",
-    deposit: "0.1000000000 PAS",
-    avatar: "/professional-man-avatar.png",
-    connections: {
-      website: "bob.dev",
-      github: "bob-security",
-      discord: "bob#5678",
-      pgp: "4BB6 8B34 G102 ED35 4425 23BG 5379 B4BD 6B2B 5EG4",
-    },
-  },
-  {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    matrix: "@charlie:matrix.org",
-    verified: false,
-    judgement: "Unknown",
-    deposit: "0.0000000000 PAS",
-    avatar: "/woman-developer-avatar.png",
-    connections: {
-      website: "charlie.design",
-      github: "charlie-ui",
-      discord: "charlie#9012",
-    },
-  },
-  {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    matrix: "@david:matrix.org",
-    verified: true,
-    judgement: "KnownGood",
-    deposit: "0.3000000000 PAS",
-    avatar: "/asian-man-developer-avatar.png",
-    connections: {
-      website: "david.io",
-      github: "david-proto",
-      discord: "david#3456",
-      pgp: "6DD8 AD56 I324 GF57 6647 45DI 7591 D6DF 8D4D 7FI6",
-    },
-  },
-]
 
 export default function SearchResults() {
   const [searchParams] = useSearchParams()
@@ -106,36 +35,39 @@ export default function SearchResults() {
   const query = searchParams.get("q") || ""
 
   const [isLoading, setIsLoading] = useState(true)
-  const [results, setResults] = useState<any[]>([])
+  const [results, setResults] = useState<ProfileSearchResults | null>(null)
+  useTriggerLog(results, "results")
   const [searchQuery, setSearchQuery] = useState(query)
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
+  const { search, results: _results } = useSearchContext()
+
+  const fetchResults = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const filteredProfiles = await search(query, 50)
+      setResults(filteredProfiles)
+    } catch (error) {
+      console.error("Error fetching search results:", error)
+      setResults([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [query, search])
+  
   useEffect(() => {
     if (!query) {
       navigate("/")
       return
     }
 
-    const fetchResults = async () => {
-      setIsLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      const filtered = mockProfiles.filter(
-        (profile) =>
-          profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          profile.walletAddress.toLowerCase().includes(query.toLowerCase()) ||
-          (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.email && profile.email.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.twitter && profile.twitter.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.matrix && profile.matrix.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.connections.discord && profile.connections.discord.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.connections.github && profile.connections.github.toLowerCase().includes(query.toLowerCase())) ||
-          (profile.connections.website && profile.connections.website.toLowerCase().includes(query.toLowerCase())),
-      )
-      setResults(filtered)
+    if (!_results) {
+      setTimeout(fetchResults, 100);
+    } else {
+      setResults(_results)
       setIsLoading(false)
     }
-    fetchResults()
-  }, [query, navigate])
+  }, [query, navigate, _results])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

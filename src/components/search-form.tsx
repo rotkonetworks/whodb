@@ -1,18 +1,20 @@
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
-import { useUrlParams } from "@/hooks/useUrlParams"
-import { Search, User, Circle } from "lucide-react"
-import { useNavigate } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { useUrlParams } from "@/hooks/useUrlParams"
+import { Circle, Search, User } from "lucide-react"
+import type React from "react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 // Mock profiles from all networks - in production this would query all databases
 
 export default function SearchForm() {
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
-  const { urlParams, setParam, deleteParam } = useUrlParams()
+  const { urlParams } = useUrlParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
+  useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -48,9 +50,7 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    //navigate(`/search?query=${encodeURIComponent(query.trim())}`)
     navigate(`/search?q=${encodeURIComponent(query.trim())}`)
-    //setParam("query", query.trim())
   }
 
   const handleSuggestionClick = (profile: any) => {

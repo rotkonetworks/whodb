@@ -45,11 +45,11 @@ type ProfileResults = Array<{
 const SearchContext = createContext<{
   webSocket: WebSocketHookReturn | undefined;
   search: (query: string, limit?: number, options?: SearchOptions) => Promise<ProfileResults>;
-  results: ProfileResults;
+  results: ProfileResults | null;
 }>({
   webSocket: undefined,
   search: () => { throw new Error("Search function not implemented"); },
-  results: [],
+  results: null,
 });
 
 export const SearchProvider = ({ children }: {
@@ -58,7 +58,7 @@ export const SearchProvider = ({ children }: {
   const webSocket = useWebSocketContext();
   const searchWebSocket = useSearchWebSocket(webSocket);
 
-  const [results, setResults] = useState<ProfileResults>([]);
+  const [results, setResults] = useState<ProfileResults | null>(null);
 
   const search = useCallback(async (
     query: string,

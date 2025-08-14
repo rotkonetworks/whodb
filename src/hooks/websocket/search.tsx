@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from 'react';
-import { useWebSocket, WebSocketHookReturn } from '.';
-import { toHexString, encodeUint8Array } from '@/utils/binary';
+import { encodeUint8Array, toHexString } from '@/utils/binary';
+import { useCallback } from 'react';
+import { WebSocketHookReturn } from '.';
 
 interface SearchRecord {
   wallet_id: string;
@@ -16,16 +16,17 @@ interface SearchRecord {
   pgp_fingerprint?: string;
   timeline?: {
     event: 'created'
-    | 'verified'
-    | 'discord'
-    | 'display'
-    | 'email'
-    | 'matrix'
-    | 'twitter'
-    | 'github'
-    | 'legal'
-    | 'web'
-    | 'pgp_fingerprint';
+      | 'verified'
+      | 'discord'
+      | 'display'
+      | 'email'
+      | 'matrix'
+      | 'twitter'
+      | 'github'
+      | 'legal'
+      | 'web'
+      | 'pgp_fingerprint'
+    ;
     date: Date;
   }[];
 }
