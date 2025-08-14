@@ -24,8 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 
 import { shortenAddress } from "@/utils/format-address"
-import { useSearchContext } from "@/contexts/web-socket-provider"
-import { SearchResults as ProfileSearchResults } from "@/hooks/websocket/search"
+import { ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 
 
@@ -35,7 +34,7 @@ export default function SearchResults() {
   const query = searchParams.get("q") || ""
 
   const [isLoading, setIsLoading] = useState(true)
-  const [results, setResults] = useState<ProfileSearchResults | null>(null)
+  const [results, setResults] = useState<ProfileResults | null>(null)
   useTriggerLog(results, "results")
   const [searchQuery, setSearchQuery] = useState(query)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -116,6 +115,8 @@ export default function SearchResults() {
     }
   }
 
+  const resultsLength = results?.length || 0
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <PageHeader backTo="/"
@@ -155,7 +156,7 @@ export default function SearchResults() {
         <div className="mb-6">
           <h1 className="text-lg md:text-xl font-bold mb-2">{isLoading ? "Searching..." : `Results for "${query}"`}</h1>
           <p className="text-gray-400 text-sm">
-            {!isLoading && `Found ${results.length} ${results.length === 1 ? "identity" : "identities"}`}
+            {!isLoading && `Found ${resultsLength} ${resultsLength === 1 ? "identity" : "identities"}`}
           </p>
         </div>
 
@@ -165,9 +166,20 @@ export default function SearchResults() {
           </div>
         )}
 
-        {!isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {results.map((profile) => (
+        {!isLoading && (resultsLength === 0 
+          ? (<div className="text-center py-12">
+            <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-400 mb-2">No identities found</h3>
+            <p className="text-gray-500 mb-6">Try adjusting your search terms or browse all verified identities</p>
+            <Link to="/">
+              <Button className="bg-gray-700 hover:bg-gray-600 text-white border border-gray-600">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>)
+          : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {results?.map((profile) => (
               <Card
                 key={profile.id}
                 className="bg-gray-800 border-pink-500/30 hover:border-pink-500/50 transition-colors"
@@ -183,10 +195,10 @@ export default function SearchResults() {
                       />
                       <div className="min-w-0 flex-1">
                         <h3 className="font-medium text-white text-sm md:text-base truncate">{profile.displayName}</h3>
-                        {profile.nickname && (
+                        {profile.displayName && (
                           <div className="flex items-center text-xs text-gray-400">
                             <Circle className="w-3 h-3 mr-1 text-pink-400 fill-pink-400 flex-shrink-0" />
-                            <span className="truncate">{profile.nickname}</span>
+                            <span className="truncate">{profile.displayName}</span>
                           </div>
                         )}
                       </div>
@@ -222,7 +234,7 @@ export default function SearchResults() {
                           <span className="text-gray-300 truncate">{profile.email}</span>
                         </div>
                         <button
-                          onClick={() => copyToClipboard(profile.email, `email-${profile.id}`)}
+                          onClick={() => copyToClipboard(profile.email!!, `email-${profile.id}`)}
                           className="text-gray-400 hover:text-pink-400 transition-colors flex-shrink-0 ml-2"
                           title="Copy email"
                         >
@@ -242,7 +254,7 @@ export default function SearchResults() {
                           <span className="text-gray-300 truncate">{profile.matrix}</span>
                         </div>
                         <button
-                          onClick={() => copyToClipboard(profile.matrix, `matrix-${profile.id}`)}
+                          onClick={() => copyToClipboard(profile.matrix!!, `matrix-${profile.id}`)}
                           className="text-gray-400 hover:text-pink-400 transition-colors flex-shrink-0 ml-2"
                           title="Copy Matrix ID"
                         >
@@ -257,40 +269,40 @@ export default function SearchResults() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {profile.connections.website && (
+                    {profile.web && (
                       <a
-                        href={`https://${profile.connections.website}`}
+                        href={`https://${profile.web}`} // TODO: Make sure the URL is valid
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-gray-700 p-1.5 rounded-md hover:bg-gray-600 transition-colors"
-                        title={profile.connections.website}
+                        title={profile.web}
                       >
                         <Globe className="w-4 h-4 text-pink-400" />
                       </a>
                     )}
-                    {profile.connections.github && (
+                    {profile.github && (
                       <a
-                        href={`https://github.com/${profile.connections.github}`}
+                        href={`https://github.com/${profile.github}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-gray-700 p-1.5 rounded-md hover:bg-gray-600 transition-colors"
-                        title={`github.com/${profile.connections.github}`}
+                        title={`github.com/${profile.github}`}
                       >
                         <Github className="w-4 h-4 text-pink-400" />
                       </a>
                     )}
-                    {profile.connections.pgp && (
+                    {profile.pgp_fingerprint && (
                       <button
-                        onClick={() => copyToClipboard(profile.connections.pgp, `pgp-${profile.id}`)}
+                        onClick={() => copyToClipboard(profile.pgp_fingerprint!!, `pgp-${profile.id}`)}
                         className="bg-gray-700 p-1.5 rounded-md hover:bg-gray-600 transition-colors"
                         title="Copy PGP fingerprint"
                       >
                         <Key className="w-4 h-4 text-pink-400" />
                       </button>
                     )}
-                    {profile.connections.discord && (
+                    {profile.discord && (
                       <button
-                        onClick={() => copyToClipboard(profile.connections.discord, `discord-${profile.id}`)}
+                        onClick={() => copyToClipboard(profile.discord!!, `discord-${profile.id}`)}
                         className="bg-gray-700 p-1.5 rounded-md hover:bg-gray-600 transition-colors"
                         title="Copy Discord ID"
                       >
@@ -308,21 +320,7 @@ export default function SearchResults() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        )}
-
-        {!isLoading && results.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">No identities found</h3>
-            <p className="text-gray-500 mb-6">Try adjusting your search terms or browse all verified identities</p>
-            <Link to="/">
-              <Button className="bg-gray-700 hover:bg-gray-600 text-white border border-gray-600">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-            </Link>
-          </div>
+          </div>)
         )}
       </main>
 

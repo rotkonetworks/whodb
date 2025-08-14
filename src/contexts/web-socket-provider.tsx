@@ -27,7 +27,7 @@ export const useWebSocketContext = () => {
   return context;
 };
 
-type ProfileResults = Array<{
+export type ProfileResults = Array<{
   id: SS58String;
   walletAddress: SS58String;
   network: string;
@@ -41,6 +41,7 @@ type ProfileResults = Array<{
   web?: string;
   pgp_fingerprint?: string;
   avatar?: string;
+  verified: boolean;
 }>;
 const SearchContext = createContext<{
   webSocket: WebSocketHookReturn | undefined;
@@ -83,6 +84,7 @@ export const SearchProvider = ({ children }: {
         walletAddress: profile.wallet_id,
         //avatar: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
         network: profile.network,
+        verified: profile.timeline?.some(event => event.event === 'verified') || false,
       }))
     setResults(filtered);
 

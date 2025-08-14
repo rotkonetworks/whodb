@@ -1,4 +1,4 @@
-import { useSearchContext } from "@/contexts/web-socket-provider"
+import { ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { Circle, Search, User } from "lucide-react"
@@ -13,7 +13,7 @@ export default function SearchForm() {
   const [query, setQuery] = useState("")
   const { urlParams } = useUrlParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [suggestions, setSuggestions] = useState<ProfileResults>([])
   useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -150,14 +150,14 @@ export default function SearchForm() {
                   >
                     {profile.displayName}
                   </p>
-                  {profile.nickname && (
+                  {profile.displayName && (
                     <div
                       className={`ml-2 flex items-center text-xs flex-shrink-0 ${index === selectedIndex ? "text-pink-300" : "text-pink-400"}`}
                     >
                       <Circle
                         className={`w-3 h-3 mr-1 ${index === selectedIndex ? "fill-pink-300" : "fill-pink-400"}`}
                       />
-                      <span className="truncate max-w-20">{profile.nickname}</span>
+                      <span className="truncate max-w-20">{profile.displayName}</span>
                     </div>
                   )}
                 </div>
