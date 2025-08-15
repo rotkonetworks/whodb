@@ -43,7 +43,8 @@ export interface SearchWebSocketReturn extends Pick<WebSocketHookReturn, 'isConn
 }
 
 export interface SearchOptions {
-  supportedFields?: string[];
+  filterFields?: string[];
+  outputFields?: string[];
   v2Request?: boolean;
 }
 
@@ -61,6 +62,7 @@ const SEARCH_2_SUPPORTED_FIELDS: Record<string, string> = {
   github: 'Github',
   legal: 'Legal',
   web: 'Web',
+  timeline: 'Timeline',
   // pgp_fingerprint: 'PGPFingerprint', // Commented out in original
 };
 
@@ -75,7 +77,6 @@ export const useSearchWebSocket = (
   if (!webSocketInstance) {
     throw new Error('WebSocket instance is required');
   }
-  const webSocket = webSocketInstance;
 
   const search = useCallback(
     async (
@@ -83,18 +84,25 @@ export const useSearchWebSocket = (
       limit: number = 5,
       options: SearchOptions = {}
     ): Promise<SearchResults> => {
-      const { v2Request = false, supportedFields = Object.keys(SEARCH_2_SUPPORTED_FIELDS) } = options;
+      const {
+        v2Request = false,
+        filterFields = ['Display'],
+        outputFields = Object.keys(SEARCH_2_SUPPORTED_FIELDS),
+      } = options;
 
-      if (!webSocket.isConnected) {
+      if (!webSocketInstance.isConnected) {
         throw new Error('WebSocket is not connected');
       }
 
-      const searchOutputs = supportedFields
+      const searchOutputs = outputFields
         .map(field => SEARCH_2_SUPPORTED_FIELDS[field])
         .filter(field => field !== undefined);
 
-      const searchFields = searchOutputs.map(field => {
-        const _query = field === 'PGPFingerprint' ? toHexString(encodeUint8Array(query)) : query.trim().toLowerCase();
+      const searchFields = filterFields.map(field => {
+        const _query = field === 'PGPFingerprint' 
+          ? toHexString(encodeUint8Array(query)) 
+          : query.trim().toLowerCase()
+        ;
         return {
           field: { [field]: _query },
           strict: false,
@@ -121,7 +129,7 @@ export const useSearchWebSocket = (
       console.log('Sending search query:', message);
 
       try {
-        const response = await webSocket.sendMessage<SearchResults | ErrorResponse>(message);
+        const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(message);
 
         if ((response as ErrorResponse).type === 'error') {
           const errorResponse = response as ErrorResponse;
@@ -150,15 +158,15 @@ export const useSearchWebSocket = (
         throw error;
       }
     },
-    [webSocket]
+    [webSocketInstance]
   );
 
   return {
-    isConnected: webSocket.isConnected,
-    error: webSocket.error,
-    loading: webSocket.loading,
-    connect: webSocket.connect,
-    disconnect: webSocket.disconnect,
+    isConnected: webSocketInstance.isConnected,
+    error: webSocketInstance.error,
+    loading: webSocketInstance.loading,
+    connect: webSocketInstance.connect,
+    disconnect: webSocketInstance.disconnect,
     search,
   };
 };

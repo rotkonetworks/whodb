@@ -41,19 +41,18 @@ export default function SearchResults() {
 
   const { search, results: _results } = useSearchContext()
 
-  const fetchResults = useCallback(async () => {
+  const fetchResults = useCallback(async (query: string) => {
     setIsLoading(true)
     try {
       const filteredProfiles = await search(query, 50)
       setResults(filteredProfiles)
     } catch (error) {
       console.error("Error fetching search results:", error)
-      setResults([])
     } finally {
       setIsLoading(false)
     }
-  }, [query, search])
-  
+  }, [search])
+
   useEffect(() => {
     if (!query) {
       navigate("/")
@@ -61,7 +60,7 @@ export default function SearchResults() {
     }
 
     if (!_results) {
-      setTimeout(fetchResults, 100);
+      setTimeout(() => fetchResults(query), 500);
     } else {
       setResults(_results)
       setIsLoading(false)
@@ -72,6 +71,7 @@ export default function SearchResults() {
     e.preventDefault()
     if (!searchQuery.trim()) return
     navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    fetchResults(searchQuery.trim())
   }
 
   const copyToClipboard = async (text: string, field: string) => {
