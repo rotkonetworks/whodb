@@ -89,7 +89,6 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
         id: requestId,
         version: '1.0',
         ...message,
-        requestId, // Add request ID for correlation
       };
 
       const timeout = window.setTimeout(() => {
