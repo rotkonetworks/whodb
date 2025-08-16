@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button"
 import type { Profile } from "@/lib/profile"
 import { useVerification } from "@/contexts/verification-context"
 import { toast } from "sonner"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useParams } from "react-router-dom"
+import { SS58String } from "polkadot-api"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
 
 interface ContactInformationProps {
   profile: Profile
@@ -81,7 +84,16 @@ const contactItemConfigs: ContactItemConfig[] = [
 ]
 
 export function ContactInformation({ profile }: ContactInformationProps) {
-  const { getFieldStatus } = useVerification()
+  const routeParams = useParams<{ network: string; address: SS58String }>()
+  const { network, address } = routeParams
+  useTriggerLog(network, "network")
+  useTriggerLog(address, "address")
+
+  const { getFieldStatus, setWebSocketParams } = useVerification()
+  useEffect(() => {
+    setWebSocketParams({ network, address })
+  }, [network, address, setWebSocketParams])
+
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const copyToClipboard = (text: string, fieldLabel: string) => {
