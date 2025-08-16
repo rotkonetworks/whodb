@@ -7,6 +7,7 @@ import { Circle, Search, User } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { PossibleDisplayedOutputs, AllowedFields } from "@/types/search_fields"
 
 export default function SearchForm() {
   const navigate = useNavigate()
@@ -28,22 +29,58 @@ export default function SearchForm() {
     }
   }, [urlParams])
 
-  useEffect(() => {
-    (async () => {
-      // TODO First, make sure to parse query, before actually searching. if not, while typing the 
-      //  query, it's not going to be valid, it has to be e.g. field:foo
-      //  Or, even better, if it can't match anything, we might assume it must look for display name.
-      if (query.length >= 1) {
-        const filteredProfiles = await search(query, 5)
-        setSuggestions(filteredProfiles)
-        setShowSuggestions(true)
-        setSelectedIndex(-1)
-      } else {
-        setSuggestions([])
-        setShowSuggestions(false)
+  const constructSearcObject = (query: string): any => {
+    const parseSearchString = (input: string): Record<string, string> => {
+      const result: Record<string, string> = {};
+      const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
+      let match;
+
+      while ((match = regex.exec(input)) !== null) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+
+        if (key && value !== undefined) {
+          if (AllowedFields.includes(key.toLowerCase()) || key.toLowerCase() === "network" || key.toLowerCase() === "result_size") {
+            result[key] = value;
+          }
+        }
       }
-    })()
-  }, [query])
+
+      return result;
+    }
+
+    const pairs = parseSearchString(query);
+    const result_size = pairs["result_size"] ? parseInt(pairs["result_size"]) : 8;
+    delete pairs.network;
+    delete pairs.result_size;
+
+    const toPascalCase = (s: string) => s.replace(/_(\w)/g, (_, c) => c.toUpperCase()).replace(/^\w/, (c) => c.toUpperCase());
+
+    const outputs: string[] = Array.from(PossibleDisplayedOutputs).map(key => toPascalCase(key))
+
+
+    const filtersFields = Object.keys(pairs)
+      .map(key => ({
+        field: { [toPascalCase(key)]: "%" + pairs[key] + "%" },
+        strict: false, // Default to strict for now
+      }));
+
+    var search_obj = {
+      version: "1.0",
+      type: "SearchRegistration",
+      payload: {
+        outputs: outputs,
+        filters: {
+          fields: filtersFields,
+          result_size: result_size,
+        }
+      }
+    };
+
+    if (pairs["network"]) { search_obj["network"] = pairs["network"] }
+
+    return search_obj
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +89,10 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    navigate(`/search?q=${encodeURIComponent(query.trim())}`, { state: { results: suggestions } })
+    const searchObj = constructSearcObject(query);
+    // Use Base64 encoding for safer URL handling
+    const searchString = btoa(JSON.stringify(searchObj));
+    navigate(`/search?data=${searchString}`);
   }
 
   const handleSuggestionClick = (profile: any) => {

@@ -57,6 +57,3 @@ for (const key in finalEnv) {
   output += `${key}="${finalEnv[key]}"\n`;
 }
 writeFileSync('./.env', output);
-
-console.log('Final .env variables:');
-console.log(finalEnv);

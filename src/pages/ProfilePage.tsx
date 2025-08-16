@@ -1,32 +1,26 @@
-import { useState } from "react"
-import { Copy, Share2, Edit3, Users, ListChecks, Contact, CircleX } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { PageHeader } from "@/components/page-header"
-import { ContactInformation } from "@/components/contact-information"
-import { AccountHierarchy } from "@/components/account-hierarchy"
-import { VerificationTimeline } from "@/components/verification-timeline"
-import { getVerificationBadge } from "@/components/verification-badge"
-import { shortenAddress } from "@/utils/format-address"
-import type { Profile } from "@/lib/profile"
-import { toast } from "sonner"
-import { VerificationProvider } from "@/contexts/verification-context"
-
-import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe } from "lucide-react"
-import { SS58String } from "polkadot-api"
-import { useQuery } from "@tanstack/react-query"
-import { useSearchWebSocket } from "@/hooks/websocket/search"
-import { useWebSocketContext } from "@/contexts/web-socket-provider"
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
-import { useTriggerLog } from "@/hooks/use-trigger-log"
-import { Timeline, TimelineEventRecord } from "@/types/timeline"
-
-type ProfileTab = "contact" | "timeline"
+import { useParams, Link, useSearchParams } from "react-router-dom"
+import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, XCircle, Globe } from "lucide-react"
+import VerificationTimeline from "../components/verification-timeline";
 
 export default function ProfilePage() {
-  const { network, address } = useParams<{ network: string; address: SS58String }>()
-  const { profile: pushedProfile } = useLocation().state || {};
-  useTriggerLog(pushedProfile, "pushedProfile")
+  const [searchParams] = useSearchParams()
+  
+  // Get profile object from URL params
+  const getProfile = () => {
+    const profileData = searchParams.get('data');
+    if (profileData) {
+      try {
+        const decodedData = atob(profileData);
+        return JSON.parse(decodedData);
+      } catch (error) {
+        console.error('Failed to parse profile data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+  
+  const profile = getProfile();
 
   const { search } = useSearchWebSocket(useWebSocketContext())
   const {
@@ -73,186 +67,83 @@ export default function ProfilePage() {
   const info = profile?.identity.info
 
   return (
-    <div className="bg-gray-900 min-h-screen text-white">
-      <PageHeader backTo="/search"
-        rightActions={
-          <div className="flex items-center space-x-2 md:space-x-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-pink-400 border border-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3"
-              onClick={() =>
-                copyToClipboard(
-                  `${window.location.origin}/profile/${profile?.network}/${profile?.address}`,
-                  "Profile link",
-                )
-              }
-            >
-              <Share2 className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline text-sm">
-                {copiedField === "Profile link" ? "Copied!" : "Share"}
-              </span>
-            </Button>
-            <Button
-              size="sm"
-              className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-3"
-            >
-              <Edit3 className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline text-sm">Edit Profile</span>
-            </Button>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <Link to="/search" className="inline-flex items-center text-muted hover:text-foreground mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Search
+          </Link>
+        </div>
+
+        {/* Profile Card */}
+        <div className="bg-card rounded-lg border border-border/30 overflow-hidden">
+          {/* Cover/Header */}
+          <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/40"></div>
+
+          {/* Profile Content */}
+          <div className="px-6 pb-6">
+            {/* Avatar and Basic Info */}
+            <div className="flex flex-col sm:flex-row sm:items-end sm:space-x-6 -mt-16 sm:-mt-12">
+              <img
+                src={profile.avatar || "/placeholder.svg"}
+                alt={profile.display_name}
+                className="w-24 h-24 rounded-full border-4 border-card object-cover mb-4 sm:mb-0"
+              />
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h1 className="text-2xl font-bold text-foreground">{profile.display_name}</h1>
+                      {profile.verified && (
+                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {profile.display_name && (
+                      <p className="text-accent font-medium mb-1">{profile.display_name}</p>
+                    )}
+
+                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getNetworkColor(profile.network)}`}>
+                      <Globe className="w-3 h-3 mr-1" />
+                      {profile.network}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 sm:mt-0">
+                    <button type="button" className="btn-outline px-4 py-2 rounded-lg">
+                      Follow
+                    </button>
+                  </div>
+                </div>
+
+            {/* Contact Information */}
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center text-muted">
+                <Mail className="w-4 h-4 mr-3" />
+                <span>{profile.email}</span>
+              </div>
+
+              <div className="flex items-center text-muted">
+                <Wallet className="w-4 h-4 mr-3" />
+                <span className="font-mono text-xs break-all">{profile.wallet_id}</span>
+              </div>
+            </div>
+
+            {/* Verification Status */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                <Shield className="w-5 h-5 mr-2" />
+                Verification Status
+              </h3>
+
+              <VerificationTimeline timeline={profile.timeline} />
+            </div>
           </div>
-        }
-      />
-      <div className="container mx-auto p-3 sm:p-4 md:p-6">
-        <div className="space-y-4 md:space-y-6">
-          {isProfileLoading ? <LoadingSpinner />
-            : ((profile && !isProfileFetchError)
-              ? <>
-                {/* Profile Header Section */}
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 sm:p-4 shadow-md">
-                  <div className="flex items-start space-x-3 sm:space-x-4">
-                    <div
-                      className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-pink-500/50 flex-shrink-0 bg-gray-700 flex items-center justify-center"
-                      style={{
-                        backgroundImage: `url(${info.image || "/placeholder.svg"})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center'
-                      }}
-                    >
-                      {/* TODO Parse image so it can be rendered. */}
-                      {!info.display && (
-                        <span className="text-white font-bold text-lg">
-                          {info.display!!.substring(0, 1).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-grow min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <h1 className="text-lg sm:text-xl font-bold text-white truncate" 
-                          title={info.display || "No Display Name"}
-                        >
-                          {info.display || "<No Display Name>"}
-                        </h1>
-                        <div className="mt-1 sm:mt-0 flex-shrink-0">
-                          {/* FIXME using it twice already */}
-                          {getVerificationBadge(
-                            profile.verified ?? false, 
-                            profile.timeline?.find((event: TimelineEventRecord) => 
-                              event.event === 'verified'
-                            )
-                              ? "KnownGood" 
-                              : profile.timeline?.find((event: TimelineEventRecord) => 
-                                event.event === 'created'
-                              )
-                                ? "IdentitySet"
-                                : "Unknown"
-                            ,
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-400 mt-0.5">
-                        <span className="font-mono truncate" title={profile.address}>
-                          {shortenAddress(profile.address, 6, 6)}
-                        </span>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e: React.KeyboardEvent) => 
-                            e.key === 'Enter' && copyToClipboard(profile.address, "Wallet address")
-                          }
-                          onMouseDown={() => copyToClipboard(profile.address, "Wallet address")}
-                          className="ml-1.5 text-gray-500 hover:text-pink-400 transition-colors flex-shrink-0 cursor-pointer"
-                          title="Copy wallet address"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </div>
-                      </div>
-                      {/* TODO Add domain like identity name based on info.display of this and superaccounts */}
-                      {info.display && (
-                        <div
-                          className="flex items-center text-xs text-pink-400 mt-1 bg-gray-700/50 px-1.5 py-0.5 rounded-full self-start w-fit"
-                        >
-                          <span className="truncate" title={info.display}>
-                            {info.display}
-                          </span>
-                          <span className="text-gray-500 text-xs ml-0.5 hidden sm:inline">.alt</span>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e: React.KeyboardEvent) => 
-                              e.key === 'Enter' && copyToClipboard(info.display!, "Nickname")
-                            }
-                            onMouseDown={() => copyToClipboard(info.display!, "Nickname")}
-                            className="ml-1.5 text-gray-500 hover:text-white transition-colors flex-shrink-0 cursor-pointer"
-                            title="Copy nickname"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tabs Navigation */}
-                <div className="mt-4 md:mt-5 mb-3 md:mb-4">
-                  <div className="border-b border-gray-700">
-                    <nav
-                      className="flex flex-wrap sm:flex-nowrap -mb-px space-x-px sm:space-x-1"
-                      aria-label="Profile sections"
-                    >
-                      {tabItems.map((tab) => (
-                        <div
-                          key={tab.id}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && setActiveTab(tab.id)}
-                          onMouseDown={() => setActiveTab(tab.id)}
-                          className={`flex items-center justify-center whitespace-nowrap px-2 py-2 sm:px-3 sm:py-2.5 font-medium text-xs sm:text-sm rounded-t-md transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-pink-500 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 cursor-pointer
-                            ${activeTab === tab.id
-                              ? "text-pink-400 border-b-2 border-pink-500 bg-gray-800/40"
-                              : "text-gray-400 hover:text-white hover:bg-gray-700/40"
-                            }`
-                          }
-                          aria-current={activeTab === tab.id ? "page" : undefined}
-                          title={tab.label}
-                        >
-                          <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 sm:mr-1.5" />
-                          <span className="hidden sm:inline">{tab.label}</span>
-                        </div>
-                      ))}
-                    </nav>
-                  </div>
-                </div>
-
-                {/* Tab Content */}
-                <div className="min-h-[200px] py-2 space-y-6">
-                  {activeTab === "contact" && (
-                    <>
-                      <VerificationProvider>
-                        <ContactInformation identity={profile.identity} />
-                      </VerificationProvider>
-                      <div> 
-                        <h2 className="text-lg font-semibold text-white mb-3 mt-6 flex items-center">
-                          <Users className="w-5 h-5 mr-2 text-pink-400" />
-                          Subidentities
-                        </h2>
-                        <AccountHierarchy profile={profile} isOwnProfile={true} />
-                      </div>
-                    </>
-                  )}
-                  {activeTab === "timeline" && <VerificationTimeline timeline={profile.timeline} />}
-                </div>
-              </>
-              : <>
-                <div className="text-center text-gray-400 mt-10">
-                  <CircleX className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                  <p className="text-md font-medium">Profile not found.</p>
-                  <p className="mt-2 text-xs">The profile you are looking for does not exist or is private.</p>
-                </div>
-              </>
-            )
-          }
         </div>
       </div>
     </div>

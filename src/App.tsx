@@ -33,40 +33,20 @@ export default function App() {
             <AccountProvider>
               <BalanceProvider>
                 <UserProvider>
-                  <QueryClientProvider client={queryClient}>
-                    <Routes>
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={
-                        <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL as string}>
-                          <Routes>
-                            <Route path="/register" element={
-                              <VerificationProvider>
-                                <OptimizedPolkadotRoute>
-                                  <RegisterPage />
-                                </OptimizedPolkadotRoute>
-                              </VerificationProvider>
-                            } />
-                            <Route path="*" element={
-                              <SearchProvider>
-                                <Routes>
-                                  <Route path="/profile/:network/:address" element={<ProfilePage />} />
-                                  <Route path="/" element={<HomePage />} />
-                                  <Route path="/search" element={<SearchPage />} />
-                                  <Route path="*" element={
-                                    <p className="text-center text-gray-400 mt-10">
-                                      Page not found
-                                    </p>
-                                  } />
-                                </Routes>
-                              </SearchProvider>
-                            } />
-                          </Routes>
-                        </WebSocketProvider>
-                      } />
-                    </Routes>
-                    <Toaster />
-                  </QueryClientProvider>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={
+                      <OptimizedPolkadotRoute>
+                        <RegisterPage />
+                      </OptimizedPolkadotRoute>
+                    } />
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/profile/:id" element={<ProfilePage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<div>Page not found</div>} />
+                  </Routes>
+                  <Toaster />
                 </UserProvider>
               </BalanceProvider>
             </AccountProvider>
