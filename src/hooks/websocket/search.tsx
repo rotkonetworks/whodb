@@ -63,7 +63,8 @@ const SEARCH_2_SUPPORTED_FIELDS: Record<string, string> = {
   legal: 'Legal',
   web: 'Web',
   timeline: 'Timeline',
-  // pgp_fingerprint: 'PGPFingerprint', // Commented out in original
+  pgp_fingerprint: 'PGPFingerprint', // Commented out in original
+  wallet_id: 'WalletID',
 };
 
 /**
