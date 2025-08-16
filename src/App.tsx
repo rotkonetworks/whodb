@@ -43,10 +43,10 @@ export default function App() {
                               </OptimizedPolkadotRoute>
                             </VerificationProvider>
                           } />
-                          <Route path="/profile/:id?" element={<ProfilePage />} />
                           <Route path="*" element={
                             <SearchProvider>
                               <Routes>
+                                <Route path="/profile/:network/:address" element={<ProfilePage />} />
                                 <Route path="/" element={<HomePage />} />
                                 <Route path="/search" element={<SearchPage />} />
                                 <Route path="*" element={

@@ -9,6 +9,7 @@ import { getVerificationBadge } from "@/components/verification-badge"
 import { shortenAddress } from "@/utils/format-address"
 import type { Profile } from "@/lib/profile"
 import { toast } from "sonner"
+import { VerificationProvider } from "@/contexts/verification-context"
 
 type ProfileTab = "contact" | "timeline"
 
@@ -190,7 +191,9 @@ export default function ProfilePage() {
           <div className="min-h-[200px] py-2 space-y-6">
             {activeTab === "contact" && (
               <>
-                <ContactInformation profile={mockProfile} />
+                <VerificationProvider>
+                  <ContactInformation profile={mockProfile} />
+                </VerificationProvider>
                 <div>
                   <h2 className="text-lg font-semibold text-white mb-3 mt-6 flex items-center">
                     <Users className="w-5 h-5 mr-2 text-pink-400" />
