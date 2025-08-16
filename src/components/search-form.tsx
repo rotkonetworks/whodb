@@ -3,46 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { Search, User, Circle } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-
-// Mock profiles from all networks - in production this would query all databases
-const mockProfiles = [
-  {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    avatar: "/professional-woman-avatar.png",
-    network: "paseo",
-  },
-  {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    avatar: "/professional-man-avatar.png",
-    network: "polkadot",
-  },
-  {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    avatar: "/woman-developer-avatar.png",
-    network: "kusama",
-  },
-  {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    avatar: "/asian-man-developer-avatar.png",
-    network: "paseo",
-  },
-]
+import { PossibleDisplayedOutputs, AllowedFields } from "@/types/search_fields"
 
 export default function SearchForm() {
   const navigate = useNavigate()
@@ -61,24 +22,58 @@ export default function SearchForm() {
     }
   }, [urlParams])
 
-  useEffect(() => {
-    if (query.length >= 3) {
-      // Search across all networks seamlessly
-      const filtered = mockProfiles.filter(
-        (profile) =>
-          profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          profile.email.toLowerCase().includes(query.toLowerCase()) ||
-          profile.walletAddress.toLowerCase().includes(query.toLowerCase()),
-      )
-      setSuggestions(filtered.slice(0, 5))
-      setShowSuggestions(true)
-      setSelectedIndex(-1)
-    } else {
-      setSuggestions([])
-      setShowSuggestions(false)
+  const constructSearcObject = (query: string): any => {
+    const parseSearchString = (input: string): Record<string, string> => {
+      const result: Record<string, string> = {};
+      const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
+      let match;
+
+      while ((match = regex.exec(input)) !== null) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+
+        if (key && value !== undefined) {
+          if (AllowedFields.includes(key.toLowerCase()) || key.toLowerCase() === "network" || key.toLowerCase() === "result_size") {
+            result[key] = value;
+          }
+        }
+      }
+
+      return result;
     }
-  }, [query])
+
+    const pairs = parseSearchString(query);
+    const result_size = pairs["result_size"] ? parseInt(pairs["result_size"]) : 8;
+    delete pairs.network;
+    delete pairs.result_size;
+
+    const toPascalCase = (s: string) => s.replace(/_(\w)/g, (_, c) => c.toUpperCase()).replace(/^\w/, (c) => c.toUpperCase());
+
+    const outputs: string[] = Array.from(PossibleDisplayedOutputs).map(key => toPascalCase(key))
+
+
+    const filtersFields = Object.keys(pairs)
+      .map(key => ({
+        field: { [toPascalCase(key)]: "%" + pairs[key] + "%" },
+        strict: false, // Default to strict for now
+      }));
+
+    var search_obj = {
+      version: "1.0",
+      type: "SearchRegistration",
+      payload: {
+        outputs: outputs,
+        filters: {
+          fields: filtersFields,
+          result_size: result_size,
+        }
+      }
+    };
+
+    if (pairs["network"]) { search_obj["network"] = pairs["network"] }
+
+    return search_obj
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,9 +82,10 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    //navigate(`/search?query=${encodeURIComponent(query.trim())}`)
-    navigate(`/search?q=${encodeURIComponent(query.trim())}`)
-    //setParam("query", query.trim())
+    const searchObj = constructSearcObject(query);
+    // Use Base64 encoding for safer URL handling
+    const searchString = btoa(JSON.stringify(searchObj));
+    navigate(`/search?data=${searchString}`);
   }
 
   const handleSuggestionClick = (profile: any) => {

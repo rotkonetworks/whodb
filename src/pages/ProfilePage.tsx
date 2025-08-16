@@ -1,85 +1,26 @@
-import { useParams, Link } from "react-router-dom"
-import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, XCircle, Globe } from "lucide-react"
-
-// Mock profile data
-const mockProfiles = {
-  "1": {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    avatar: "/professional-woman-avatar.png",
-    network: "paseo",
-    verified: true,
-    bio: "Blockchain developer and DeFi enthusiast. Building the future of decentralized finance.",
-    joinDate: "2023-08-15",
-    verificationStatus: {
-      email: true,
-      phone: false,
-      identity: true,
-      github: true,
-    }
-  },
-  "2": {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    avatar: "/professional-man-avatar.png",
-    network: "polkadot",
-    verified: true,
-    bio: "Smart contract auditor and security researcher. Passionate about making DeFi safer.",
-    joinDate: "2023-06-20",
-    verificationStatus: {
-      email: true,
-      phone: true,
-      identity: true,
-      github: false,
-    }
-  },
-  "3": {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    avatar: "/woman-developer-avatar.png",
-    network: "kusama",
-    verified: false,
-    bio: "Frontend developer specializing in Web3 UX. Making blockchain accessible to everyone.",
-    joinDate: "2023-09-10",
-    verificationStatus: {
-      email: true,
-      phone: false,
-      identity: false,
-      github: true,
-    }
-  },
-  "4": {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    avatar: "/asian-man-developer-avatar.png",
-    network: "paseo",
-    verified: true,
-    bio: "Parachain developer and substrate enthusiast. Building the next generation of blockchains.",
-    joinDate: "2023-07-05",
-    verificationStatus: {
-      email: true,
-      phone: true,
-      identity: true,
-      github: true,
-    }
-  }
-}
+import { Link, useSearchParams } from "react-router-dom"
+import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe } from "lucide-react"
+import VerificationTimeline from "../components/verification-timeline";
 
 export default function ProfilePage() {
-  const { id } = useParams<{ id: string }>()
-  const profile = id ? mockProfiles[id as keyof typeof mockProfiles] : null
+  const [searchParams] = useSearchParams()
+
+  // Get profile object from URL params
+  const getProfile = () => {
+    const profileData = searchParams.get('data');
+    if (profileData) {
+      try {
+        const decodedData = atob(profileData);
+        return JSON.parse(decodedData);
+      } catch (error) {
+        console.error('Failed to parse profile data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const profile = getProfile();
 
   if (!profile) {
     return (
@@ -127,7 +68,7 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:space-x-6 -mt-16 sm:-mt-12">
               <img
                 src={profile.avatar || "/placeholder.svg"}
-                alt={profile.displayName}
+                alt={profile.display_name}
                 className="w-24 h-24 rounded-full border-4 border-card object-cover mb-4 sm:mb-0"
               />
 
@@ -135,7 +76,7 @@ export default function ProfilePage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center space-x-3 mb-2">
-                      <h1 className="text-2xl font-bold text-foreground">{profile.displayName}</h1>
+                      <h1 className="text-2xl font-bold text-foreground">{profile.display_name}</h1>
                       {profile.verified && (
                         <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                           <CheckCircle className="w-4 h-4 text-white" />
@@ -143,8 +84,8 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    {profile.nickname && (
-                      <p className="text-accent font-medium mb-1">{profile.nickname}</p>
+                    {profile.display_name && (
+                      <p className="text-accent font-medium mb-1">{profile.display_name}</p>
                     )}
 
                     <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getNetworkColor(profile.network)}`}>
@@ -162,11 +103,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Bio */}
-            <div className="mt-6">
-              <p className="text-foreground">{profile.bio}</p>
-            </div>
-
             {/* Contact Information */}
             <div className="mt-6 space-y-3">
               <div className="flex items-center text-muted">
@@ -176,7 +112,7 @@ export default function ProfilePage() {
 
               <div className="flex items-center text-muted">
                 <Wallet className="w-4 h-4 mr-3" />
-                <span className="font-mono text-xs break-all">{profile.walletAddress}</span>
+                <span className="font-mono text-xs break-all">{profile.wallet_id}</span>
               </div>
             </div>
 
@@ -187,31 +123,8 @@ export default function ProfilePage() {
                 Verification Status
               </h3>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {Object.entries(profile.verificationStatus).map(([key, verified]) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    {verified ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-500" />
-                    )}
-                    <span className={`text-sm capitalize ${verified ? 'text-green-400' : 'text-red-400'}`}>
-                      {key}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Member Since */}
-            <div className="mt-6 pt-6 border-t border-border/30">
-              <p className="text-muted text-sm">
-                Member since {new Date(profile.joinDate).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
+              {console.log("asdf", profile.timeline)}
+              <VerificationTimeline timeline={profile.timeline} />
             </div>
           </div>
         </div>

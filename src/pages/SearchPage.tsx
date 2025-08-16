@@ -1,77 +1,62 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import SearchForm from "@/components/search-form"
 import { User, Mail, Wallet, Globe } from "lucide-react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 
-// Mock profiles data - same as in SearchForm
-const mockProfiles = [
-  {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    avatar: "/professional-woman-avatar.png",
-    network: "paseo",
-    verified: true,
-  },
-  {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    avatar: "/professional-man-avatar.png",
-    network: "polkadot",
-    verified: true,
-  },
-  {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    avatar: "/woman-developer-avatar.png",
-    network: "kusama",
-    verified: false,
-  },
-  {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    avatar: "/asian-man-developer-avatar.png",
-    network: "paseo",
-    verified: true,
-  },
-]
-
+// TODO: fix loading animation
+// TODO: fix navigation (forward and backward page)
+// TODO: fix search suggestion
 export default function SearchPage() {
   const { urlParams } = useUrlParams()
   const [results, setResults] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Get search object from URL params
+  const getSearchObj = () => {
+    const searchData = searchParams.get('data');
+    if (searchData) {
+      try {
+        const decodedData = atob(searchData);
+        return JSON.parse(decodedData);
+      } catch (error) {
+        console.error('Failed to parse search data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const searchObj = getSearchObj();
 
   useEffect(() => {
-    const query = urlParams.q
-    if (query && query.length >= 3) {
+    if (searchObj && searchObj["type"] == "SearchRegistration") {
       setIsLoading(true)
-      // Simulate API call delay
-      setTimeout(() => {
-        const filtered = mockProfiles.filter(
-          (profile) =>
-            profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-            (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-            profile.email.toLowerCase().includes(query.toLowerCase()) ||
-            profile.walletAddress.toLowerCase().includes(query.toLowerCase()),
-        )
-        setResults(filtered)
+      const ws = new WebSocket(import.meta.env.VITE_WS_URL)
+      ws.onopen = () => {
+        ws.send(JSON.stringify(searchObj))
+      }
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        console.log(JSON.stringify(data))
+        setResults(data)
         setIsLoading(false)
-      }, 300)
+      }
+
+      ws.onerror = (error) => {
+        setIsLoading(false)
+      }
+
+      return () => {
+        ws.close()
+      }
     } else {
       setResults([])
     }
-  }, [urlParams.q])
+  }, [searchParams.get('data')])
 
   const getNetworkColor = (network: string) => {
     switch (network) {
@@ -117,16 +102,16 @@ export default function SearchPage() {
         ) : results.length > 0 ? (
           <div className="space-y-4">
             {results.map((profile) => (
-              <div key={profile.id} className="bg-card p-6 rounded-lg border border-border/30 hover:border-accent/50 transition-colors">
+              <div key={profile.wallet_id} className="bg-card p-6 rounded-lg border border-border/30 hover:border-accent/50 transition-colors">
                 <div className="flex items-start space-x-4">
                   <img
-                    src={profile.avatar || "/placeholder.svg"}
-                    alt={profile.displayName}
+                    src={profile.image || "../assets/placeholder.svg"}
+                    alt={profile.display_name}
                     className="w-16 h-16 rounded-full object-cover"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="text-xl font-semibold text-foreground">{profile.displayName}</h3>
+                      <h3 className="text-xl font-semibold text-foreground">{profile.display_name}</h3>
                       {profile.verified && (
                         <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -145,34 +130,31 @@ export default function SearchPage() {
                         <span>{profile.nickname}</span>
                       </div>
                     )}
-
-                    <div className="flex items-center text-muted mb-2">
-                      <Mail className="w-4 h-4 mr-2" />
-                      <span className="truncate">{profile.email}</span>
-                    </div>
+                    {profile.email ?
+                      <div className="flex items-center text-muted mb-2">
+                        <Mail className="w-4 h-4 mr-2" />
+                        <span className="truncate">{profile.email}</span>
+                      </div>
+                      : <></>}
 
                     <div className="flex items-center text-muted">
                       <Wallet className="w-4 h-4 mr-2" />
-                      <span className="font-mono text-xs truncate">{profile.walletAddress}</span>
+                      <span className="font-mono text-xs truncate">{profile.wallet_id}</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     className="btn-primary px-4 py-2 rounded-lg text-sm"
-                    onClick={() => window.location.href = `/profile/${profile.id}`}
-                  >
+                    onClick={() => {
+                      const profileString = btoa(JSON.stringify(profile));
+                      navigate(`/profile/${profile.wallet_id}?data=${profileString}`);
+                    }}>
                     View Profile
                   </button>
                 </div>
               </div>
             ))}
-          </div>
-        ) : urlParams.q && urlParams.q.length >= 3 ? (
-          <div className="text-center py-12">
-            <Globe className="w-16 h-16 text-muted mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No results found</h3>
-            <p className="text-muted">Try searching with different keywords or check the spelling.</p>
           </div>
         ) : (
           <div className="text-center py-12">

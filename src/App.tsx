@@ -34,7 +34,7 @@ export default function App() {
                       </OptimizedPolkadotRoute>
                     } />
                     <Route path="/search" element={<SearchPage />} />
-                    <Route path="/profile/:id?" element={<ProfilePage />} />
+                    <Route path="/profile/:id" element={<ProfilePage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<div>Page not found</div>} />
                   </Routes>
