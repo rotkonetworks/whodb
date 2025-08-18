@@ -64,12 +64,10 @@ export const SearchProvider = ({ children }: {
   const search = useCallback(async (
     query: string,
     limit?: number,
-    options?: SearchOptions,
   ): Promise<ProfileResults> => {
-    if (!webSocket) return [];
 
     // Search across all networks seamlessly
-    const filtered = (await searchWebSocket.search(query, limit, options))
+    const filtered = (await searchWebSocket.search(query, limit))
       .map((profile) => ({
         id: profile.wallet_id,
         discord: profile.discord,

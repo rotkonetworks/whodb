@@ -6,8 +6,6 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-// Mock profiles from all networks - in production this would query all databases
-
 export default function SearchForm() {
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
@@ -39,10 +37,9 @@ export default function SearchForm() {
         setSuggestions([])
         setShowSuggestions(false)
       }
-    }
-  )()
+    })()
   }, [query])
-
+ 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
