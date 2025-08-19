@@ -1,3 +1,4 @@
+import { wait } from '@/utils';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface WebSocketMessage {
@@ -32,6 +33,9 @@ interface PendingRequest {
   reject: (reason: Error) => void;
   timeout: number;
 }
+
+// TODO Bundle all constants into single file
+const WS_MAX_TIMEOUT = 30000;
 
 /**
  * Main WebSocket hook that provides generic WebSocket connection management
@@ -78,10 +82,16 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
    * Automatically adds version information and handles request/response correlation.
    */
   const sendMessage = useCallback(<T = any>(message: WebSocketMessage): Promise<T> => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      const startTimeMillis = Date.now();
+      while (Date.now() - startTimeMillis < WS_MAX_TIMEOUT) {
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          break;
+        }
+        await wait(100);
+      }
       if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-        reject(new Error('WebSocket is not connected'));
-        return;
+        return reject(new Error('WebSocket is not connected'));
       }
 
       const requestId = generateRequestId();
