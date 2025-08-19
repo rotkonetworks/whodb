@@ -18,6 +18,9 @@ import SettingsPage from './pages/SettingsPage'
 import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
 import { AccountProvider } from './contexts/wallet-context'
 import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient()
 
 export default function App() {
   // Enable modal-aware toast behavior
@@ -30,38 +33,40 @@ export default function App() {
             <AccountProvider>
               <BalanceProvider>
                 <UserProvider>
-                  <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={
-                      <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL as string}>
-                        <Routes>
-                          <Route path="/register" element={
-                            <VerificationProvider>
-                              <OptimizedPolkadotRoute>
-                                <RegisterPage />
-                              </OptimizedPolkadotRoute>
-                            </VerificationProvider>
-                          } />
-                          <Route path="*" element={
-                            <SearchProvider>
-                              <Routes>
-                                <Route path="/profile/:network/:address" element={<ProfilePage />} />
-                                <Route path="/" element={<HomePage />} />
-                                <Route path="/search" element={<SearchPage />} />
-                                <Route path="*" element={
-                                  <p className="text-center text-gray-400 mt-10">
-                                    Page not found
-                                  </p>
-                                } />
-                              </Routes>
-                            </SearchProvider>
-                          } />
-                        </Routes>
-                      </WebSocketProvider>
-                    } />
-                  </Routes>
-                  <Toaster />
+                  <QueryClientProvider client={queryClient}>
+                    <Routes>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="*" element={
+                        <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL as string}>
+                          <Routes>
+                            <Route path="/register" element={
+                              <VerificationProvider>
+                                <OptimizedPolkadotRoute>
+                                  <RegisterPage />
+                                </OptimizedPolkadotRoute>
+                              </VerificationProvider>
+                            } />
+                            <Route path="*" element={
+                              <SearchProvider>
+                                <Routes>
+                                  <Route path="/profile/:network/:address" element={<ProfilePage />} />
+                                  <Route path="/" element={<HomePage />} />
+                                  <Route path="/search" element={<SearchPage />} />
+                                  <Route path="*" element={
+                                    <p className="text-center text-gray-400 mt-10">
+                                      Page not found
+                                    </p>
+                                  } />
+                                </Routes>
+                              </SearchProvider>
+                            } />
+                          </Routes>
+                        </WebSocketProvider>
+                      } />
+                    </Routes>
+                    <Toaster />
+                  </QueryClientProvider>
                 </UserProvider>
               </BalanceProvider>
             </AccountProvider>
