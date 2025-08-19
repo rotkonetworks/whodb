@@ -90,8 +90,8 @@ export default function ProfilePage() {
       />
       <div className="container mx-auto p-3 sm:p-4 md:p-6">
         <div className="space-y-4 md:space-y-6">
-          {isProfileLoading ? <LoadingSpinner /> 
-            : ((profile && !isProfileFetchError) 
+          {isProfileLoading ? <LoadingSpinner />
+            : ((profile && !isProfileFetchError)
               ? <>
                 {/* Profile Header Section */}
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 sm:p-4 shadow-md">
@@ -109,7 +109,7 @@ export default function ProfilePage() {
                     <div className="flex-grow min-w-0">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-lg sm:text-xl font-bold text-white truncate" title={profile.displayName}>
-                          {profile.displayName}
+                          {profile.display_name}
                         </h1>
                         <div className="mt-1 sm:mt-0 flex-shrink-0">
                           {getVerificationBadge(profile.verified, profile.judgement)}
@@ -167,7 +167,7 @@ export default function ProfilePage() {
                           onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && setActiveTab(tab.id)}
                           onMouseDown={() => setActiveTab(tab.id)}
                           className={`flex items-center justify-center whitespace-nowrap px-2 py-2 sm:px-3 sm:py-2.5 font-medium text-xs sm:text-sm rounded-t-md transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-pink-500 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 cursor-pointer
-                        ${activeTab === tab.id
+                            ${activeTab === tab.id
                               ? "text-pink-400 border-b-2 border-pink-500 bg-gray-800/40"
                               : "text-gray-400 hover:text-white hover:bg-gray-700/40"
                             }`
@@ -199,7 +199,7 @@ export default function ProfilePage() {
                       </div>
                     </>
                   )}
-                  {activeTab === "timeline" && <VerificationTimeline profile={profile} />}
+                  {activeTab === "timeline" && <VerificationTimeline timeline={profile.timeline} />}
                 </div>
               </>
               : <>
