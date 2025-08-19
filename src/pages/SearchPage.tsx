@@ -226,6 +226,17 @@ export default function SearchResults() {
                       </button>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Link key={profile.id}
+                      to={`/profile/${profile.network}/${profile.walletAddress}`}
+                      replace
+                      state={{ fromSearch: true, profile }}
+                    >
+                      <Button className="w-full transition-colors flex-shrink-0 py-0">
+                        View Full Profile
+                      </Button>
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             ))}
