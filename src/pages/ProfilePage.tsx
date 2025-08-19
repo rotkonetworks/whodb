@@ -29,8 +29,19 @@ export default function ProfilePage() {
     isLoading: isProfileLoading,
     isError: isProfileFetchError,
   } = useQuery({
-    queryKey: ['profile', network, address], 
-    queryFn: async () => (await search(`wallet_id:${address} network:${network}`, 1))[0]
+    queryKey: ['profile', network, address],
+    queryFn: async () => {
+      try {
+        const fetchedProfiles = await search(`wallet_id:${address} network:${network}`, 1)
+        if (fetchedProfiles.length === 0) {
+          throw new Error("Profile not found")
+        }
+        return fetchedProfiles?.[0]!!;
+      } catch (error) {
+        console.error("Error fetching profile:", error)
+        throw new Error(`Failed to fetch profile: ${error}`)
+      }
+    }
   })
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("contact")
