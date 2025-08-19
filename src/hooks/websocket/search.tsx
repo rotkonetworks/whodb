@@ -64,6 +64,7 @@ export const SEARCH_SUPPORTED_OUTPUTS = { ...SEARCH_SUPPORTED_FIELDS,
   timeline: 'Timeline',
 };
 export const SEARCH_SUPPORTED_FILTERS = { ...SEARCH_SUPPORTED_FIELDS,
+  wallet_id: 'AccountId32',
   result_size: "result_size",
 };
 

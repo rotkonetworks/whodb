@@ -84,11 +84,8 @@ const contactItemConfigs: ContactItemConfig[] = [
 ]
 
 export function ContactInformation({ profile }: ContactInformationProps) {
-  const routeParams = useParams<{ network: string; address: SS58String }>()
-  const { network, address } = routeParams
-  useTriggerLog(network, "network")
-  useTriggerLog(address, "address")
-
+  const { network, address } = useParams<{ network: string; address: SS58String }>()
+  
   const { getFieldStatus, setWebSocketParams } = useVerification()
   useEffect(() => {
     setWebSocketParams({ network, address })
