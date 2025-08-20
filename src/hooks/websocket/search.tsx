@@ -1,6 +1,7 @@
-import { encodeUint8Array, toHexString } from '@/utils/binary';
 import { useCallback } from 'react';
 import { WebSocketHookReturn } from '.';
+import { TilelineEventRecord } from '@/types/timeline';
+import { IdentityInfo } from '@/types/Identity';
 
 interface SearchRecord {
   wallet_id: string;
@@ -14,21 +15,7 @@ interface SearchRecord {
   legal?: string;
   web?: string;
   pgp_fingerprint?: string;
-  timeline?: {
-    event: 'created'
-      | 'verified'
-      | 'discord'
-      | 'display'
-      | 'email'
-      | 'matrix'
-      | 'twitter'
-      | 'github'
-      | 'legal'
-      | 'web'
-      | 'pgp_fingerprint'
-    ;
-    date: Date;
-  }[];
+  timeline?: TilelineEventRecord[];
 }
 
 export type SearchResults = Array<SearchRecord>;
@@ -61,21 +48,21 @@ const SEARCH_SUPPORTED_FIELDS: SearchSupportedFields = {
   twitter: 'Twitter',
   pgp_fingerprint: 'PGPFingerprint',
   web: 'Web',
-};
+} as const;
 
 type SearchOutputFields = Partial<Record<keyof SearchSupportedFields | 'timeline', string>>;
 export const SEARCH_OUTPUT_FIELDS: SearchOutputFields = {
   ...SEARCH_SUPPORTED_FIELDS,
   timeline: 'Timeline',
   //image: 'Image'  // TODO Add support for image when API makes it available.
-};
+} as const;
 
 type SearchFilterCriteria = Partial<Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>>;
-export const SEARCH_FILTER_CRITERIA_KEYS: SearchFilterCriteria = {
+export const SEARCH_FILTER_CRITERIA_KEYS = {
   ...SEARCH_SUPPORTED_FIELDS,
   wallet_id: 'AccountId32',
   result_size: "result_size",
-};
+} as const;
 
 /**
  * Search WebSocket hook that uses the main WebSocket for search functionality.
@@ -92,18 +79,18 @@ export const useSearchWebSocket = (
   const constructSearchParameters = (query: string, limit?: number) => {
     console.debug('Constructing search parameters for query:', query);
     const parseSearchString = (input: string): Record<string, string> => {
-      const result = {};
+      const result: SearchFilterCriteria = {};
       const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
 
       let match;
       while ((match = regex.exec(input)) !== null) {
-        const key = match[1].trim();
+        const key = match[1].trim() as keyof SearchFilterCriteria;
         const value = match[2].trim();
 
         console.debug("Matched query parameter:", key, value);
 
         if (key && value !== undefined) {
-          if (Object.keys(SEARCH_SUPPORTED_FILTERS).includes(key)) {
+          if (Object.keys(SEARCH_FILTER_CRITERIA_KEYS).includes(key)) {
             result[key] = value;
           }
         }
@@ -116,26 +103,26 @@ export const useSearchWebSocket = (
 
     return {
       network: pairs["network"],
-      outputs: Object.keys(SEARCH_SUPPORTED_OUTPUTS)
-        .map(key => SEARCH_SUPPORTED_OUTPUTS[key])
+      outputs: Object.values(SEARCH_OUTPUT_FIELDS)
+        .filter((v): v is string => typeof v === 'string')
       ,
       filters: {
-        fields: Object.keys(SEARCH_SUPPORTED_FILTERS)
-          .filter(key => pairs[key] !== undefined)
+        fields: (Object.values(SEARCH_FILTER_CRITERIA_KEYS) as Array<keyof SearchFilterCriteria>)
+          .filter(([key]) => pairs[key] !== undefined)
           // These two don't get mapped into the searchParams.filters.fields, as usual.
-          .filter(key => ['network', 'result_size'].includes(key) === false)
-          .map(key => ({
-            field: { [SEARCH_SUPPORTED_FILTERS[key]]: "%" + pairs[key] + "%" },
+          .filter(([key]) => ['network', 'result_size'].includes(key) === false)
+          .map(([key, value]) => ({
+            field: { [value as string]: `${pairs[key]}` },
             strict: false, // Default to not strict for now
           })),
-        result_size: pairs["result_size"] ? parseInt(pairs["result_size"]) : 8,
+        result_size: pairs["result_size"] ? parseInt(pairs["result_size"]) : limit || 10,
       }
     }
   }
 
   const search = useCallback(async (
     query: string,
-    limit: number,
+    limit?: number,
   ): Promise<SearchResults> => {
     /* if (!webSocketInstance.isConnected) {
       throw new Error('WebSocket is not connected');
