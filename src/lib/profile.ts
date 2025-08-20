@@ -1,4 +1,7 @@
 // Profile type definition
+/**
+ * @deprecated Use FullProfile from @/types/profile instead.
+ */
 export interface Profile {
   id: string
   displayName: string
