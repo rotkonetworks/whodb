@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Search, Send, Mail, MessageSquare } from "lucide-react"
 import { toast } from "sonner"
 import type { Profile } from "@/lib/profile" // Assuming Profile type is exported
-import { mockProfiles } from "@/lib/profile-mock-data" // Using a separate mock data for simplicity here
 
 interface ChipInRequestModalProps {
   isOpen: boolean
@@ -53,7 +52,8 @@ export function ChipInRequestModal({
     setIsSearching(true)
     // Simulate API call for search
     const timer = setTimeout(() => {
-      const filtered = mockProfiles.filter(
+      const profiles = [] // TODO If this is to ba added, we need to add search support.
+      const filtered = profiles.filter(
         (p) =>
           p.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (p.email && p.email.toLowerCase().includes(searchQuery.toLowerCase())) ||

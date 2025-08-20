@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { WebSocketHookReturn } from '.';
-import { TilelineEventRecord } from '@/types/timeline';
+import { TimelineEventRecord } from '@/types/timeline';
 import { IdentityInfo } from '@/types/Identity';
+import { FullProfile } from '@/types/profile';
 
 interface SearchRecord {
   wallet_id: string;
@@ -15,10 +16,10 @@ interface SearchRecord {
   legal?: string;
   web?: string;
   pgp_fingerprint?: string;
-  timeline?: TilelineEventRecord[];
+  timeline?: TimelineEventRecord[];
 }
 
-export type SearchResults = Array<SearchRecord>;
+type SearchResults = Array<SearchRecord>;
 
 export interface SearchWebSocketConfig {
   url: string;
@@ -123,11 +124,7 @@ export const useSearchWebSocket = (
   const search = useCallback(async (
     query: string,
     limit?: number,
-  ): Promise<SearchResults> => {
-    /* if (!webSocketInstance.isConnected) {
-      throw new Error('WebSocket is not connected');
-    } */
-
+  ): Promise<Array<FullProfile>> => {
     // Search across all fields for autocomplete
     const message = {
       type: 'SearchRegistration',
@@ -149,7 +146,8 @@ export const useSearchWebSocket = (
         return (response as SearchResults).map((profile) => Object.fromEntries(
           Object.entries(profile)
             .filter(([, value]) => ![undefined, null, "NULL"].includes(value))
-        )) as SearchResults;
+            .map(([key, value]) => [key, value])
+        ));
       }
 
       throw new Error('Invalid search response format');

@@ -15,59 +15,6 @@ export default function SearchSuggestions({
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  // Mock profiles - in a real app, this would be fetched from an API
-  const mockProfiles = [
-    {
-      id: 1,
-      displayName: "tommi",
-      nickname: "tommi.dot",
-      walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-      email: "tommi@niemi.lol",
-      avatar: "/professional-woman-avatar.png",
-    },
-    {
-      id: 2,
-      displayName: "Bob Wilson",
-      nickname: "bob.dot",
-      walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-      email: "bob@example.org",
-      avatar: "/professional-man-avatar.png",
-    },
-    {
-      id: 3,
-      displayName: "Carol Smith",
-      nickname: null,
-      walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-      email: "carol@example.org",
-      avatar: "/woman-developer-avatar.png",
-    },
-    {
-      id: 4,
-      displayName: "David Chen",
-      nickname: "david.dot",
-      walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-      email: "david@example.org",
-      avatar: "/asian-man-developer-avatar.png",
-    },
-  ]
-
-  useEffect(() => {
-    if (query.length >= 3) {
-      // Simulate API call for suggestions
-      const filtered = mockProfiles.filter(
-        (profile) =>
-          profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          profile.email.toLowerCase().includes(query.toLowerCase()) ||
-          profile.walletAddress.toLowerCase().includes(query.toLowerCase()),
-      )
-      setSuggestions(filtered.slice(0, 5)) // Limit to 5 suggestions
-      setSelectedIndex(-1)
-    } else {
-      setSuggestions([])
-    }
-  }, [query])
-
   const handleSuggestionClick = (profile: any) => {
     setShowSuggestions(false)
     navigate(`/profile/${profile.id}`)
