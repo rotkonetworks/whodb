@@ -146,7 +146,10 @@ export const useSearchWebSocket = (
       }
 
       if (Array.isArray(response)) {
-        return response as SearchResults;
+        return (response as SearchResults).map((profile) => Object.fromEntries(
+          Object.entries(profile)
+            .filter(([, value]) => ![undefined, null, "NULL"].includes(value))
+        )) as SearchResults;
       }
 
       throw new Error('Invalid search response format');
