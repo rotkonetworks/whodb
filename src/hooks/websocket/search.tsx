@@ -47,23 +47,32 @@ interface ErrorResponse {
   message: string;
 }
 
-const SEARCH_SUPPORTED_FIELDS: Record<string, string> = {
+type SearchSupportedFields = Partial<Record<keyof IdentityInfo | 'wallet_id' | 'network', string>>;
+// Keys are an allowed subset of IdentityInfo plus wallet_id and network.
+const SEARCH_SUPPORTED_FIELDS: SearchSupportedFields = {
   wallet_id: 'WalletID',
+  network: 'Network',
   discord: 'Discord',
   display: 'Display',
   email: 'Email',
-  matrix: 'Matrix',
-  twitter: 'Twitter',
   github: 'Github',
   legal: 'Legal',
-  web: 'Web',
+  matrix: 'Matrix',
+  twitter: 'Twitter',
   pgp_fingerprint: 'PGPFingerprint',
-  network: 'Network',
+  web: 'Web',
 };
-export const SEARCH_SUPPORTED_OUTPUTS = { ...SEARCH_SUPPORTED_FIELDS,
+
+type SearchOutputFields = Partial<Record<keyof SearchSupportedFields | 'timeline', string>>;
+export const SEARCH_OUTPUT_FIELDS: SearchOutputFields = {
+  ...SEARCH_SUPPORTED_FIELDS,
   timeline: 'Timeline',
+  //image: 'Image'  // TODO Add support for image when API makes it available.
 };
-export const SEARCH_SUPPORTED_FILTERS = { ...SEARCH_SUPPORTED_FIELDS,
+
+type SearchFilterCriteria = Partial<Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>>;
+export const SEARCH_FILTER_CRITERIA_KEYS: SearchFilterCriteria = {
+  ...SEARCH_SUPPORTED_FIELDS,
   wallet_id: 'AccountId32',
   result_size: "result_size",
 };
