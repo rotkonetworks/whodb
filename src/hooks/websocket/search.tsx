@@ -103,12 +103,9 @@ export const useSearchWebSocket = (
         const key = match[1].trim() as keyof SearchFilterCriteria;
         const value = match[2].trim();
 
-        console.debug("Matched query parameter:", key, value);
-
-        if (key && value !== undefined) {
-          if (Object.keys(SEARCH_FILTER_CRITERIA_KEYS).includes(key)) {
-            result[key] = value;
-          }
+        if (Object.keys(SEARCH_FILTER_CRITERIA_KEYS).includes(key) && value !== undefined) {
+          console.debug("Matched query parameter:", key, value);
+          result[key] = value;
         }
       }
 
