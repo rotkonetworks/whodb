@@ -11,7 +11,7 @@ import type { Profile } from "@/lib/profile"
 import { toast } from "sonner"
 import { VerificationProvider } from "@/contexts/verification-context"
 
-import { Link, useParams, useSearchParams } from "react-router-dom"
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe } from "lucide-react"
 import { SS58String } from "polkadot-api"
 import { useQuery } from "@tanstack/react-query"
@@ -19,10 +19,13 @@ import { useSearchWebSocket } from "@/hooks/websocket/search"
 import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { Timeline, TimelineEventRecord } from "@/types/timeline"
 
 type ProfileTab = "contact" | "timeline"
+
 export default function ProfilePage() {
   const { network, address } = useParams<{ network: string; address: SS58String }>()
+  const { state: pushedProfile } = useLocation();
 
   const { search } = useSearchWebSocket(useWebSocketContext())
   const {
@@ -32,6 +35,9 @@ export default function ProfilePage() {
   } = useQuery({
     queryKey: ['profile', network, address],
     queryFn: async () => {
+      if (pushedProfile) {// TODO Maybe use it as initial value?
+        return pushedProfile
+      }
       try {
         const fetchedProfiles = await search(`wallet_id:${address} network:${network}`, 1)
         if (fetchedProfiles.length === 0) {
@@ -62,6 +68,10 @@ export default function ProfilePage() {
       : []
     ,
   ]
+  useTriggerLog(tabItems, "tabItems")
+  useTriggerLog(profile, "profile")
+
+  const info = profile?.identity.info
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
@@ -105,31 +115,36 @@ export default function ProfilePage() {
                     <div
                       className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-pink-500/50 flex-shrink-0 bg-gray-700 flex items-center justify-center"
                       style={{
-                        backgroundImage: `url(${profile.identity.info.image || "/placeholder.svg"})`,
+                        backgroundImage: `url(${info.image || "/placeholder.svg"})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center'
                       }}
                     >
                       {/* TODO Parse image so it can be rendered. */}
-                      {!profile.identity.info.display && (
+                      {!info.display && (
                         <span className="text-white font-bold text-lg">
-                          {profile.identity.info.display!!.substring(0, 1).toUpperCase()}
+                          {info.display!!.substring(0, 1).toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div className="flex-grow min-w-0">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-lg sm:text-xl font-bold text-white truncate" 
-                          title={profile.identity.info.display || "No Display Name"}
+                          title={info.display || "No Display Name"}
                         >
-                          {profile.identity.info.display || "<No Display Name>"}
+                          {info.display || "<No Display Name>"}
                         </h1>
                         <div className="mt-1 sm:mt-0 flex-shrink-0">
+                          {/* FIXME using it twice already */}
                           {getVerificationBadge(
                             profile.verified ?? false, 
-                            profile.timeline?.find(event => event.event === 'verified')
+                            profile.timeline?.find((event: TimelineEventRecord) => 
+                              event.event === 'verified'
+                            )
                               ? "KnownGood" 
-                              : profile.timeline?.find(event => event.event === 'created')
+                              : profile.timeline?.find((event: TimelineEventRecord) => 
+                                event.event === 'created'
+                              )
                                 ? "IdentitySet"
                                 : "Unknown"
                             ,
@@ -153,22 +168,22 @@ export default function ProfilePage() {
                           <Copy className="w-3 h-3" />
                         </div>
                       </div>
-                      {/* TODO Add domain like identity name based on profile.identity.info.display of this and superaccounts */}
-                      {profile.identity.info.display && (
+                      {/* TODO Add domain like identity name based on info.display of this and superaccounts */}
+                      {info.display && (
                         <div
                           className="flex items-center text-xs text-pink-400 mt-1 bg-gray-700/50 px-1.5 py-0.5 rounded-full self-start w-fit"
                         >
-                          <span className="truncate" title={profile.identity.info.display}>
-                            {profile.identity.info.display}
+                          <span className="truncate" title={info.display}>
+                            {info.display}
                           </span>
                           <span className="text-gray-500 text-xs ml-0.5 hidden sm:inline">.alt</span>
                           <div
                             role="button"
                             tabIndex={0}
                             onKeyDown={(e: React.KeyboardEvent) => 
-                              e.key === 'Enter' && copyToClipboard(profile.identity.info.display!, "Nickname")
+                              e.key === 'Enter' && copyToClipboard(info.display!, "Nickname")
                             }
-                            onMouseDown={() => copyToClipboard(profile.identity.info.display!, "Nickname")}
+                            onMouseDown={() => copyToClipboard(info.display!, "Nickname")}
                             className="ml-1.5 text-gray-500 hover:text-white transition-colors flex-shrink-0 cursor-pointer"
                             title="Copy nickname"
                           >

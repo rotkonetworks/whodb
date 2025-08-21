@@ -1,46 +1,32 @@
 import type React from "react"
-import { useSearchParams, useNavigate, Link } from "react-router-dom"
+import { useSearchParams, useNavigate, Link, useLocation } from "react-router-dom"
 import { useState, useEffect, useCallback } from "react"
-import {
-  Search,
-  Users,
-  Shield,
-  Verified,
-  Globe,
-  Github,
-  MessageCircle,
-  Key,
-  Copy,
-  Mail,
-  Circle,
-  User,
-  ArrowLeft,
-} from "lucide-react"
+import { Search, Users, Shield, Verified, Copy, Circle, User, ArrowLeft, } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 
 import { shortenAddress } from "@/utils/format-address"
-import { ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
+import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 
-import { useUrlParams } from "@/hooks/useUrlParams"
-import SearchForm from "@/components/search-form"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
+import { FullProfile } from "@/types/profile"
+import { useSearchWebSocket } from "@/hooks/websocket/search"
+import { TimelineEventRecord } from "@/types/timeline"
 
 // TODO: fix loading animation
-// TODO: fix navigation (forward and backward page)
 // TODO: fix search suggestion
 export default function SearchResults() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get("q") || ""
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
-  const [results, setResults] = useState<ProfileResults | null>(null)
+  const [results, setResults] = useState<FullProfile[] | null>(null)
   useTriggerLog(results, "results")
   
-  const { search, results: _results } = useSearchContext()
+  const { search } = useSearchWebSocket(useWebSocketContext())
   
   const [searchQuery, setSearchQuery] = useState(query)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -57,19 +43,21 @@ export default function SearchResults() {
     }
   }, [search])
 
+  const { state: pushedResults } = useLocation();
+
   useEffect(() => {
     if (!query) {
       navigate("/")
       return
     }
 
-    if (!_results) {
+    if (!pushedResults) {
       fetchResults(query, 50);
     } else {
-      setResults(_results)
+      setResults(pushedResults)
       setIsLoading(false)
     }
-  }, [query, navigate, _results])
+  }, [query, navigate, pushedResults])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -179,67 +167,85 @@ export default function SearchResults() {
             </Link>
           </div>)
           : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {results?.map((profile) => (
-              <Card
-                key={profile.id}
-                className="bg-gray-800 border-pink-500/30 hover:border-pink-500/50 transition-colors"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between m-3">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <img
-                        src={profile.avatar || "/placeholder.svg"}
-                        alt={profile.displayName}
-                        className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0"
-                        loading="lazy"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium text-white text-sm md:text-base truncate">{profile.displayName}</h3>
-                        {profile.displayName && (
-                          <div className="flex items-center text-xs text-gray-400">
-                            <Circle className="w-3 h-3 mr-1 text-pink-400 fill-pink-400 flex-shrink-0" />
-                            <span className="truncate">{profile.displayName}</span>
-                          </div>
+            {results?.map((profile) => {
+              const info = profile.identity.info
+              return (
+                <Card
+                  key={`${profile.network}/${profile.address}`}
+                  className="bg-gray-800 border-pink-500/30 hover:border-pink-500/50 transition-colors"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between m-3">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <img
+                          src={info.image || "/placeholder.svg"}
+                          alt={info.display}
+                          className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover flex-shrink-0"
+                          loading="lazy" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-medium text-white text-sm md:text-base truncate">{info.display}</h3>
+                          {info.display && (
+                            <div className="flex items-center text-xs text-gray-400">
+                              <Circle className="w-3 h-3 mr-1 text-pink-400 fill-pink-400 flex-shrink-0" />
+                              {/* TODO Have a domain-like name be generated with current's display and superaccounts */}
+                              <span className="truncate">{info.display}.alt</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {/* FIXME using it twice already */}
+                        {getVerificationBadge(
+                          profile.verified ?? false,
+                          profile.timeline?.find((event: TimelineEventRecord) =>
+                            event.event === 'verified'
+                          )
+                            ? "KnownGood"
+                            : profile.timeline?.find((event: TimelineEventRecord) =>
+                              event.event === 'created'
+                            )
+                              ? "IdentitySet"
+                              : "Unknown"
+                          ,
                         )}
                       </div>
                     </div>
-                    <div className="flex-shrink-0">{getVerificationBadge(profile.verified, profile.judgement)}</div>
-                  </div>
-                  <div className="space-y-2 mb-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center min-w-0 flex-1">
-                        <span className="text-gray-400 mr-2 flex-shrink-0">Address:</span>
-                        <span className="font-mono text-gray-300 truncate">
-                          {shortenAddress(profile.walletAddress, 4, 4)}
-                        </span>
+                    <div className="space-y-2 mb-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center min-w-0 flex-1">
+                          <span className="text-gray-400 mr-2 flex-shrink-0">Address:</span>
+                          <span className="font-mono text-gray-300 truncate">
+                            {shortenAddress(profile.address, 4, 4)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(profile.address, `wallet-${profile.address}`)}
+                          className="text-gray-400 hover:text-pink-400 transition-colors flex-shrink-0 ml-2"
+                          title="Copy address"
+                        >
+                          {copiedField === `wallet-${profile.address}` ? (
+                            <span className="text-green-400 text-xs">✓</span>
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => copyToClipboard(profile.walletAddress, `wallet-${profile.id}`)}
-                        className="text-gray-400 hover:text-pink-400 transition-colors flex-shrink-0 ml-2"
-                        title="Copy address"
+                    </div>
+                    <div className="space-y-2">
+                      <Link key={profile.address}
+                        to={`/profile/${profile.network}/${profile.address}`}
+                        replace
+                        state={{ fromSearch: true, profile }}
                       >
-                        {copiedField === `wallet-${profile.id}` ? (
-                          <span className="text-green-400 text-xs">✓</span>
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
-                      </button>
+                        <Button className="w-full transition-colors flex-shrink-0 py-0 text-sm">
+                          View Full Profile
+                        </Button>
+                      </Link>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Link key={profile.id}
-                      to={`/profile/${profile.network}/${profile.walletAddress}`}
-                      replace
-                      state={{ fromSearch: true, profile }}
-                    >
-                      <Button className="w-full transition-colors flex-shrink-0 py-0">
-                        View Full Profile
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>)
         )}
       </main>

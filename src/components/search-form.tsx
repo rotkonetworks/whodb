@@ -1,6 +1,7 @@
-import { useSearchContext } from "@/contexts/web-socket-provider"
+import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
+import { useSearchWebSocket } from "@/hooks/websocket/search"
 import { FullProfile } from "@/types/profile"
 import { Circle, Search, User } from "lucide-react"
 import type React from "react"
@@ -19,7 +20,7 @@ export default function SearchForm() {
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  const { search, results: _results } = useSearchContext()
+  const { search } = useSearchWebSocket(useWebSocketContext())
 
   useEffect(() => {
     if (urlParams.q) {
@@ -29,7 +30,10 @@ export default function SearchForm() {
 
   useEffect(() => {
     (async () => {
-      if (query.length >= 3) {
+      // TODO First, make sure to parse query, before actually searching. if not, while typing the 
+      //  query, it's not going to be valid, it has to be e.g. field:foo
+      //  Or, even better, if it can't match anything, we might assume it must look for display name.
+      if (query.length >= 1) {
         const filteredProfiles = await search(query, 5)
         setSuggestions(filteredProfiles)
         setShowSuggestions(true)
@@ -40,7 +44,7 @@ export default function SearchForm() {
       }
     })()
   }, [query])
- 
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -127,47 +131,46 @@ export default function SearchForm() {
           ref={suggestionsRef}
           className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
         >
-          {suggestions.map((profile, index) => (
-            <button
-              key={profile.id}
-              onClick={() => handleSuggestionClick(profile)}
-              className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${index === selectedIndex ? "bg-gray-700" : ""
-                } ${index === 0 ? "rounded-t-lg" : ""} ${index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"
-                }`}
-            >
-              <img
-                src={profile.avatar || "/placeholder.svg"}
-                alt={profile.displayName}
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                draggable="false"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center">
-                  <p
-                    className={`text-sm font-medium truncate ${index === selectedIndex ? "text-white" : "text-white"}`}
-                  >
-                    {profile.displayName}
-                  </p>
-                  {profile.displayName && (
-                    <div
-                      className={`ml-2 flex items-center text-xs flex-shrink-0 ${index === selectedIndex ? "text-pink-300" : "text-pink-400"}`}
+          {suggestions.map((profile, index) => {
+            const info = profile.identity.info
+            return (
+              <button
+                key={`${profile.network}-${profile.address}`}
+                onClick={() => handleSuggestionClick(profile)}
+                className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${index === selectedIndex ? "bg-gray-700" : ""} ${index === 0 ? "rounded-t-lg" : ""} ${index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"}`}
+              >
+                <img
+                  /* TODO Parse image correctly, we we can load up profile images */
+                  src={info.image || "/placeholder.svg"}
+                  alt={info.display}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  draggable="false" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center">
+                    <p
+                      className={`text-sm font-medium truncate ${index === selectedIndex ? "text-white" : "text-white"}`}
                     >
-                      <Circle
-                        className={`w-3 h-3 mr-1 ${index === selectedIndex ? "fill-pink-300" : "fill-pink-400"}`}
-                      />
-                      <span className="truncate max-w-20">{profile.displayName}</span>
-                    </div>
-                  )}
+                      {info.display}
+                    </p>
+                    {info.display && (
+                      <div
+                        className={`ml-2 flex items-center text-xs flex-shrink-0 ${index === selectedIndex ? "text-pink-300" : "text-pink-400"}`}
+                      >
+                        <Circle
+                          className={`w-3 h-3 mr-1 ${index === selectedIndex ? "fill-pink-300" : "fill-pink-400"}`} />
+                        <span className="truncate max-w-20">{info.display}</span>.alt
+                      </div>
+                    )}
+                  </div>
+                  <p className={`text-xs truncate ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}>
+                    {info.email}
+                  </p>
                 </div>
-                <p className={`text-xs truncate ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}>
-                  {profile.email}
-                </p>
-              </div>
-              <User
-                className={`w-4 h-4 flex-shrink-0 ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}
-              />
-            </button>
-          ))}
+                <User
+                  className={`w-4 h-4 flex-shrink-0 ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`} />
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
