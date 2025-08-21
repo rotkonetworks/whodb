@@ -39,6 +39,7 @@ export default function ProfilePage() {
         return pushedProfile
       }
       try {
+        // TODO Matching here should be strict.
         const fetchedProfiles = await search(`wallet_id:${address} network:${network}`, 1)
         if (fetchedProfiles.length === 0) {
           throw new Error("Profile not found")

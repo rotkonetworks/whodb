@@ -137,13 +137,15 @@ export const useSearchWebSocket = (
     }
   }
 
+  // TODO Allow to specify strict fields
   const search = useCallback(async (
-    query: string,
+    query: string,  // TODO Allow direct object passing
     limit?: number,
   ): Promise<Array<FullProfile>> => {
     // Search across all fields for autocomplete
     const message = {
       type: 'SearchRegistration',
+      // TODO By passing quoted strings, parse them as strict matching
       payload: constructSearchParameters(query, limit),
     };
 
