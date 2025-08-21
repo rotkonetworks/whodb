@@ -12,7 +12,7 @@ export interface JudgementData {
   fee: bigint;
 }
 
-export interface IdentityInfo {
+export interface RawIdentityInfo {
   status: IdentityVerificationStatus;
   info: Record<string, string> | null;
   deposit: bigint;
@@ -29,7 +29,7 @@ export interface IdentityInfo {
 export const fetchIdentity = async (
   api: ApiPromise,
   address: SS58String
-): Promise<IdentityInfo | null> => {
+): Promise<RawIdentityInfo | null> => {
   if (!api || !address) {
     console.error("API or address not provided to fetchIdentity");
     return null;
@@ -37,7 +37,7 @@ export const fetchIdentity = async (
 
   try {
     // Default "no identity" state
-    const identityInfo: IdentityInfo = {
+    const identityInfo: RawIdentityInfo = {
       status: IdentityVerificationStatus.NoIdentity,
       info: null,
       deposit: BigInt(0),
