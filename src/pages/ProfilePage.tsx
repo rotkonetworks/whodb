@@ -63,10 +63,7 @@ export default function ProfilePage() {
 
   const tabItems = [
     { id: "contact" as ProfileTab, label: "Contact", icon: Contact },
-    ...(profile?.timeline?.length ?? 0 > 0)
-      ? [{ id: "timeline" as ProfileTab, label: "Timeline", icon: ListChecks }]
-      : []
-    ,
+    { id: "timeline" as ProfileTab, label: "Timeline", icon: ListChecks }
   ]
   useTriggerLog(tabItems, "tabItems")
   useTriggerLog(profile, "profile")
