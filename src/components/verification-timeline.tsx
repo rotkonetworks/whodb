@@ -1,6 +1,7 @@
 import { CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Timeline, TimelineEventType } from "@/types/timeline";
+import { formatDate } from "../utils/date-time";
 
 interface VerificationTimelineProps {
   timeline: Timeline;
@@ -61,17 +62,6 @@ const EVENTS_ADDITIONAL_INFO: Record<TimelineEventType, {
 }
 
 export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return "Pending"
-    date = date instanceof Date ? date : new Date(date)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
 
   const getStatusClasses = (status: string) => {
     switch (status) {
