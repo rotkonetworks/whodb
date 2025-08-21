@@ -113,7 +113,7 @@ export const useSearchWebSocket = (
     }
 
     const pairs = parseSearchString(query);
-    if (Object.keys(pairs).length === 0) {
+    if (Object.keys(pairs).length === 0 && query.trim() !== "") {
       pairs["display"] = query.trim();
     }
     console.debug('Parsed search parameters:', pairs);
@@ -124,12 +124,12 @@ export const useSearchWebSocket = (
         .filter((v): v is string => typeof v === 'string')
       ,
       filters: {
-        fields: (Object.values(SEARCH_FILTER_CRITERIA_KEYS) as Array<keyof SearchFilterCriteria>)
-          .filter(([key]) => pairs[key] !== undefined)
+        fields: (Object.entries(pairs) as [keyof SearchFilterCriteria, string][])
+          .filter(([, value]) => value !== undefined)
           // These two don't get mapped into the searchParams.filters.fields, as usual.
           .filter(([key]) => ['network', 'result_size'].includes(key) === false)
           .map(([key, value]) => ({
-            field: { [value as string]: `${pairs[key]}` },
+            field: { [SEARCH_FILTER_CRITERIA_KEYS[key]]: `${value}` },
             strict: false, // Default to not strict for now
           })),
         result_size: pairs["result_size"] ? parseInt(pairs["result_size"]) : limit || 10,
