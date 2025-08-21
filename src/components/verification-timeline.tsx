@@ -1,15 +1,69 @@
 import { CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Timeline } from "@/types/timeline";
+import { Timeline, TimelineEventType } from "@/types/timeline";
 
 interface VerificationTimelineProps {
   timeline: Timeline;
 }
 
+const EVENTS_ADDITIONAL_INFO: Record<TimelineEventType, {
+  description: string
+  details: string
+}> = {
+  created: {
+    description: "Account created",
+    details: "The user account record was created in the system."
+  },
+  verified: {
+    description: "Core verification completed",
+    details: "Primary identity and baseline eligibility checks were completed."
+  },
+  discord: {
+    description: "Discord account linked",
+    details: "The user connected a Discord account for community / role validation."
+  },
+  display: {
+    description: "Display name set",
+    details: "A public display name was provided or updated."
+  },
+  email: {
+    description: "Email verified",
+    details: "The user confirmed ownership of their email address."
+  },
+  matrix: {
+    description: "Matrix ID linked",
+    details: "A Matrix (Element) account was associated and validated."
+  },
+  twitter: {
+    description: "X (Twitter) handle linked",
+    details: "The user linked an X (formerly Twitter) profile for social proof."
+  },
+  github: {
+    description: "GitHub account linked",
+    details: "A GitHub profile was connected for developer/reputation signals."
+  },
+  legal: {
+    description: "Legal review passed",
+    details: "KYC / legal compliance checks were completed successfully."
+  },
+  web: {
+    description: "Website verified",
+    details: "Ownership of an external website or domain was confirmed."
+  },
+  image: {
+    description: "Profile image set",
+    details: "The user uploaded or updated a profile image."
+  },
+  pgp_fingerprint: {
+    description: "PGP fingerprint added",
+    details: "A PGP public key fingerprint was submitted and recorded."
+  },
+}
+
 export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Pending"
-    const date = new Date(dateString)
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "Pending"
+    date = date instanceof Date ? date : new Date(date)
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -98,10 +152,12 @@ export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
           <div className="space-y-5">
             {" "}
             {/* Spacing between timeline items */}
-            {events.map((event) => {
-              const statusClasses = getStatusClasses(event.status)
+            {timeline.map((event) => {
+              const statusClasses = getStatusClasses(event.event)
+              const additionalInfo = EVENTS_ADDITIONAL_INFO[event.event]
+
               return (
-                <div key={event.id} className="relative pl-10">
+                <div key={event.date.toLocaleString()} className="relative pl-10">
                   {" "}
                   {/* pl-10 for node (w-7) + connector (w-3) */}
                   {/* Node (Icon Container) */}
@@ -109,7 +165,7 @@ export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
                     className={`absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center ${statusClasses.iconContainerBg} z-10 border-4 border-gray-800`}
                   >
                     {/* border-gray-800 matches Card's bg, creating cutout effect */}
-                    {getStatusIcon(event.status, statusClasses.iconColor)}
+                    {getStatusIcon(event.event, statusClasses.iconColor)}
                   </div>
                   {/* Horizontal Connector from Node to Card */}
                   <div
@@ -119,10 +175,10 @@ export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
                   {/* Event Content Card */}
                   <div className={`p-3 rounded-lg ${statusClasses.cardBorder} ${statusClasses.cardBg} shadow-sm`}>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-1">
-                      <h4 className="font-medium text-white text-sm">{event.description}</h4>
+                      <h4 className="font-medium text-white text-sm">{additionalInfo.description}</h4>
                       <span className="text-xs text-gray-400 mt-1 sm:mt-0 flex-shrink-0">{formatDate(event.date)}</span>
                     </div>
-                    <p className="text-xs text-gray-300">{event.details}</p>
+                    <p className="text-xs text-gray-300">{additionalInfo.details}</p>
                   </div>
                 </div>
               )
