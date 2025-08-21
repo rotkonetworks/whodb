@@ -116,6 +116,9 @@ export const useSearchWebSocket = (
     if (Object.keys(pairs).length === 0 && query.trim() !== "") {
       pairs["display"] = query.trim();
     }
+    if (Object.keys(pairs).length === 0) {
+      throw new Error("No valid search parameters found in query.");
+    }
     console.debug('Parsed search parameters:', pairs);
 
     return {
