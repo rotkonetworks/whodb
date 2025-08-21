@@ -113,6 +113,10 @@ export const useSearchWebSocket = (
     }
 
     const pairs = parseSearchString(query);
+    if (Object.keys(pairs).length === 0) {
+      pairs["display"] = query.trim();
+    }
+    console.debug('Parsed search parameters:', pairs);
 
     return {
       network: pairs["network"],
