@@ -70,11 +70,13 @@ export const fetchIdentity = async (
     identityInfo.status = IdentityVerificationStatus.IdentitySet;
 
     // Process judgements
-    const judgementsData: JudgementData[] = identityOf.judgements.map((judgement) => ({
-      registrar: { index: judgement[0] },
-      state: judgement[1].type,
-      fee: judgement[1].value,
-    }));
+    const judgementsData: JudgementData[] = identityOf.judgements
+      .map((judgement: [number, {type: string, value: bigint}]) => ({
+        registrar: { index: judgement[0] },
+        state: judgement[1].type,
+        fee: judgement[1].value,
+      }))
+    ;
 
     if (judgementsData.length > 0) {
       identityInfo.judgements = judgementsData;
