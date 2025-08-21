@@ -1,7 +1,7 @@
 import type React from "react"
 import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useVerification } from "@/contexts/verification-context"
+import { ChallengeType, useVerification } from "@/contexts/verification-context"
 import { toast } from "sonner"
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
@@ -13,7 +13,7 @@ interface ContactInformationProps {
 }
 
 interface ContactItemConfig {
-  field: keyof IdentityInfo
+  field: ChallengeType
   label: string
   icon: React.ElementType
   getLink?: (value: string) => string | null

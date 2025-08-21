@@ -9,7 +9,7 @@ import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { useWebSocketContext } from "./web-socket-provider";
 
-type ChallengeType = keyof Omit<ChallengeStore, "display">
+export type ChallengeType = keyof Omit<ChallengeStore, "display">
 type ExtraConfirmationData = {
   "email": never
   "matrix": never
