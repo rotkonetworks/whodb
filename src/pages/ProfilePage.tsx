@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useSearchWebSocket } from "@/hooks/websocket/search"
 import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
 
 type ProfileTab = "contact" | "timeline"
 export default function ProfilePage() {
@@ -56,7 +57,10 @@ export default function ProfilePage() {
 
   const tabItems = [
     { id: "contact" as ProfileTab, label: "Contact", icon: Contact },
-    { id: "timeline" as ProfileTab, label: "Timeline", icon: ListChecks },
+    ...(profile?.timeline?.length ?? 0 > 0)
+      ? [{ id: "timeline" as ProfileTab, label: "Timeline", icon: ListChecks }]
+      : []
+    ,
   ]
 
   return (
@@ -70,13 +74,15 @@ export default function ProfilePage() {
               className="text-pink-400 border border-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3"
               onClick={() =>
                 copyToClipboard(
-                  `${window.location.origin}/profile/${profile.id}`,
+                  `${window.location.origin}/profile/${profile?.network}/${profile?.address}`,
                   "Profile link",
                 )
               }
             >
               <Share2 className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline text-sm">{copiedField === "Profile link" ? "Copied!" : "Share"}</span>
+              <span className="hidden md:inline text-sm">
+                {copiedField === "Profile link" ? "Copied!" : "Share"}
+              </span>
             </Button>
             <Button
               size="sm"
@@ -98,49 +104,71 @@ export default function ProfilePage() {
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     <div
                       className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-pink-500/50 flex-shrink-0 bg-gray-700 flex items-center justify-center"
-                      style={{ backgroundImage: `url(${profile.avatar || "/placeholder.svg"})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      style={{
+                        backgroundImage: `url(${profile.identity.info.image || "/placeholder.svg"})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center'
+                      }}
                     >
-                      {!profile.avatar && (
+                      {/* TODO Parse image so it can be rendered. */}
+                      {!profile.identity.info.display && (
                         <span className="text-white font-bold text-lg">
-                          {profile.display_name.substring(0, 1).toUpperCase()}
+                          {profile.identity.info.display!!.substring(0, 1).toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div className="flex-grow min-w-0">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <h1 className="text-lg sm:text-xl font-bold text-white truncate" title={profile.displayName}>
-                          {profile.display_name}
+                        <h1 className="text-lg sm:text-xl font-bold text-white truncate" 
+                          title={profile.identity.info.display || "No Display Name"}
+                        >
+                          {profile.identity.info.display || "<No Display Name>"}
                         </h1>
                         <div className="mt-1 sm:mt-0 flex-shrink-0">
-                          {getVerificationBadge(profile.verified, profile.judgement)}
+                          {getVerificationBadge(
+                            profile.verified ?? false, 
+                            profile.timeline?.find(event => event.event === 'verified')
+                              ? "KnownGood" 
+                              : profile.timeline?.find(event => event.event === 'created')
+                                ? "IdentitySet"
+                                : "Unknown"
+                            ,
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center text-xs text-gray-400 mt-0.5">
-                        <span className="font-mono truncate" title={profile.walletAddress}>
-                          {shortenAddress(profile.walletAddress, 6, 6)}
+                        <span className="font-mono truncate" title={profile.address}>
+                          {shortenAddress(profile.address, 6, 6)}
                         </span>
                         <div
                           role="button"
                           tabIndex={0}
-                          onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && copyToClipboard(profile.walletAddress, "Wallet address")}
-                          onMouseDown={() => copyToClipboard(profile.walletAddress, "Wallet address")}
+                          onKeyDown={(e: React.KeyboardEvent) => 
+                            e.key === 'Enter' && copyToClipboard(profile.address, "Wallet address")
+                          }
+                          onMouseDown={() => copyToClipboard(profile.address, "Wallet address")}
                           className="ml-1.5 text-gray-500 hover:text-pink-400 transition-colors flex-shrink-0 cursor-pointer"
                           title="Copy wallet address"
                         >
                           <Copy className="w-3 h-3" />
                         </div>
                       </div>
-                      {profile.nickname && (
-                        <div className="flex items-center text-xs text-pink-400 mt-1 bg-gray-700/50 px-1.5 py-0.5 rounded-full self-start w-fit">
-                          <span className="truncate" title={profile.nickname}>
-                            {profile.nickname}
+                      {/* TODO Add domain like identity name based on profile.identity.info.display of this and superaccounts */}
+                      {profile.identity.info.display && (
+                        <div
+                          className="flex items-center text-xs text-pink-400 mt-1 bg-gray-700/50 px-1.5 py-0.5 rounded-full self-start w-fit"
+                        >
+                          <span className="truncate" title={profile.identity.info.display}>
+                            {profile.identity.info.display}
                           </span>
                           <span className="text-gray-500 text-xs ml-0.5 hidden sm:inline">.alt</span>
                           <div
                             role="button"
                             tabIndex={0}
-                            onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && copyToClipboard(profile.nickname!, "Nickname")}
-                            onMouseDown={() => copyToClipboard(profile.nickname!, "Nickname")}
+                            onKeyDown={(e: React.KeyboardEvent) => 
+                              e.key === 'Enter' && copyToClipboard(profile.identity.info.display!, "Nickname")
+                            }
+                            onMouseDown={() => copyToClipboard(profile.identity.info.display!, "Nickname")}
                             className="ml-1.5 text-gray-500 hover:text-white transition-colors flex-shrink-0 cursor-pointer"
                             title="Copy nickname"
                           >
@@ -188,9 +216,9 @@ export default function ProfilePage() {
                   {activeTab === "contact" && (
                     <>
                       <VerificationProvider>
-                        <ContactInformation profile={profile} />
+                        <ContactInformation identity={profile.identity} />
                       </VerificationProvider>
-                      <div>
+                      <div> 
                         <h2 className="text-lg font-semibold text-white mb-3 mt-6 flex items-center">
                           <Users className="w-5 h-5 mr-2 text-pink-400" />
                           Subidentities

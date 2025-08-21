@@ -69,7 +69,7 @@ export interface Judgement {
 }
 
 export interface Identity {
-  info?: IdentityInfo;
+  info: IdentityInfo;
   judgements?: Judgement[];
   status: IdentityVerificationStatus;
   hash?: Uint16Array;

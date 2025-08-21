@@ -71,7 +71,7 @@ export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
     }
   }
 
-  if (!events || events.length === 0) {
+  if (!timeline || timeline.length === 0) {
     return (
       <Card className="bg-gray-800 border-pink-500/30">
         <CardHeader>

@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { WebSocketHookReturn } from '.';
 import { TimelineEventRecord } from '@/types/timeline';
-import { IdentityInfo } from '@/types/Identity';
+import { IdentityInfo, IdentityVerificationStatus } from '@/types/Identity';
 import { FullProfile } from '@/types/profile';
+import { CHAINS } from '@/polkadot-api/chain-config';
 
 interface SearchRecord {
   wallet_id: string;
@@ -27,7 +28,7 @@ export interface SearchWebSocketConfig {
 }
 
 export interface SearchWebSocketReturn extends Pick<WebSocketHookReturn, 'isConnected' | 'error' | 'loading' | 'connect' | 'disconnect'> {
-  search: (query: string, limit?: number) => Promise<SearchResults>;
+  search: (query: string, limit?: number) => Promise<Array<FullProfile>>;
 }
 
 interface ErrorResponse {
@@ -35,7 +36,7 @@ interface ErrorResponse {
   message: string;
 }
 
-type SearchSupportedFields = Partial<Record<keyof IdentityInfo | 'wallet_id' | 'network', string>>;
+type SearchSupportedFields = Record<keyof Omit<IdentityInfo, "image"> | 'wallet_id' | 'network', string>;
 // Keys are an allowed subset of IdentityInfo plus wallet_id and network.
 const SEARCH_SUPPORTED_FIELDS: SearchSupportedFields = {
   wallet_id: 'WalletID',
@@ -51,19 +52,33 @@ const SEARCH_SUPPORTED_FIELDS: SearchSupportedFields = {
   web: 'Web',
 } as const;
 
-type SearchOutputFields = Partial<Record<keyof SearchSupportedFields | 'timeline', string>>;
+type SearchOutputFields = Record<keyof SearchSupportedFields | 'timeline', string>;
 export const SEARCH_OUTPUT_FIELDS: SearchOutputFields = {
   ...SEARCH_SUPPORTED_FIELDS,
   timeline: 'Timeline',
   //image: 'Image'  // TODO Add support for image when API makes it available.
 } as const;
 
-type SearchFilterCriteria = Partial<Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>>;
+type SearchFilterCriteria = Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>;
 export const SEARCH_FILTER_CRITERIA_KEYS = {
   ...SEARCH_SUPPORTED_FIELDS,
   wallet_id: 'AccountId32',
   result_size: "result_size",
 } as const;
+
+type IdentityInfoFieldMapping = Record<SearchOutputFields[keyof SearchOutputFields], keyof IdentityInfo>;
+export const FULL_PROFILE_IDENTIY_INFO_MAPPING: IdentityInfoFieldMapping = {
+  discord: 'discord',
+  display_name: 'display',
+  email: 'email',
+  github: 'github',
+  image: "image",
+  legal: 'legal',
+  matrix: 'matrix',
+  twitter: 'twitter',
+  pgp_fingerprint: 'pgp_fingerprint',
+  web: 'web',
+}
 
 /**
  * Search WebSocket hook that uses the main WebSocket for search functionality.
@@ -80,7 +95,7 @@ export const useSearchWebSocket = (
   const constructSearchParameters = (query: string, limit?: number) => {
     console.debug('Constructing search parameters for query:', query);
     const parseSearchString = (input: string): Record<string, string> => {
-      const result: SearchFilterCriteria = {};
+      const result: Partial<SearchFilterCriteria> = {};
       const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
 
       let match;
@@ -143,11 +158,25 @@ export const useSearchWebSocket = (
       }
 
       if (Array.isArray(response)) {
-        return (response as SearchResults).map((profile) => Object.fromEntries(
-          Object.entries(profile)
-            .filter(([, value]) => ![undefined, null, "NULL"].includes(value))
-            .map(([key, value]) => [key, value])
-        ));
+        return (response as SearchResults).map((profile) => {
+          const timeline = profile.timeline;
+          return ({
+            address: profile.wallet_id,
+            network: profile.network as keyof typeof CHAINS,
+            identity: {
+              info: Object.entries(profile)
+                .filter(([, v]) => v !== undefined && v !== null && v !== "NULL")
+                .filter(([k]) => Object.keys(FULL_PROFILE_IDENTIY_INFO_MAPPING).includes(k))
+                .reduce((acc, [k, v]) => ({
+                  ...acc,
+                  [FULL_PROFILE_IDENTIY_INFO_MAPPING[k as keyof IdentityInfo] || k]: v
+                }), {}) as IdentityInfo,
+
+              status: IdentityVerificationStatus.Unknown, // Status is not provided in search results
+            },
+            timeline: timeline
+          });
+        })
       }
 
       throw new Error('Invalid search response format');

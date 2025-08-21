@@ -1,20 +1,19 @@
 import type React from "react"
 import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { Profile } from "@/lib/profile"
 import { useVerification } from "@/contexts/verification-context"
 import { toast } from "sonner"
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { SS58String } from "polkadot-api"
-import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { Identity, IdentityInfo } from "@/types/Identity"
 
 interface ContactInformationProps {
-  profile: Profile
+  identity: Identity
 }
 
 interface ContactItemConfig {
-  field: keyof Profile & ("email" | "matrix" | "twitter" | "web" | "github" | "pgp_fingerprint" | "discord" | "image" | "legal")
+  field: keyof IdentityInfo
   label: string
   icon: React.ElementType
   getLink?: (value: string) => string | null
@@ -83,7 +82,8 @@ const contactItemConfigs: ContactItemConfig[] = [
   },
 ]
 
-export function ContactInformation({ profile }: ContactInformationProps) {
+export function ContactInformation({ identity }: ContactInformationProps) {
+  const info = identity.info as IdentityInfo
   const { network, address } = useParams<{ network: string; address: SS58String }>()
   
   const { getFieldStatus, setWebSocketParams } = useVerification()
@@ -115,7 +115,7 @@ export function ContactInformation({ profile }: ContactInformationProps) {
   }
 
   const itemsToDisplay = contactItemConfigs
-    .map((config) => ({ ...config, value: profile[config.field] as string | undefined }))
+    .map((config) => ({ ...config, value: info[config.field] as string | undefined }))
     .filter((item) => item.value && item.value.trim() !== "")
 
   if (itemsToDisplay.length === 0) {
@@ -123,7 +123,7 @@ export function ContactInformation({ profile }: ContactInformationProps) {
       <div className="text-center py-8 text-gray-500">
         <Mail className="w-12 h-12 mx-auto mb-4 opacity-30" />
         <p className="text-md font-medium">No contact information provided.</p>
-        {profile.isOwnProfile && <p className="mt-2 text-xs">Add details to make your profile more discoverable.</p>}
+        {info.isOwninfo && <p className="mt-2 text-xs">Add details to make your info more discoverable.</p>}
       </div>
     )
   }

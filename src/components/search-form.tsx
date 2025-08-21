@@ -1,6 +1,7 @@
-import { ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
+import { useSearchContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
+import { FullProfile } from "@/types/profile"
 import { Circle, Search, User } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
@@ -11,7 +12,7 @@ export default function SearchForm() {
   const [query, setQuery] = useState("")
   const { urlParams } = useUrlParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [suggestions, setSuggestions] = useState<ProfileResults>([])
+  const [suggestions, setSuggestions] = useState<FullProfile[]>([])
   useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
