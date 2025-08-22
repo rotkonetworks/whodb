@@ -52,7 +52,7 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    navigate(`/search?q=${encodeURIComponent(query.trim())}`)
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`, { state: { results: suggestions } })
   }
 
   const handleSuggestionClick = (profile: any) => {

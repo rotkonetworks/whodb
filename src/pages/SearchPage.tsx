@@ -43,7 +43,8 @@ export default function SearchResults() {
     }
   }, [search])
 
-  const { state: pushedResults } = useLocation();
+  const { results: pushedResults } = useLocation().state || {};
+  useTriggerLog(pushedResults, "pushedResults")
 
   useEffect(() => {
     if (!query) {
@@ -52,7 +53,7 @@ export default function SearchResults() {
     }
 
     if (!pushedResults) {
-      fetchResults(query, 50);
+      fetchResults(query, 20);  // TODO Maybe add flags
     } else {
       setResults(pushedResults)
       setIsLoading(false)

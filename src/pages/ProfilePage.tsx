@@ -25,7 +25,8 @@ type ProfileTab = "contact" | "timeline"
 
 export default function ProfilePage() {
   const { network, address } = useParams<{ network: string; address: SS58String }>()
-  const { state: pushedProfile } = useLocation();
+  const { profile: pushedProfile } = useLocation().state || {};
+  useTriggerLog(pushedProfile, "pushedProfile")
 
   const { search } = useSearchWebSocket(useWebSocketContext())
   const {
