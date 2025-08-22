@@ -235,7 +235,6 @@ export default function SearchResults() {
                     <div className="space-y-2">
                       <Link key={profile.address}
                         to={`/profile/${profile.network}/${profile.address}`}
-                        replace
                         state={{ fromSearch: true, profile }}
                       >
                         <Button className="w-full transition-colors flex-shrink-0 py-0 text-sm">
