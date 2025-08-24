@@ -14,20 +14,8 @@ export interface IdentityInfo {
   web?: string;
 }
 
-// Centralized IdentityData interface using Polkadot API field names
-export interface IdentityData {
-  display: string;
-  email: string;
-  matrix: string;
-  twitter: string;
-  web: string;
-  github: string;
-  pgp_fingerprint: string;
-  discord: string;
-  image: string;
-  legal: string;
-  [key: string]: string;
-}
+// Use IdentityInfo instead - IdentityData is redundant
+export type IdentityData = IdentityInfo & { [key: string]: string | undefined }
 
 export type IdentityOf = StorageDescriptor<[Key: SS58String], [{
   deposit: bigint;

@@ -3,18 +3,9 @@ import { useState, useMemo, useEffect, useCallback } from "react"
 import { FormField } from "@/components/form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { IdentityVerificationStatus, IdentityData } from "@/types/Identity"
-import {
-  User,
-  Mail,
-  MessageSquare,
-  Twitter,
-  Globe,
-  Github,
-  Key,
-  ShieldCheck,
-  Info,
-  AlertTriangle,
-} from "lucide-react"
+import { IDENTITY_FIELDS } from "@/config/identity-fields"
+import { useIdentityFormState } from "@/hooks/useIdentityFormState"
+import { AlertTriangle } from "lucide-react"
 import { Separator } from "@/lib/ui"
 
 interface SimpleIdentityFormProps {
@@ -34,25 +25,24 @@ export function SimpleIdentityForm({
   supportedFields = [],
   identityStatus = IdentityVerificationStatus.NoIdentity,
 }: SimpleIdentityFormProps) {
-  const [formData, setFormData] = useState(initialData)
+  const { formData, updateField, resetForm } = useIdentityFormState(initialData)
 
-  // When initialData changes, update formData
+  // When initialData changes, reset form
   useEffect(() => {
-    setFormData(initialData)
-  }, [initialData, isEditMode])
+    resetForm()
+  }, [initialData, isEditMode, resetForm])
 
   const handleChange = useCallback((field: keyof IdentityData, value: string) => {
-    const newFormData = { ...formData, [field]: value }
-    setFormData(newFormData)
-    onDataChange(newFormData)
-  }, [formData, onDataChange])
+    updateField(field, value)
+    onDataChange({ ...formData, [field]: value })
+  }, [formData, onDataChange, updateField])
 
   // Determine which fields to show based on supportedFields
   const fieldsToShow = useMemo(() => supportedFields.length > 0 ? supportedFields : [
     'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint', 'discord', 'image', 'legal'
   ], [supportedFields])
 
-  // Field mapping from blockchain names to our form field names
+  // Use centralized field configuration
   const fieldMapping = useMemo((): Record<string, keyof IdentityData> => ({
     'display': 'display',
     'email': 'email',
@@ -66,102 +56,31 @@ export function SimpleIdentityForm({
     'legal': 'legal'
   }), [])
 
-  // Simple field configuration without verification
-  const fieldConfig = useMemo(() => ({
-    email: {
-      label: "Email Address",
-      icon: <Mail className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "satoshi@example.com",
-      type: "email",
-    },
-    web: {
-      label: "Website",
-      icon: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "https://bitcoin.org",
-      type: "url",
-    },
-    twitter: {
-      label: "Twitter / X Handle",
-      icon: <Twitter className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "@satoshi",
-      type: "text",
-    },
-    github: {
-      label: "GitHub Username",
-      icon: <Github className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "satoshi-nakamoto",
-      type: "text",
-    },
-    matrix: {
-      label: "Matrix Handle",
-      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "@satoshi:matrix.org",
-      type: "text",
-    },
-    pgp_fingerprint: {
-      label: "PGP Fingerprint",
-      icon: <Key className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "0x123456789abcdef123456789abcdef",
-      type: "text",
-    },
-    discord: {
-      label: "Discord Handle",
-      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "username#1234",
-      type: "text",
-    },
-    image: {
-      label: "Avatar Image URL",
-      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "https://example.com/avatar.png",
-      type: "url",
-    },
-    legal: {
-      label: "Legal Name",
-      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "John Doe",
-      type: "text",
-    }
-  }), [])
-
   // Create field components only for supported fields
   const createFieldComponent = useCallback((fieldKey: string) => {
     const formFieldKey = fieldMapping[fieldKey]
     if (!formFieldKey) return null
 
-    if (formFieldKey === 'display') {
-      return (
-        <FormField
-          key="display"
-          id="display"
-          label="Display Name"
-          icon={<User className="w-4 h-4 text-gray-400 mr-2" />}
-          value={formData.display}
-          onChange={(value) => handleChange("display", value)}
-          placeholder="e.g., Satoshi Nakamoto"
-          description="This name will be publicly visible. Verified on-chain after submission."
-          className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
-        />
-      )
-    }
-
-    const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
+    const config = IDENTITY_FIELDS[formFieldKey]
     if (!config) return null
+
+    const IconComponent = config.icon
 
     return (
       <FormField
         key={formFieldKey}
         id={String(formFieldKey)}
         label={config.label}
-        icon={config.icon}
-        value={formData[formFieldKey]}
+        icon={<IconComponent className="w-4 h-4 text-pink-400 mr-2" />}
+        value={formData[formFieldKey] || ''}
         onChange={(value) => handleChange(formFieldKey, value)}
         placeholder={config.placeholder}
         type={config.type}
+        description={formFieldKey === 'display' ? "This name will be publicly visible. Verified on-chain after submission." : config.description}
         className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
       />
     )
-  }, [fieldMapping, formData, handleChange, fieldConfig])
+  }, [fieldMapping, formData, handleChange])
 
   // Group fields into sections
   const formSections = useMemo(() => {

@@ -1,13 +1,13 @@
 import type React from "react"
 import { useSearchParams, useNavigate, Link, useLocation } from "react-router-dom"
 import { useState, useEffect, useCallback } from "react"
-import { Search, Users, Shield, Verified, Copy, Circle, User, ArrowLeft, } from "lucide-react"
+import { Search, Users, Copy, Circle, User, ArrowLeft, } from "lucide-react"
 import { Button } from "@/lib/ui"
 import { Card, CardContent } from "@/lib/ui"
-import { Badge } from "@/lib/ui"
 import { PageHeader } from "@/components/page-header"
 
 import { shortenAddress } from "@/utils/format-address"
+import { getVerificationBadge } from "@/components/verification-badge"
 import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 
@@ -77,36 +77,6 @@ export default function SearchResults() {
     }
   }
 
-  const getVerificationBadge = (verified: boolean, judgement: string) => {
-    if (verified && judgement === "KnownGood") {
-      return (
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-          <Verified className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Verified</span>
-        </Badge>
-      )
-    } else if (verified && judgement === "Reasonable") {
-      return (
-        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
-          <Shield className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Reasonable</span>
-        </Badge>
-      )
-    } else if (judgement === "Fee Paid") {
-      return (
-        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
-          <Shield className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Fee Paid</span>
-        </Badge>
-      )
-    } else {
-      return (
-        <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-xs">
-          <span className="hidden sm:inline">Unverified</span>
-        </Badge>
-      )
-    }
-  }
 
   const resultsLength = results?.length || 0
 

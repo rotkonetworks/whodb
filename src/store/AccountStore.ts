@@ -13,9 +13,8 @@ export type AccountData = {
   encodedAddress: SS58String;
   disabled: boolean;
 }
-export type Account = AccountData
 
-export const accountStore = proxy<Account>({
+export const accountStore = proxy<AccountData>({
   name: "",
   address: "" as SS58String,
   encodedAddress: "" as SS58String,
