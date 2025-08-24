@@ -38,12 +38,14 @@ export const formatAmount = (
   if (amount === undefined || amount === null) {
     return "---"
   }
-  
+
   const { decimals, symbol = "", tokenDecimals = 0 } = options
-  
+
   const newAmount = BigNumber(amount.toString())
     .dividedBy(BigNumber(10).pow(tokenDecimals))
     .toFixed(decimals ?? tokenDecimals, BigNumber.ROUND_DOWN)
-    
+
   return `${newAmount}${symbol ? ` ${symbol}` : ""}`
 }
+
+

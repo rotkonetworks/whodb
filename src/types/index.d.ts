@@ -1,7 +1,7 @@
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
 import BigNumber from "bignumber.js";
-import { PolkadotSigner, TypedApi } from "polkadot-api"
+import { TypedApi } from "polkadot-api";
 import { Ref } from "react";
+import { Signer } from "@polkadot/api/types";
 
 import { AccountTreeNode } from "~/hooks/UseAccountsTree";
 import { AlertPropsOptionalKey } from "~/hooks/useAlerts";
@@ -10,10 +10,11 @@ import { AccountData } from "~/store/AccountStore";
 import { ChainInfo } from "~/store/ChainStore";
 import { ChallengeStore } from "~/store/challengesStore";
 
+import { ApiPromise } from "@polkadot/api";
 import { Identity } from "./Identity";
 import { ApiTx } from "./api";
 
-export type DialogMode = 
+export type DialogMode =
   "connectWallets" |
   "clearIdentity" |
   "disconnect" |
@@ -43,36 +44,13 @@ export type OpenTxDialogArgs = OpenTxDialogArgs_modeSet | { mode: null }
 
 export type IdentityFormRef = { reset: () => void; };
 
-export type MainContentProps = {
-  identity: Identity,
-  challengeStore: { challenges: ChallengeStore, error: string | null, loading: boolean },
-  chainStore: ChainInfo,
-  typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>,
-  accountStore: AccountData,
-  chainConstants,
-  addNotification: (alertProps: AlertPropsOptionalKey) => void,
-  formatAmount: FormatAmountFn,
-  supportedFields: string[],
-  identityFormRef: Ref<IdentityFormRef>,
-  urlParams: Record<string, string>,
-  updateUrlParams: (urlParams: UrlParamsArgs) => void,
-  setOpenDialog: (mode: DialogMode) => void,
-  isTxBusy: boolean,
-  accountTreeProps: {
-    tree: AccountTreeNode | null
-    loading: boolean,
-  },
-  openTxDialog: (params: OpenTxDialogArgs) => void,
-  sendPGPVerification: (payload: VerifyPGPKey) => Promise<void>
-}
-
 export type SignSubmitAndWatchParams = {
   call: ApiTx;
   name: string;
-  api?: TypedApi<ChainDescriptorOf<keyof Chains>>;
+  api?: ApiPromise;
   awaitFinalization?: boolean;
   nonce?: number;
-  signer?: PolkadotSigner;
+  signer?: Signer;
 };
 
 export type FormatAmountOptions = {

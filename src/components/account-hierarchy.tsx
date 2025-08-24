@@ -1,10 +1,10 @@
-import { User, ExternalLink, PlusCircle, Edit2, Users } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { shortenAddress } from "@/lib/utils"
+import { Card, CardContent } from "@/components/ui/card"
 import type { Profile } from "@/lib/profile"
-import Link from "next/link"
-import { useRouter } from "next/navigation" // Import useRouter
+import { shortenAddress } from "@/lib/utils"
+import { Edit2, ExternalLink, PlusCircle, User, Users } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 interface AccountHierarchyProps {
   profile: Profile // The parent profile containing subaccounts
@@ -12,14 +12,14 @@ interface AccountHierarchyProps {
 }
 
 export function AccountHierarchy({ profile, isOwnProfile }: AccountHierarchyProps) {
-  const router = useRouter() // Initialize router
+  const navigate = useNavigate()
 
   const handleAddSubidentity = () => {
-    router.push(`/register?flow=subidentity&parentId=${profile.id}`)
+    navigate(`/register?flow=subidentity&parentId=${profile.id}`)
   }
 
   const handleEditSubidentity = (subId: string) => {
-    router.push(`/register?editId=${subId}&flow=subidentity&parentId=${profile.id}`)
+    navigate(`/register?editId=${subId}&flow=subidentity&parentId=${profile.id}`)
   }
 
   return (

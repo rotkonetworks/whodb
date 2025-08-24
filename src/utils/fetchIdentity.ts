@@ -1,10 +1,8 @@
-import { IdentityData } from "@polkadot-api/descriptors";
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { Binary, SS58String, TypedApi } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
+import { SS58String } from "polkadot-api";
 
-import { verifyStatuses } from "@/types/Identity";
-import { ApiStorage } from "@/types/api";
+import { IdentityVerificationStatus } from "@/types/Identity";
+import { decodeUint8Array, toHexString } from "./binary";
 
 export interface JudgementData {
   registrar: {
@@ -14,8 +12,8 @@ export interface JudgementData {
   fee: bigint;
 }
 
-export interface IdentityInfo {
-  status: verifyStatuses;
+export interface RawIdentityInfo {
+  status: IdentityVerificationStatus;
   info: Record<string, string> | null;
   deposit: bigint;
   judgements: JudgementData[];
@@ -24,14 +22,14 @@ export interface IdentityInfo {
 /**
  * Fetches identity and judgement information for a given address
  * 
- * @param api - The typed API instance with access to identity pallet
+ * @param api - The ApiPromise instance with access to identity pallet
  * @param address - The SS58-encoded address to fetch identity for
  * @returns Promise with identity information or null if an error occurs
  */
 export const fetchIdentity = async (
-  api: TypedApi<ChainDescriptorOf<ChainId>>,
+  api: ApiPromise,
   address: SS58String
-): Promise<IdentityInfo | null> => {
+): Promise<RawIdentityInfo | null> => {
   if (!api || !address) {
     console.error("API or address not provided to fetchIdentity");
     return null;
@@ -39,61 +37,59 @@ export const fetchIdentity = async (
 
   try {
     // Default "no identity" state
-    const identityInfo: IdentityInfo = {
-      status: verifyStatuses.NoIdentity,
+    const identityInfo: RawIdentityInfo = {
+      status: IdentityVerificationStatus.NoIdentity,
       info: null,
-      deposit: null,
+      deposit: BigInt(0),
       judgements: []
     };
 
     // Fetch identity information from chain
-    const result = await (api.query.Identity.IdentityOf as ApiStorage)
-      .getValue(address, { at: "best" });
+    const result = await api.query.identity.identityOf(address);
 
-    if (!result) return identityInfo;
+    if (!result || (result as any).isNone) return identityInfo;
 
-    // For most chains, the result is an array of IdentityOf, but for Westend it's an object
-    const identityOf = result[0] || result;
+    // For most chains, the result is an Option containing IdentityOf  
+    const identityOf = (result as any).isSome ? (result as any).unwrap() : result;
     console.log("Fetched identityOf:", identityOf);
 
     // Extract identity data (raw text fields)
     const identityData = Object.fromEntries(
-      Object.entries(identityOf.info)
-        .filter(([_, value]: [string, IdentityData]) => value?.type?.startsWith("Raw"))
-        .map(([key, value]: [string, IdentityData]) => [
-          key,
-          (value.value as Binary).asText()
-        ])
+      [...identityOf.info.entries()]
+        .filter(([_, { isRaw }]) => isRaw)
+        .map(([key, { value }]) => [key, decodeUint8Array(value as Uint8Array)])
     );
     // PGP fingerprint is a special case.
-    if (identityOf.info.pgp_fingerprint) {
-      identityData.pgp_fingerprint = (identityOf.info.pgp_fingerprint as Binary).asHex();
+    if (identityOf.info.pgpFingerprint.isSome) {
+      identityData.pgp_fingerprint = toHexString(identityOf.info.pgpFingerprint.value);
     }
 
     // Store the deposit
     identityInfo.deposit = identityOf.deposit;
     identityInfo.info = identityData;
-    identityInfo.status = verifyStatuses.IdentitySet;
+    identityInfo.status = IdentityVerificationStatus.IdentitySet;
 
     // Process judgements
-    const judgementsData: JudgementData[] = identityOf.judgements.map((judgement) => ({
-      registrar: { index: judgement[0] },
-      state: judgement[1].type,
-      fee: judgement[1].value,
-    }));
+    const judgementsData: JudgementData[] = identityOf.judgements
+      .map((judgement: [number, {type: string, value: bigint}]) => ({
+        registrar: { index: judgement[0] },
+        state: judgement[1].type,
+        fee: judgement[1].value,
+      }))
+    ;
 
     if (judgementsData.length > 0) {
       identityInfo.judgements = judgementsData;
-      identityInfo.status = verifyStatuses.JudgementRequested;
+      identityInfo.status = IdentityVerificationStatus.JudgementRequested;
     }
 
     // Update status based on judgement states
     if (judgementsData.find(j => j.state === "FeePaid")) {
-      identityInfo.status = verifyStatuses.FeePaid;
+      identityInfo.status = IdentityVerificationStatus.FeePaid;
     }
 
     if (judgementsData.find(j => ["Reasonable", "KnownGood"].includes(j.state))) {
-      identityInfo.status = verifyStatuses.IdentityVerified;
+      identityInfo.status = IdentityVerificationStatus.IdentityVerified;
     }
 
     return identityInfo;

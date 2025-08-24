@@ -1,64 +1,67 @@
 import { CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Profile } from "@/lib/profile"
+import { Timeline, TimelineEventType } from "@/types/timeline";
+import { formatDate } from "../utils/date-time";
 
 interface VerificationTimelineProps {
-  profile: Profile
+  timeline: Timeline;
 }
 
-// Mock verification events - assuming this structure from your existing code
-const generateMockEvents = (profile: Profile) => [
-  {
-    id: 1,
-    type: "registration",
-    status: "completed",
-    date: "2023-09-15T14:30:00Z",
-    description: "Identity registered on-chain",
-    details: `Deposit: ${profile.deposit || "0.1000000000 TOKEN"}`,
+const EVENTS_ADDITIONAL_INFO: Record<TimelineEventType, {
+  description: string
+  details: string
+}> = {
+  created: {
+    description: "Account created",
+    details: "The user account record was created in the system."
   },
-  {
-    id: 2,
-    type: "fee",
-    status: "completed",
-    date: "2023-09-15T14:35:00Z",
-    description: "Verification fee paid",
-    details: "Fee: 0.0500000000 TOKEN",
+  verified: {
+    description: "Core verification completed",
+    details: "Primary identity and baseline eligibility checks were completed."
   },
-  {
-    id: 3,
-    type: "verification",
-    status: profile.judgement === "Reasonable" || profile.judgement === "KnownGood" ? "completed" : "pending",
-    date: profile.judgement === "Reasonable" || profile.judgement === "KnownGood" ? "2023-09-16T10:15:00Z" : null,
-    description: "Identity verification",
-    details:
-      profile.judgement === "Reasonable" || profile.judgement === "KnownGood"
-        ? `Judgement: ${profile.judgement}`
-        : "Awaiting verification from registrar",
+  discord: {
+    description: "Discord account linked",
+    details: "The user connected a Discord account for community / role validation."
   },
-  {
-    id: 4,
-    type: "renewal",
-    status: "upcoming",
-    date: "2024-09-15T14:30:00Z",
-    description: "Annual renewal",
-    details: "Fee: 0.0250000000 TOKEN",
+  display: {
+    description: "Display name set",
+    details: "A public display name was provided or updated."
   },
-]
+  email: {
+    description: "Email verified",
+    details: "The user confirmed ownership of their email address."
+  },
+  matrix: {
+    description: "Matrix ID linked",
+    details: "A Matrix (Element) account was associated and validated."
+  },
+  twitter: {
+    description: "X (Twitter) handle linked",
+    details: "The user linked an X (formerly Twitter) profile for social proof."
+  },
+  github: {
+    description: "GitHub account linked",
+    details: "A GitHub profile was connected for developer/reputation signals."
+  },
+  legal: {
+    description: "Legal review passed",
+    details: "KYC / legal compliance checks were completed successfully."
+  },
+  web: {
+    description: "Website verified",
+    details: "Ownership of an external website or domain was confirmed."
+  },
+  image: {
+    description: "Profile image set",
+    details: "The user uploaded or updated a profile image."
+  },
+  pgp_fingerprint: {
+    description: "PGP fingerprint added",
+    details: "A PGP public key fingerprint was submitted and recorded."
+  },
+}
 
-export function VerificationTimeline({ profile }: VerificationTimelineProps) {
-  const events = generateMockEvents(profile)
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Pending"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
+export function VerificationTimeline({ timeline }: VerificationTimelineProps) {
 
   const getStatusClasses = (status: string) => {
     switch (status) {
@@ -112,7 +115,7 @@ export function VerificationTimeline({ profile }: VerificationTimelineProps) {
     }
   }
 
-  if (!events || events.length === 0) {
+  if (!timeline || timeline.length === 0) {
     return (
       <Card className="bg-gray-800 border-pink-500/30">
         <CardHeader>
@@ -139,10 +142,12 @@ export function VerificationTimeline({ profile }: VerificationTimelineProps) {
           <div className="space-y-5">
             {" "}
             {/* Spacing between timeline items */}
-            {events.map((event) => {
-              const statusClasses = getStatusClasses(event.status)
+            {timeline.map((event) => {
+              const statusClasses = getStatusClasses(event.event)
+              const additionalInfo = EVENTS_ADDITIONAL_INFO[event.event]
+
               return (
-                <div key={event.id} className="relative pl-10">
+                <div key={event.date.toLocaleString()} className="relative pl-10">
                   {" "}
                   {/* pl-10 for node (w-7) + connector (w-3) */}
                   {/* Node (Icon Container) */}
@@ -150,7 +155,7 @@ export function VerificationTimeline({ profile }: VerificationTimelineProps) {
                     className={`absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center ${statusClasses.iconContainerBg} z-10 border-4 border-gray-800`}
                   >
                     {/* border-gray-800 matches Card's bg, creating cutout effect */}
-                    {getStatusIcon(event.status, statusClasses.iconColor)}
+                    {getStatusIcon(event.event, statusClasses.iconColor)}
                   </div>
                   {/* Horizontal Connector from Node to Card */}
                   <div
@@ -160,10 +165,10 @@ export function VerificationTimeline({ profile }: VerificationTimelineProps) {
                   {/* Event Content Card */}
                   <div className={`p-3 rounded-lg ${statusClasses.cardBorder} ${statusClasses.cardBg} shadow-sm`}>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-1">
-                      <h4 className="font-medium text-white text-sm">{event.description}</h4>
+                      <h4 className="font-medium text-white text-sm">{additionalInfo.description}</h4>
                       <span className="text-xs text-gray-400 mt-1 sm:mt-0 flex-shrink-0">{formatDate(event.date)}</span>
                     </div>
-                    <p className="text-xs text-gray-300">{event.details}</p>
+                    <p className="text-xs text-gray-300">{additionalInfo.details}</p>
                   </div>
                 </div>
               )

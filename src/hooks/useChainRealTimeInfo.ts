@@ -1,8 +1,8 @@
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { SS58String, TypedApi } from "polkadot-api";
+import { SS58String } from "polkadot-api";
 import { useEffect, useMemo, useState } from "react";
 
-import { ApiStorage } from "@/types/api";
+import { Network } from "@/contexts/network-context";
+import { ApiPromise } from "@polkadot/api";
 
 /**
  * Chain constants retrieved from the Substrate runtime metadata.
@@ -21,8 +21,8 @@ export interface ChainConstants {
 }
 
 export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
-  typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
-  chainId: string | number | symbol;
+  typedApi: ApiPromise;
+  chainId: Network;
   address: SS58String;
   handlers: Record<string, {
     onEvent: (data: object) => void;
@@ -39,21 +39,21 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
         const fetchConstants = async (retryCount = 0): Promise<void> => {
           try {
             const constants = {
-              byteDeposit: await typedApi.constants.Identity.ByteDeposit(),
-              basicDeposit: await typedApi.constants.Identity.BasicDeposit(),
-              existentialDeposit: await typedApi.constants.Balances.ExistentialDeposit(),
+              byteDeposit: await typedApi.consts.identity.byteDeposit.toNumber(),
+              basicDeposit: await typedApi.consts.identity.basicDeposit.toNumber(),
+              existentialDeposit: await typedApi.consts.balances.existentialDeposit.toNumber(),
             }
-            
+
             // Validate all constants are present
             if (!constants.byteDeposit || !constants.basicDeposit || !constants.existentialDeposit) {
               throw new Error('Missing required constants')
             }
-            
+
             console.log({ constants })
             setConstants(constants)
           } catch (e) {
             console.error(`Attempt ${retryCount + 1} failed:`, e)
-            
+
             if (retryCount < 3) {
               const delay = Math.pow(2, retryCount) * 1000 // Exponential backoff
               setTimeout(() => fetchConstants(retryCount + 1), delay)
@@ -62,7 +62,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
             }
           }
         }
-        
+
         fetchConstants()
       })()
     }
@@ -78,57 +78,88 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   )
 
   useEffect(() => {
-    const systemEventsSub = (typedApi.query.System.Events as ApiStorage)
-      .watchValue("best").subscribe({
-        next: (events) => {
-          console.log({ events });
-          events
-            .filter(({
-              event: {
-                type: _pallet,
-                value: {
-                  type: _type,
-                  value: { who, target },
-                }
-              }
-            }) =>
-              handlerEntries.some(({ pallet, call }) => pallet === _pallet && call === _type)
-              && [who, target].includes(address)
-            )
-            .map(({
-              event: {
-                type: _pallet,
-                value: {
-                  type: _type,
-                  value: { who, target },
-                }
-              }
-            }) => {
-              const type = `${_pallet}.${_type}`
-              const data = { type, who: who || target, priority: handlers[type].priority }
-              return data
-            })
-            .sort((b1, b2) => b2.priority - b1.priority)
-            .forEach(data => {
-              const { onEvent, onError } = handlers[data.type]
-              try {
-                onEvent(data)
-              } catch (error) {
-                onError?.(error)
-                console.error(`Error processing ${data.type}`, error);
-              }
-            })
-        },
-        error: (error) => {
-          console.error("Error fetching events", error)
-        },
-        complete: () => {
-          console.log({ event: "complete fetching events" })
-        }
-      })
-    return () => {
-      systemEventsSub.unsubscribe?.()
+    let systemEventsSub = null;
+
+    const cleanUp = () => {
+      if (systemEventsSub) {
+      }
+      systemEventsSub?.unsubscribe?.();
+    };
+
+    if (!typedApi) {
+      return cleanUp;
     }
+
+    (async () => {
+      systemEventsSub = await typedApi.query.system.events((events) => {
+        console.log({ events });
+        events
+          .filter(({ event }: any) => {
+            // Get the section (pallet) and method from the event
+            const section = event.section;
+            const method = event.method;
+
+            // Check if this event type is in our handlers
+            if (!handlerEntries.some(({ pallet, call }) => pallet === section && call === method)) {
+              return false;
+            }
+
+            // Check if the event data contains our address
+            const eventData = event.data;
+            if (!eventData) return false;
+
+            // Look for address in various possible fields (who, target, account, etc.)
+            const addressFound = eventData.some((data: any) => {
+              const dataStr = data.toString();
+              return dataStr === address;
+            });
+
+            return addressFound;
+          })
+          .map(({ event }: any) => {
+            const section = event.section;
+            const method = event.method;
+            const eventKey = `${section}.${method}`;
+            const eventData = event.data;
+
+            // Extract relevant address from event data
+            let relevantAddress = address;
+            if (eventData && eventData.length > 0) {
+              // Try to find the address in the event data
+              const foundAddress = eventData.find((data: any) => data.toString() === address);
+              if (foundAddress) {
+                relevantAddress = foundAddress.toString();
+              }
+            }
+
+            const data = {
+              type: eventKey,
+              who: relevantAddress,
+              priority: handlers[eventKey]?.priority || 0,
+              eventData: eventData?.map((d: any) => d.toHuman()) || []
+            };
+            return data;
+          })
+          .sort((b1: any, b2: any) => b2.priority - b1.priority)
+          .forEach((data: any) => {
+            const handler = handlers[data.type];
+            if (!handler) {
+              console.warn(`No handler found for event type: ${data.type}`);
+              return;
+            }
+
+            const { onEvent, onError } = handler;
+            try {
+              onEvent(data);
+            } catch (error) {
+              onError?.(error as Error);
+              console.error(`Error processing ${data.type}`, error);
+            }
+          });
+      });
+    })();
+
+    return cleanUp
   }, [typedApi, address, handlerEntries, handlers])
 
   return { constants, }

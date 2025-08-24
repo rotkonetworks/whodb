@@ -2,24 +2,11 @@ import { Check, User } from "lucide-react";
 import { SS58String } from "polkadot-api";
 import React from "react";
 
-import { AccountData } from "@/store/AccountStore";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
-import { Card, CardContent } from "./card";
-import { useSpendableBalance } from "@reactive-dot/react";
-import { Badge } from "./badge";
+import { AccountData } from "@/store/AccountStore";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
-
-// Component to display individual account balance
-const AccountBalance = ({ address, chainId }: { address: SS58String; chainId: string }) => {
-  const { formatAmount } = usePolkadotApi();
-  const balance = useSpendableBalance(address, { chainId: chainId as any });
-  
-  return (
-    <span className="text-xs text-gray-400">
-      {formatAmount ? formatAmount(balance.planck) : `${balance.planck.toString()} units`}
-    </span>
-  );
-};
+import { AccountBalanceBadge } from "./balance-badge";
+import { Card, CardContent } from "./card";
 
 interface AccountSelectorProps {
   accounts?: AccountData[];
@@ -90,9 +77,7 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                 </div>
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
                   {account.address && chainStore?.id && (
-                    <Badge className="bg-gray-700/50 text-gray-300 text-xs px-1.5 py-0.5">
-                      <AccountBalance address={account.address} chainId={chainStore.id} />
-                    </Badge>
+                    <AccountBalanceBadge address={account.address} chainId={chainStore.id} />
                   )}
                   {selectedAccount === account.address && (
                     <Check className="w-4 h-4 text-green-400" />
@@ -104,12 +89,6 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 flex-shrink-0"></div>
                   <span>Ready to sign transactions</span>
                 </div>
-                {account.polkadotSigner && (
-                  <div className="flex items-center text-xs text-gray-300">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 flex-shrink-0"></div>
-                    <span>Signer available</span>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

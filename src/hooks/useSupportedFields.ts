@@ -1,6 +1,4 @@
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { TypedApi } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiStorage } from "@/types/api";
@@ -20,7 +18,7 @@ const IdentityField = {
 } as const;
 
 export function useSupportedFields({ typedApi, registrarIndex, }: {
-  typedApi: TypedApi<ChainDescriptorOf<ChainId>>,
+  typedApi: ApiPromise,
   registrarIndex?: number,
 }) {
   const [supportedFields, setSupportedFields] = useState<string[]>([]);
@@ -36,19 +34,24 @@ export function useSupportedFields({ typedApi, registrarIndex, }: {
   }, []);
 
   useEffect(() => {
-    if (registrarIndex !== undefined) {
-      (typedApi.query.Identity.Registrars as ApiStorage)
-        .getValue()
-        .then((result) => {
-          const fields = result[registrarIndex]?.fields;
-          const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
-          setSupportedFields(_supportedFields);
-          console.log({ supportedFields: _supportedFields, result });
-        })
-        .catch(error => {
-          console.error("Error fetching supported fields:", error);
-        });
-    }
+    (async () => {
+      if (!typedApi) {
+      return;
+      }
+
+      if (registrarIndex !== undefined) {
+      try {
+        const result = await typedApi.query.identity.registrars()
+        const registrarEntry = (result as any)[registrarIndex];
+        const fields = registrarEntry?.fields;
+        const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
+        setSupportedFields(_supportedFields);
+        console.log({ supportedFields: _supportedFields, result });
+      } catch (error) {
+        console.error("Error fetching supported fields:", error);
+      }
+      }
+    })();
   }, [typedApi, registrarIndex, getSupportedFields]);
 
   return supportedFields;

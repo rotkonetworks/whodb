@@ -102,7 +102,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full btn-primary py-3 rounded-lg font-medium disabled:opacity-50"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-3 rounded-lg font-medium disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -124,7 +124,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleWalletConnect}
-            className="w-full btn-outline py-3 rounded-lg font-medium flex items-center justify-center space-x-2"
+            className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground py-3 rounded-lg font-medium flex items-center justify-center space-x-2 transition-colors"
           >
             <Wallet className="w-4 h-4" />
             <span>Connect Wallet</span>

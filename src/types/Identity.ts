@@ -51,7 +51,7 @@ export type IdentityOfResult = {
   value: IdentityOf;
 }
 
-export enum verifyStatuses {
+export enum IdentityVerificationStatus {
   Unknown = -1,
   NoIdentity = 0,
   IdentitySet = 1,
@@ -69,9 +69,9 @@ export interface Judgement {
 }
 
 export interface Identity {
-  info?: IdentityInfo;
+  info: IdentityInfo;
   judgements?: Judgement[];
-  status: verifyStatuses;
+  status: IdentityVerificationStatus;
   hash?: Uint16Array;
   deposit?: bigint;
 }

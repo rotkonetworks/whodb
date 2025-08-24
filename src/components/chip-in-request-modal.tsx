@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Search, Send, Mail, MessageSquare } from "lucide-react"
 import { toast } from "sonner"
 import type { Profile } from "@/lib/profile" // Assuming Profile type is exported
-import { mockProfiles } from "@/lib/profile-mock-data" // Using a separate mock data for simplicity here
 
 interface ChipInRequestModalProps {
   isOpen: boolean
@@ -53,7 +52,8 @@ export function ChipInRequestModal({
     setIsSearching(true)
     // Simulate API call for search
     const timer = setTimeout(() => {
-      const filtered = mockProfiles.filter(
+      const profiles = [] // TODO If this is to ba added, we need to add search support.
+      const filtered = profiles.filter(
         (p) =>
           p.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (p.email && p.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -232,7 +232,7 @@ export function ChipInRequestModal({
 
         <DialogFooter className="sm:justify-between">
           <DialogClose asChild>
-            <Button type="button" variant="outline" className="btn-outline">
+            <Button type="button" variant="outline">
               Cancel
             </Button>
           </DialogClose>
@@ -240,7 +240,6 @@ export function ChipInRequestModal({
             type="button"
             onClick={handleSendRequest}
             disabled={!selectedProfile || !selectedContactMethod || isSending}
-            className="btn-primary"
           >
             {isSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Send Request

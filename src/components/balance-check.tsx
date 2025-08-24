@@ -4,12 +4,14 @@ import { useNetwork } from "@/contexts/network-context";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
-import { verifyStatuses } from "@/types/Identity";
+import { IdentityVerificationStatus } from "@/types/Identity";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
+import { CopyButton } from "./ui/copy-button";
+import { CHAINS } from "@/polkadot-api/chain-config";
 
 interface BalanceCheckProps {
   onSufficientBalance: () => void
@@ -29,7 +31,7 @@ export function BalanceCheck({
   const { chainStore, accountStore, isTxBusy, balance, identity } = usePolkadotApi()
 
   // Use passed balance or fall back to context balance
-  const address = accountStore.address
+  const address = accountStore.encodedAddress
   const isLoading = balance === undefined
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
@@ -78,18 +80,7 @@ export function BalanceCheck({
     onSufficientBalance()
   }
 
-  const getNetworkToken = () => {
-    switch (network) {
-      case "paseo":
-        return "PAS"
-      case "polkadot":
-        return "DOT"
-      case "kusama":
-        return "KSM"
-      default:
-        return "TOKEN"
-    }
-  }
+  const networkSymbol = CHAINS[network]?.symbol
 
   const amountNeededForChipIn = requiredBalanceFloat - balanceFloat > 0 ? requiredBalanceFloat - balanceFloat : 0
 
@@ -118,14 +109,15 @@ export function BalanceCheck({
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Address:</span>
               <span className="text-gray-300 text-sm font-mono">
-                {accountStore.encodedAddress.substring(0, 10)}...{address.substring(address.length - 10)}
+                {address ? `${address.substring(0, 10)}...${address.substring(address.length - 10)}` : null}
+                <CopyButton text={accountStore.encodedAddress} />
               </span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Network:</span>
               <span className="text-gray-300 text-sm font-mono">
-                {chainStore.relay.name}
+                {chainStore.relay?.name}
               </span>
             </div>
           </div>
@@ -157,7 +149,7 @@ export function BalanceCheck({
 
           {!isLoading && (
             <>
-              {identity.status >= verifyStatuses.IdentitySet ? (
+              {identity.status >= IdentityVerificationStatus.IdentitySet ? (
                 <div className="space-y-4">
                   <div className="flex items-center p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
                     <AlertCircle className="w-5 h-5 text-yellow-400 mr-2" />
@@ -168,11 +160,11 @@ export function BalanceCheck({
                       You already have an identity registered on this network. You can proceed to the next step.
                     </p>
                   </div>
-                  <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                  <Button onClick={handleProceed} className="w-full">
                     Continue to Next Step
                   </Button>
                 </div>
-              ) : (hasSufficientBalance 
+              ) : (hasSufficientBalance
                 ? (
                   <div className="space-y-4">
                     <div className="flex items-center p-3 bg-green-900/20 border border-green-500/30 rounded-md">
@@ -182,7 +174,7 @@ export function BalanceCheck({
                     <div className="p-4 bg-gray-700/30 rounded-md">
                       <p className="text-gray-300 text-sm">You can proceed to registration.</p>
                     </div>
-                    <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                    <Button onClick={handleProceed} className="w-full">
                       Continue to Registration
                     </Button>
                   </div>
@@ -192,7 +184,7 @@ export function BalanceCheck({
                       <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
                       <span className="text-green-400 font-medium">Sufficient balance for registration</span>
                     </div>
-                    <Button onClick={handleProceed} className="w-full btn-primary text-white">
+                    <Button onClick={handleProceed} className="w-full">
                       Continue to Registration
                     </Button>
                   </div>
@@ -238,7 +230,7 @@ export function BalanceCheck({
                     </div>
                     <div className="p-4 bg-gray-700/30 rounded-md">
                       <p className="text-gray-300 text-sm mb-2">
-                        You need at least {requiredBalance.toFixed(2)} {getNetworkToken()} to register your identity on{" "}
+                        You need at least {requiredBalance.toFixed(2)} {networkSymbol} to register your identity on{" "}
                         {networkDisplayName}.
                       </p>
                       <p className="text-gray-400 text-xs">
@@ -249,7 +241,8 @@ export function BalanceCheck({
                       {fauceturl && (
                         <Button
                           onClick={() => window.open(fauceturl, '_blank')}
-                          className="w-full btn-secondary"
+                          className="w-full"
+                          variant="outline"
                         >
                           <Coins className="w-4 h-4 mr-2" />
                           Get Test Tokens
@@ -258,7 +251,8 @@ export function BalanceCheck({
                       {canRequestChipIn && (
                         <Button
                           onClick={() => setShowChipInModal(true)}
-                          className="w-full btn-secondary"
+                          className="w-full"
+                          variant="outline"
                         >
                           <Users className="w-4 h-4 mr-2" />
                           Request Chip-In
@@ -267,7 +261,7 @@ export function BalanceCheck({
                       <Button
                         onClick={handleTeleportTokens}
                         disabled={isTxBusy}
-                        className="w-full btn-primary"
+                        className="w-full"
                       >
                         <ArrowLeftRight className="w-4 h-4 mr-2" />
                         Teleport Tokens
@@ -288,7 +282,7 @@ export function BalanceCheck({
           currentUserAddress={walletAddress}
           networkDisplayName={networkDisplayName}
           requiredAmount={amountNeededForChipIn}
-          tokenSymbol={getNetworkToken()}
+          tokenSymbol={networkSymbol}
         />
       )}
 

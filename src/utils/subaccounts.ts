@@ -1,6 +1,5 @@
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf } from "@reactive-dot/core/internal.js";
-import { TypedApi, SS58String, Binary } from "polkadot-api";
+import { ApiPromise } from "@polkadot/api";
+import { SS58String, Binary } from "polkadot-api";
 
 import { AccountTreeNode } from "~/hooks/UseAccountsTree";
 import { ApiStorage } from "~/types/api";
@@ -11,7 +10,7 @@ type SubsOfResult = {
 };
 
 export const fetchSubsOf = async (
-  api: TypedApi<ChainDescriptorOf<ChainId>>,
+  api: ApiPromise,
   address: SS58String
 ): Promise<SubsOfResult | null> => {
   if (!api) {
@@ -23,17 +22,18 @@ export const fetchSubsOf = async (
 
   try {
     // Fetch subaccounts information from chain
-    const result: [bigint, SS58String[]] | null = await (api.query.Identity.SubsOf as ApiStorage)
-      .getValue(address, { at: "best" });
+    const result = await api.query.identity.subsOf(address);
     
-    if (!result) return null;
+    if (!result || (result as any).isNone) return null;
 
+    const subsOfData = (result as any).isSome ? (result as any).unwrap() : result;
+    
     return {
-      deposit: result[0],
-      subs: result[1],
+      deposit: BigInt(subsOfData.deposit.toString()),
+      subs: subsOfData.accounts.map((acc: any) => acc.toString()),
     };
   } catch (error) {
-    throw new Error("Error fetching subaccounts", error);
+    throw new Error(`Error fetching subaccounts: ${error}`);
   }
 }
 
@@ -43,7 +43,7 @@ type SuperOfResult = {
 } | null;
 
 export const fetchSuperOf = async (
-  api: TypedApi<ChainDescriptorOf<ChainId>>,
+  api: ApiPromise,
   address: SS58String
 ): Promise<SuperOfResult | null> => {
   if (!api) {
@@ -55,21 +55,20 @@ export const fetchSuperOf = async (
 
   try {
     // Fetch superaccount information from chain
-    const result: [SS58String, {
-      type: string,
-      value?: Binary,
-    }] | null = await (api.query.Identity.SuperOf as ApiStorage).getValue(address, { at: "best" });
+    const result = await api.query.identity.superOf(address);
       
-    if (!result) return null;
+    if (!result || (result as any).isNone) return null;
+    
+    const superOfData = (result as any).isSome ? (result as any).unwrap() : result;
     // TODO Handle other types of superaccount data
-    const name = result[1].type.startsWith("Raw") ? result[1].value.asText() : null;
+    const name = superOfData[1]?.raw ? new TextDecoder().decode(superOfData[1].raw) : undefined;
 
     return {
-      address: result[0],
+      address: superOfData[0].toString(),
       name,
     };
   } catch (error) {
-    throw new Error("Error fetching superaccount", error);
+    throw new Error(`Error fetching superaccount: ${error}`);
   }
 }
 

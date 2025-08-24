@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
-import { verifyStatuses } from "@/types/Identity"
 import { AlertTriangle, CheckCircle, ClipboardCopy, Github, Loader2, ShieldQuestion } from "lucide-react"
 import type React from "react"
 import { useState } from "react"
@@ -166,7 +165,7 @@ export function VerifiableFormField({
           className="bg-gray-700 border-pink-500/30 text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
           disabled={isInputDisabled || isVerifyingThisField}
         />
-        {identity.status === verifyStatuses.FeePaid && renderVerificationButton()}
+        {renderVerificationButton()}
       </div>
 
       {fieldStatus?.status === "pending" && challengeOrCode && (
@@ -205,7 +204,7 @@ export function VerifiableFormField({
                   className="text-xs h-auto p-1 mt-1.5 text-gray-300 hover:text-white"
                   onClick={() => copyToClipboard(challengeOrCode, "PGP Challenge copied!")}
                 >
-                  <ClipboardCopy className="w-3 h-3 mr-1" /> Copy Challenge
+                  <ClipboardCopy className="w-3 h-3 mr-1" />
                 </Button>
               </div>
               <p>2. Use this command to sign: <code className="bg-gray-700 px-1 rounded">gpg --clearsign --armor</code></p>
@@ -258,7 +257,6 @@ export function VerifiableFormField({
                     toast.error("GitHub verification failed. Please try again.")
                   }
                 }}
-                isVerified={fieldStatus?.status === "verified"}
               />
             )}
         </div>

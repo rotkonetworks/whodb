@@ -1,19 +1,8 @@
-import {
-  ArrowLeft,
-  Edit,
-  Info,
-  LinkIcon,
-  ListChecks,
-  Loader2,
-  Mail,
-  UserCheck,
-  WalletIcon,
-} from "lucide-react"
+import { AlertCircle, ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { AuthProviderButton } from "@/components/auth-provider-button"
 import { BalanceCheck } from "@/components/balance-check"
 import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
 import { IdentityVerificationForm } from "@/components/identity-verification-form"; // New verification form
@@ -22,6 +11,7 @@ import { NetworkSelection } from "@/components/network-selection-register"
 import { SimpleIdentityForm } from "@/components/simple-identity-form"; // New simple form
 import { useTheme } from "@/components/theme-provider-simple"
 import { AccountSelector } from "@/components/ui/account-selector"
+import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,25 +19,18 @@ import { useNetwork, type Network as AppNetwork } from "@/contexts/network-conte
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useUser } from "@/contexts/user-context"; // For fetching profile to edit
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
-import { useWallet } from "@/contexts/wallet-context"
-import { getProfile, type Profile as ProfileType } from "@/lib/profile"; // For fetching profile by ID
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
+import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
+import { useUrlParams } from "@/hooks/useUrlParams"
+import { CHAINS } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
-import { verifyStatuses, type IdentityData } from "@/types/Identity"; // Import IdentityData
-import { useConnectedWallets } from "@reactive-dot/react"
+import { IdentityVerificationStatus, type IdentityData } from "@/types/Identity"; // Import IdentityData
 import BigNumber from "bignumber.js"
-import { ConnectionDialog } from "dot-connect/react.js"
-import { Binary, SS58String } from "polkadot-api"
-
-const GoogleIcon = () => <Mail className="w-5 h-5" />
-const MatrixIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-    <path d="M20.79 9.44v5.12h-2.97V9.44h2.97zM6.18 9.44v5.12H3.21V9.44h2.97zm7.31 0v5.12h-2.98V9.44h2.98zM17.03 3h-2.98v4.58h2.98V3zm-10.85 0H3.2v4.58h2.98V3zM9.94 3H6.96v4.58h2.98V3zm0 13.42H6.96V21h2.98v-4.58zm7.09 0h-2.98V21h2.98v-4.58z" />
-  </svg>
-)
-
+import { SS58String } from "polkadot-api"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { getTxFees } from "@/utils/transactions"
+import { fromHexString } from "@/utils/binary"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -56,22 +39,26 @@ export const STEP_NUMBERS = {
   checkBalance: 4,
   fillIdentityInfo: 5,
   reviewAndSubmit: 6,
-  complete: 8,
+  complete: 7,
 } as const
 const TOTAL_STEPS = Object.keys(STEP_NUMBERS).length
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
-  const { network, setNetwork, networkDisplayName, networkColor, isEncrypted: isNetworkEncrypted } = useNetwork()
+  const {
+    network,
+    setNetwork,
+    networkDisplayName,
+    networkColor,
+    isEncrypted: isNetworkEncrypted,
+  } = useNetwork()
   const [_network, _setNetwork] = useState<AppNetwork | null>(network)
 
   const polkadotApiContext = usePolkadotApi()
   const {
     chainStore,
     accountStore,
-    accounts,
     identity,
     fetchIdAndJudgement,
     challenges,
@@ -95,11 +82,6 @@ export default function RegisterPage() {
     })
     setTxName(args.name || null)
   }
-
-  const {
-    isConnected: isWalletConnected,
-    isConnecting: isWalletConnecting,
-  } = useWallet()
 
   const walletAddress = useMemo(() => accountStore.address, [accountStore.address])
 
@@ -137,6 +119,14 @@ export default function RegisterPage() {
   }, [challenges, setInitialVerifications])
 
   const [currentStep, setCurrentStep] = useState(1)
+  useTriggerLog(currentStep, "currentStep") // TODO Tracking why it becomes null
+  useEffect(() => {
+    if (!currentStep || !Object.values(STEP_NUMBERS).includes(currentStep)) {
+      throw new Error("currentStep is null or undefined")
+    }
+  }, [currentStep])
+
+
   const [identityData, setIdentityData] = useState<IdentityData>({
     display: "",
     email: "",
@@ -150,7 +140,6 @@ export default function RegisterPage() {
     legal: "",
   })
   const [isSubmittingIdentity, setIsSubmittingIdentity] = useState(false)
-  const [isLinkingAccount, setIsLinkingAccount] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
   const [isLoadingProfileForEdit, setIsLoadingProfileForEdit] = useState(false)
@@ -163,179 +152,21 @@ export default function RegisterPage() {
   const [txToConfirm, setTxToConfirm] = useState<any>(null)
   const [currentDialogMode, setCurrentDialogMode] = useState<DialogMode>(null)
 
-  const editIdParam = searchParams.get("editId")
-  const flowParam = searchParams.get("flow")
-  const parentIdParam = searchParams.get("parentId")
-  const isEditingCurrentUserFromParams = searchParams.get("edit") === "true"
+  const { setParam, urlParams } = useUrlParams()
 
-  const connectedWallets = useConnectedWallets();
+  const editIdParam = urlParams["editId"]
+  const flowParam = urlParams["flow"]
+  const parentIdParam = urlParams["parentId"]
+  const isEditingCurrentUserFromParams = urlParams["edit"] === "true"
 
-  useEffect(() => {// Set up profile/idenity data based on URL parameters or logged in user
-    // Wait for user data to be loaded before doing anything.
-    if (isUserLoading) {
-      return
-    }
-
-    const loadProfileData = async (idToLoad: string, currentFlow?: string | null, currentParentId?: string | null) => {
-      setIsLoadingProfileForEdit(true)
-      let profileDataToSet: Partial<IdentityData> = {
-        display: "",
-        email: "",
-        matrix: "",
-        twitter: "",
-        web: "",
-        github: "",
-        pgp_fingerprint: "",
-        discord: "",
-        image: "",
-        legal: "",
-      }
-      try {
-        let fetchedProfile: ProfileType | null = null
-        if (currentFlow === "subidentity" && currentParentId) {
-          const parentProfile = await getProfile(currentParentId)
-          fetchedProfile = parentProfile.subaccounts?.find((sa) => sa.id === idToLoad) || null
-          if (!fetchedProfile) throw new Error(`Subidentity ${idToLoad} not found under parent ${currentParentId}.`)
-        } else {
-          fetchedProfile = await getProfile(idToLoad)
-        }
-
-        if (fetchedProfile) {
-          profileDataToSet = {
-            display: fetchedProfile.displayName || "",
-            email: fetchedProfile.email || "",
-            matrix: fetchedProfile.matrix || "",
-            twitter: fetchedProfile.twitter || "",
-            web: fetchedProfile.web || "",
-            github: fetchedProfile.github || "",
-            pgp_fingerprint: fetchedProfile.pgp_fingerprint || "",
-            discord: fetchedProfile.discord || "",
-            image: fetchedProfile.image || "",
-            legal: fetchedProfile.legal || "",
-          }
-          setIdentityData(profileDataToSet as IdentityData) // Ensure full IdentityData type
-          const fieldsToReset: (keyof IdentityData)[] = [
-            "email",
-            "matrix",
-            "twitter",
-            "web",
-            "github",
-            "pgp_fingerprint",
-            "discord",
-            "image",
-            "legal",
-          ]
-          fieldsToReset.forEach((key) => {
-            if (profileDataToSet[key] && (profileDataToSet[key] as string).trim() !== "") {
-              resetFieldVerification(String(key))
-            }
-          })
-        } else {
-          throw new Error("Profile data for editing could not be found.")
-        }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to load profile data for editing.")
-        navigate(idToLoad ? `/profile/${idToLoad}` : "/")
-      } finally {
-        setIsLoadingProfileForEdit(false)
-      }
-    }
-
-    if (editIdParam) {
-      if (!isEditMode || editIdParam !== editingProfileId) {
-        setIsEditMode(true)
-        setEditingProfileId(editIdParam)
-        loadProfileData(editIdParam, flowParam, parentIdParam)
-      }
-    } else if (isEditingCurrentUserFromParams) {
-      if (loggedInUserProfile) {
-        if (!isEditMode || (loggedInUserProfile.id && loggedInUserProfile.id !== editingProfileId)) {
-          setIsEditMode(true)
-          if (!loggedInUserProfile.id) {
-            toast.error("Logged in user profile ID is missing.")
-            navigate("/login")
-            return
-          }
-          setEditingProfileId(loggedInUserProfile.id)
-          const currentUserData: IdentityData = {
-            display: loggedInUserProfile.displayName || "",
-            email: loggedInUserProfile.email || "",
-            matrix: loggedInUserProfile.matrix || "",
-            twitter: loggedInUserProfile.twitter || "",
-            web: loggedInUserProfile.web || "",
-            github: loggedInUserProfile.github || "",
-            pgp_fingerprint: loggedInUserProfile.pgp_fingerprint || "",
-            discord: loggedInUserProfile.discord || "",
-            image: loggedInUserProfile.image || "",
-            legal: loggedInUserProfile.legal || "",
-          }
-          setIdentityData(currentUserData)
-          const fieldsToReset: (keyof IdentityData)[] = [
-            "email",
-            "matrix",
-            "twitter",
-            "web",
-            "github",
-            "pgp_fingerprint",
-            "discord",
-            "image",
-            "legal",
-          ]
-          fieldsToReset.forEach((key) => {
-            if (currentUserData[key] && currentUserData[key]?.trim() !== "") {
-              resetFieldVerification(String(key))
-            }
-          })
-          setIsLoadingProfileForEdit(false)
-        }
-      } else {
-        toast.error("Please log in to edit your profile.")
-        navigate("/login")
-      }
-    } else {
-      if (isEditMode) {
-        setIsEditMode(false)
-        setEditingProfileId(null)
-        setIdentityData({
-          display: "",
-          email: "",
-          matrix: "",
-          twitter: "",
-          web: "",
-          github: "",
-          pgp_fingerprint: "",
-          discord: "",
-          image: "",
-          legal: "",
-        })
-        const allVerifiableFields: (keyof IdentityData)[] = [
-          "email",
-          "matrix",
-          "twitter",
-          "web",
-          "github",
-          "pgp_fingerprint",
-          "discord",
-          "image",
-          "legal",
-        ]
-        allVerifiableFields.forEach(field => resetFieldVerification(String(field)))
-        setIsLoadingProfileForEdit(false)
-      }
-    }
-  }, [
-    isUserLoading,
-    editIdParam,
-    flowParam,
-    parentIdParam,
-    isEditingCurrentUserFromParams,
-    loggedInUserProfile,
-    isEditMode,
-    editingProfileId,
-    balance, // current account balance
-    resetFieldVerification,
-    navigate,
-  ])
+  const {
+    accounts,
+    extensions,
+    isLoading: isLoadingAccounts,
+  } = usePolkadotWallet()
+  const isWalletConnecting = useMemo(() => isLoadingAccounts, [isLoadingAccounts])
+  const isWalletConnected = useMemo(() => accounts.length > 0, [accounts])
+  const connectedWallets = extensions;
 
   const handleNetworkSelect = (selectedNet: AppNetwork) => {
     setNetwork(selectedNet)
@@ -345,21 +176,17 @@ export default function RegisterPage() {
   const handlePickAccount = (address: SS58String) => {
     accountStore.address = address // Update the accountStore with the selected account
     // Set address as search parameter to persist selection
-    const searchParams = new URLSearchParams(window.location.search)
-    searchParams.set("address", address)
-    window.history.replaceState({}, "", `${window.location.pathname}?${searchParams.toString()}`)
+    setParam("address", address)
     console.debug("Selected account:", address)
   }
 
   useEffect(() => {
-    const searchAddress = searchParams.get("address")
+    const searchAddress = urlParams["address"]
     if (searchAddress && accounts.some((acc) => acc.address === searchAddress)) {
       setSelectedAccount(searchAddress as SS58String)
       accountStore.address = searchAddress as SS58String // Update the accountStore with the selected account
       // Set address as search parameter to persist selection
-      const searchParams = new URLSearchParams(window.location.search)
-      searchParams.set("address", searchAddress)
-      window.history.replaceState({}, "", `${window.location.pathname}?${searchParams.toString()}`)
+      setParam("address", searchAddress)
       console.debug("Selected account from search params:", searchAddress)
     }
   }, [accounts])
@@ -394,6 +221,11 @@ export default function RegisterPage() {
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
+    if (identity.status === IdentityVerificationStatus.IdentityVerified) {
+      // If identity is already verified, we can proceed
+      return true
+    }
+
     // For the fillIdentityInfo step, we only need displayName + at least one other field
     // No verification required at this step
     const hasDisplayName = identityData.display.trim() !== ""
@@ -405,6 +237,11 @@ export default function RegisterPage() {
   }, [identityData])
 
   const canProceedFromVerificationStep = useMemo(() => {
+    if (identity.status === IdentityVerificationStatus.IdentityVerified) {
+      // If identity is already verified, we can proceed
+      return true
+    }
+
     // For the reviewAndSubmit step, all filled fields (except displayName) must be verified
     const filledFields = getAllFilledFields(identityData)
     const verifiableFields = filledFields.filter(f =>
@@ -510,12 +347,10 @@ export default function RegisterPage() {
 
       // Close the dialog
       closeTxDialog()
-
-
-
     } catch (error: any) {
       console.error("Transaction submission error:", error)
       toast.error(`Failed to submit transaction: ${error.message}`)
+    } finally {
       setIsSubmittingIdentity(false)
     }
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
@@ -532,16 +367,15 @@ export default function RegisterPage() {
 
       // Transform the data to the format expected by the blockchain
       const initialInfo = {
-        display: { type: "None" },
-        legal: { type: "None" },
-        web: { type: "None" },
-        matrix: { type: "None" },
-        email: { type: "None" },
-        image: { type: "None" },
-        twitter: { type: "None" },
-        github: { type: "None" },
-        discord: { type: "None" },
-        pgp_fingerprint: { type: "None" }
+        display: { none: undefined },
+        legal: { none: undefined },
+        web: { none: undefined },
+        matrix: { none: undefined },
+        email: { none: undefined },
+        image: { none: undefined },
+        twitter: { none: undefined },
+        github: { none: undefined },
+        discord: { none: undefined },
       }
 
       const info: any = {
@@ -550,17 +384,12 @@ export default function RegisterPage() {
           Object.entries(dataToSubmit)
             .filter(([_, value]) => value && value.trim() !== "")
             .map(([key, value]) => {
-              // Map field names to blockchain field names
-              const blockchainField = key || key
-
+              value = value.trim()
               if (key === "pgp_fingerprint") {
                 return [null, null] // Handle separately
               }
 
-              return [blockchainField, {
-                type: `Raw${value.length}`,
-                value: Binary.fromText(value)
-              }]
+              return [key, { raw: value }]
             })
             .filter(([key]) => key !== null)
         )
@@ -568,19 +397,22 @@ export default function RegisterPage() {
 
       // Handle PGP fingerprint separately
       if (dataToSubmit.pgp_fingerprint && dataToSubmit.pgp_fingerprint.trim() !== "") {
-        info.pgp_fingerprint = Binary.fromHex(
-          dataToSubmit.pgp_fingerprint.startsWith('0x')
-            ? dataToSubmit.pgp_fingerprint.slice(2)
-            : dataToSubmit.pgp_fingerprint
-        )
+        const formattedPgpFingerprint = dataToSubmit.pgp_fingerprint.startsWith('0x')
+          ? dataToSubmit.pgp_fingerprint.slice(2)
+          : dataToSubmit.pgp_fingerprint
+        ;
+        // Workaround for the 0x prefix, 14_16 = 20 bytes. Necessary as PAPI seems to use it for 
+        //  some reason, maybe as length...
+        info.pgp_fingerprint = fromHexString(`14${formattedPgpFingerprint}`)
       }
 
       // Create the transaction
-      const tx = (typedApi.tx.Identity as any).set_identity({ info })
+      const tx = typedApi.tx.identity.setIdentity(info)
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
+        fees: await getTxFees(tx)(walletAddress),
+        deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
       }
 
       // Set dialog state for transaction confirmation
@@ -602,15 +434,20 @@ export default function RegisterPage() {
 
     try {
       // Create the request judgement transaction
-      const registrarIndex = 0 // This should be dynamic based on your registrar
-      const tx = (typedApi.tx.Identity as any).request_judgement({
-        reg_index: registrarIndex,
-        max_fee: BigInt(1000000000000) // This should be dynamic based on registrar fee
-      })
+      const registrarIndex = Number(import.meta.env[
+        `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
+      ])
+      if (isNaN(registrarIndex)) {  // If it's NaN, index is not defined
+        throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
+      }
+
+      const registrars = await typedApi.query.identity.registrars()
+      const registrarFee = BigInt(registrars[registrarIndex]?.value.fee)
+      const tx = await typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee)
 
       // Estimate costs
       const estimatedCosts = {
-        fees: await tx.getEstimatedFees(walletAddress, { at: "best" })
+        fees: await getTxFees(tx)(walletAddress),
       }
 
       // Set dialog state for transaction confirmation
@@ -637,7 +474,7 @@ export default function RegisterPage() {
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
-  const networks = Object.entries(CHAIN_CONFIG.chains)
+  const networks = Object.entries(CHAINS)
     .filter(([key]) => key.endsWith("_people"))
     .map(([key, networkInfo]) => ({
       id: key,
@@ -678,7 +515,7 @@ export default function RegisterPage() {
       return
     }
 
-    if (connectedWallets.length > 0) {
+    if (connectedWallets.length > 0 && accounts.length > 0) {
       setCurrentStep(STEP_NUMBERS.pickAccount)
     } else {
       setCurrentStep(STEP_NUMBERS.connectWallet)
@@ -686,7 +523,7 @@ export default function RegisterPage() {
     }
 
     if (accountStore.address) {
-      setCurrentStep(STEP_NUMBERS.checkBalancet)
+      setCurrentStep(STEP_NUMBERS.checkBalance)
     } else {
       setCurrentStep(STEP_NUMBERS.pickAccount)
       return
@@ -694,7 +531,7 @@ export default function RegisterPage() {
 
     if (hasEnoughBalance === true) {
       // If we have an identity set, go to verification, otherwise go to identity form
-      if (identity?.status === verifyStatuses.IdentitySet || identity?.status === verifyStatuses.JudgementRequested || identity?.status === verifyStatuses.FeePaid) {
+      if (identity?.status === IdentityVerificationStatus.IdentitySet || identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid) {
         setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
       } else {
         setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
@@ -707,10 +544,10 @@ export default function RegisterPage() {
 
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
-    if (currentStep === STEP_NUMBERS.connectWallet && connectedWallets.length < 1) return false
+    if (currentStep === STEP_NUMBERS.connectWallet && (connectedWallets.length < 1 || accounts.length < 1)) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
     if (currentStep === STEP_NUMBERS.checkBalance
-      && !hasEnoughBalance && identity.status < verifyStatuses.IdentitySet
+      && !hasEnoughBalance && identity.status < IdentityVerificationStatus.IdentitySet
     ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
@@ -742,10 +579,6 @@ export default function RegisterPage() {
   }
 
   return <>
-    <ConnectionDialog open={openDialog === "connectWallets"}
-      onClose={() => { setOpenDialog(null) }}
-      dark={isDark === "dark"}
-    />
     <ConfirmActionDialog
       openDialog={openDialog}
       name={txName}
@@ -770,11 +603,10 @@ export default function RegisterPage() {
       } as any}
       relayAndParachains={[]} // Simplified for now
       fromBalance={new BigNumber(0)} // Simplified for now
-      balance={new BigNumber(0)} // Simplified for now
+      balance={balance} // Simplified for now
       minimunTeleportAmount={new BigNumber(0)} // Simplified for now
       formatAmount={formatAmount}
-      config={{} as any} // Simplified for now
-      identity={identity || { status: verifyStatuses.NoIdentity, deposit: BigInt(0) } as any}
+      identity={identity || { status: IdentityVerificationStatus.NoIdentity, deposit: BigInt(0) } as any}
       isTxBusy={isTxBusy}
     />
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
@@ -854,17 +686,28 @@ export default function RegisterPage() {
                 <p className="text-gray-400">
                   In order to access your accounts, you need to connect your wallets.
                 </p>
-                {/* {wallets.length > 0 && (
-                )} */}
-                <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-md text-green-400">
-                  {connectedWallets.length} Wallet{connectedWallets.length > 1 ? "s" : ""} Connected
-                </div>
+                {/* TODO Add wallet connection buttons for each extension */}
+                {extensions.length > 0 && (<>
+                  {accounts <= 0 && (<Alert className="bg-red-900/20 border-red-500/30 text-red-400">
+                    <AlertCircle className="w-4 h-4 mr-2 inline-block" />
+                    No accounts connected. Please make sure at least one wallet is connected and has accounts available.
+                  </Alert>)}
+                  <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-md text-green-400">
+                    {connectedWallets.length} Wallet{connectedWallets.length > 1 ? "s" : ""} Connected
+                  </div>
+                </>)}
+                {extensions.length <= 0 && (
+                  <Alert className="bg-red-900/20 border-red-500/30 text-red-400">
+                    <AlertCircle className="w-4 h-4 mr-2 inline-block" />
+                    No wallets connected. Please connect a wallet to continue.
+                  </Alert>
+                )}
                 <Button
                   onClick={() => setOpenDialog("connectWallets")}
-                  disabled={isWalletConnecting || isWalletConnected}
-                  className="w-full md:w-auto btn-primary"
+                  disabled={isWalletConnecting || !isWalletConnected}
+                  className="w-full md:w-auto"
                 >
-                  {openDialog === "connectWallets" ? "Managing..." : "Manage Wallets"}
+                  Pick Account
                 </Button>
               </div>
             )}
@@ -880,6 +723,7 @@ export default function RegisterPage() {
                 </div>
 
                 <AccountSelector
+                  accounts={accounts}
                   selectedAccount={selectedAccount || walletAddress}
                   onSelect={(address: string) => setSelectedAccount(address as SS58String)}
                   hoveredAccount={hoveredAccount}
@@ -888,7 +732,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {currentStep === STEP_NUMBERS.checkBalance && walletAddress && (
+            {currentStep === STEP_NUMBERS.checkBalance && (
               <BalanceCheck
                 onSufficientBalance={handleNextStep}
                 minBalanceAmount={minBalanceAmount}
@@ -905,16 +749,16 @@ export default function RegisterPage() {
                   isEditMode={isEditMode}
                   onDataChange={handleIdentityDataFormChange}
                   supportedFields={supportedFields}
-                  identityStatus={identity?.status || verifyStatuses.NoIdentity}
+                  identityStatus={identity?.status || IdentityVerificationStatus.NoIdentity}
                 />
                 <Button
                   onClick={onSetIdentity}
                   disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
-                  className="w-full btn-primary mt-6"
+                  className="w-full mt-6"
                 >
                   {isSubmittingIdentity
                     ? "Submitting Identity Data..."
-                    : identity.status === verifyStatuses.NoIdentity
+                    : identity.status === IdentityVerificationStatus.NoIdentity
                       ? "Submit Identity Data"
                       : "Update Identity Data"
                   }
@@ -922,14 +766,14 @@ export default function RegisterPage() {
               </>
             )}
 
-            {currentStep === STEP_NUMBERS.reviewAndSubmit && walletAddress && (
+            {currentStep === STEP_NUMBERS.reviewAndSubmit && (
               <>
                 {/* Identity Verification Form - All verification happens here */}
                 <IdentityVerificationForm
                   identityData={identityData}
-                  identityStatus={identity?.status || verifyStatuses.Unknown}
+                  identityStatus={identity?.status || IdentityVerificationStatus.Unknown}
                   supportedFields={supportedFields}
-                  canVerifyFields={identity?.status === verifyStatuses.FeePaid}
+                  canVerifyFields={identity?.status === IdentityVerificationStatus.FeePaid}
                 />
 
                 <Card className="bg-gray-800/50 border-gray-700 mt-6">
@@ -970,18 +814,18 @@ export default function RegisterPage() {
                         ))}
                     </div>
                     <Button
-                      onClick={identity?.status === verifyStatuses.IdentitySet ? onRequestJudgement : () => { }}
+                      onClick={identity?.status === IdentityVerificationStatus.IdentitySet ? onRequestJudgement : () => { }}
                       disabled={
-                        (identity?.status === verifyStatuses.IdentitySet && false) || // Can request judgement
-                        (identity?.status !== verifyStatuses.IdentitySet && !canProceedFromVerificationStep) // Need verification
+                        (identity?.status === IdentityVerificationStatus.IdentitySet && false) || // Can request judgement
+                        (identity?.status !== IdentityVerificationStatus.IdentitySet && !canProceedFromVerificationStep) // Need verification
                       }
-                      className="w-full btn-primary text-white mt-6 py-3 text-base"
+                      className="w-full mt-6 py-3 text-base"
                     >
-                      {identity?.status === verifyStatuses.IdentitySet
+                      {identity?.status === IdentityVerificationStatus.IdentitySet
                         ? "Request Judgement & Pay Fee"
-                        : identity?.status === verifyStatuses.FeePaid
+                        : identity?.status === IdentityVerificationStatus.FeePaid
                           ? "Complete All Verifications Above"
-                          : identity?.status === verifyStatuses.IdentityVerified
+                          : identity?.status === IdentityVerificationStatus.IdentityVerified
                             ? "Identity Fully Verified!"
                             : "Complete Verification Steps"
                       }
@@ -1027,7 +871,7 @@ export default function RegisterPage() {
             {currentStep < TOTAL_STEPS && (
               <Button
                 onClick={handleNextStep}
-                disabled={!getCanProceedOverall() || isSubmittingIdentity || isLinkingAccount}
+                disabled={!getCanProceedOverall() || isSubmittingIdentity}
                 variant="ghost"
                 className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 disabled:opacity-50 px-4 py-2 rounded-md"
               >

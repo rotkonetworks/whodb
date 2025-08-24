@@ -7,7 +7,7 @@ export interface ChainInfo {
   tokenDecimals: number;
   tokenSymbol: string;
   registrarIndex: number;
-  relay: {
+  relay?: {
     id: string;
     name: string;
     parachains: { id: string; name: string }[];

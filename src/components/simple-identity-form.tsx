@@ -2,7 +2,7 @@ import type React from "react"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { FormField } from "@/components/form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
-import { verifyStatuses, IdentityData } from "@/types/Identity"
+import { IdentityVerificationStatus, IdentityData } from "@/types/Identity"
 import {
   User,
   Mail,
@@ -23,7 +23,7 @@ interface SimpleIdentityFormProps {
   isEditMode: boolean
   onDataChange: (data: IdentityData) => void
   supportedFields?: string[]
-  identityStatus?: verifyStatuses
+  identityStatus?: IdentityVerificationStatus
 }
 
 export function SimpleIdentityForm({
@@ -32,7 +32,7 @@ export function SimpleIdentityForm({
   isEditMode,
   onDataChange,
   supportedFields = [],
-  identityStatus = verifyStatuses.NoIdentity,
+  identityStatus = IdentityVerificationStatus.NoIdentity,
 }: SimpleIdentityFormProps) {
   const [formData, setFormData] = useState(initialData)
 

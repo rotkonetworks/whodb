@@ -1,59 +1,26 @@
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useWebSocketContext } from "@/contexts/web-socket-provider"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { Search, User, Circle } from "lucide-react"
+import { useSearchWebSocket } from "@/hooks/websocket/search"
+import { FullProfile } from "@/types/profile"
+import { Circle, Search, User } from "lucide-react"
+import type React from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-
-// Mock profiles from all networks - in production this would query all databases
-const mockProfiles = [
-  {
-    id: 1,
-    displayName: "alice",
-    nickname: "alice.dot",
-    walletAddress: "13KVFndw5GXkwPSzNtd2FHGdJnFN3Z3zTvbjdQfDGpQYYpiK",
-    email: "alice@example.org",
-    avatar: "/professional-woman-avatar.png",
-    network: "paseo",
-  },
-  {
-    id: 2,
-    displayName: "bob",
-    nickname: "bob.dot",
-    walletAddress: "15nt73xvxdRqz6kno46Yekg44cX3yGNWCYeK7HqHmEkFre4",
-    email: "bob@example.org",
-    avatar: "/professional-man-avatar.png",
-    network: "polkadot",
-  },
-  {
-    id: 3,
-    displayName: "charlie",
-    nickname: null,
-    walletAddress: "14Vz8D6TP7pzPeNKRYBLDEBuCJAVQYDVmJNHHHfWHEPGzXk",
-    email: "charlie@example.org",
-    avatar: "/woman-developer-avatar.png",
-    network: "kusama",
-  },
-  {
-    id: 4,
-    displayName: "david",
-    nickname: "david.dot",
-    walletAddress: "16DKyH4fggEXeGwCytqM19e9NFGkgR2neZPDJ5ta8BKpPbPK",
-    email: "david@example.org",
-    avatar: "/asian-man-developer-avatar.png",
-    network: "paseo",
-  },
-]
 
 export default function SearchForm() {
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
-  const { urlParams, setParam, deleteParam } = useUrlParams()
+  const { urlParams } = useUrlParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [suggestions, setSuggestions] = useState<FullProfile[]>([])
+  useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+
+  const { search } = useSearchWebSocket(useWebSocketContext())
 
   useEffect(() => {
     if (urlParams.q) {
@@ -62,22 +29,20 @@ export default function SearchForm() {
   }, [urlParams])
 
   useEffect(() => {
-    if (query.length >= 3) {
-      // Search across all networks seamlessly
-      const filtered = mockProfiles.filter(
-        (profile) =>
-          profile.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          (profile.nickname && profile.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          profile.email.toLowerCase().includes(query.toLowerCase()) ||
-          profile.walletAddress.toLowerCase().includes(query.toLowerCase()),
-      )
-      setSuggestions(filtered.slice(0, 5))
-      setShowSuggestions(true)
-      setSelectedIndex(-1)
-    } else {
-      setSuggestions([])
-      setShowSuggestions(false)
-    }
+    (async () => {
+      // TODO First, make sure to parse query, before actually searching. if not, while typing the 
+      //  query, it's not going to be valid, it has to be e.g. field:foo
+      //  Or, even better, if it can't match anything, we might assume it must look for display name.
+      if (query.length >= 1) {
+        const filteredProfiles = await search(query, 5)
+        setSuggestions(filteredProfiles)
+        setShowSuggestions(true)
+        setSelectedIndex(-1)
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    })()
   }, [query])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,9 +52,7 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    //navigate(`/search?query=${encodeURIComponent(query.trim())}`)
-    navigate(`/search?q=${encodeURIComponent(query.trim())}`)
-    //setParam("query", query.trim())
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`, { state: { results: suggestions } })
   }
 
   const handleSuggestionClick = (profile: any) => {
@@ -153,7 +116,7 @@ export default function SearchForm() {
           <button
             type="submit"
             disabled={!query.trim() || isSubmitting}
-            className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-pink-500 hover:bg-pink-600 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Submit search"
           >
             <span className="md:hidden">Go</span>
@@ -168,47 +131,46 @@ export default function SearchForm() {
           ref={suggestionsRef}
           className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
         >
-          {suggestions.map((profile, index) => (
-            <button
-              key={profile.id}
-              onClick={() => handleSuggestionClick(profile)}
-              className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${index === selectedIndex ? "bg-gray-700" : ""
-                } ${index === 0 ? "rounded-t-lg" : ""} ${index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"
-                }`}
-            >
-              <img
-                src={profile.avatar || "/placeholder.svg"}
-                alt={profile.displayName}
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                draggable="false"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center">
-                  <p
-                    className={`text-sm font-medium truncate ${index === selectedIndex ? "text-white" : "text-white"}`}
-                  >
-                    {profile.displayName}
-                  </p>
-                  {profile.nickname && (
-                    <div
-                      className={`ml-2 flex items-center text-xs flex-shrink-0 ${index === selectedIndex ? "text-pink-300" : "text-pink-400"}`}
+          {suggestions.map((profile, index) => {
+            const info = profile.identity.info
+            return (
+              <button
+                key={`${profile.network}-${profile.address}`}
+                onClick={() => handleSuggestionClick(profile)}
+                className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${index === selectedIndex ? "bg-gray-700" : ""} ${index === 0 ? "rounded-t-lg" : ""} ${index === suggestions.length - 1 ? "rounded-b-lg" : "border-b border-gray-700"}`}
+              >
+                <img
+                  /* TODO Parse image correctly, we we can load up profile images */
+                  src={info.image || "/placeholder.svg"}
+                  alt={info.display}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  draggable="false" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center">
+                    <p
+                      className={`text-sm font-medium truncate ${index === selectedIndex ? "text-white" : "text-white"}`}
                     >
-                      <Circle
-                        className={`w-3 h-3 mr-1 ${index === selectedIndex ? "fill-pink-300" : "fill-pink-400"}`}
-                      />
-                      <span className="truncate max-w-20">{profile.nickname}</span>
-                    </div>
-                  )}
+                      {info.display}
+                    </p>
+                    {info.display && (
+                      <div
+                        className={`ml-2 flex items-center text-xs flex-shrink-0 ${index === selectedIndex ? "text-pink-300" : "text-pink-400"}`}
+                      >
+                        <Circle
+                          className={`w-3 h-3 mr-1 ${index === selectedIndex ? "fill-pink-300" : "fill-pink-400"}`} />
+                        <span className="truncate max-w-20">{info.display}</span>.alt
+                      </div>
+                    )}
+                  </div>
+                  <p className={`text-xs truncate ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}>
+                    {info.email}
+                  </p>
                 </div>
-                <p className={`text-xs truncate ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}>
-                  {profile.email}
-                </p>
-              </div>
-              <User
-                className={`w-4 h-4 flex-shrink-0 ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`}
-              />
-            </button>
-          ))}
+                <User
+                  className={`w-4 h-4 flex-shrink-0 ${index === selectedIndex ? "text-gray-300" : "text-gray-400"}`} />
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

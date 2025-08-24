@@ -1,16 +1,14 @@
-import { ChainId, } from "@reactive-dot/core";
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { useTypedApi } from "@reactive-dot/react";
 import BigNumber from "bignumber.js";
 import _ from "lodash";
-import { TypedApi } from "polkadot-api";
-import { Binary } from "polkadot-api";
+import { SS58String, Binary } from "polkadot-api";
+import { getPublicKey } from "@/utils/wallets-accounts";
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react";
 import { useProxy } from "valtio/utils";
 
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
-import { AccountData } from "@/store/AccountStore";
+import { CHAINS } from "@/polkadot-api/chain-config";
 import { xcmParameters as _xcmParams } from "@/store/XcmParameters";
+import { Network } from "@/contexts/network-context";
+import { ApiPromise } from "@polkadot/api";
 
 interface UseXcmParametersOptions {
   chainId: string | number | symbol;
@@ -25,14 +23,14 @@ export function useXcmParameters({
   const xcmParams = useDeferredValue(__xcmParams);
 
   // Determine relay chain ID based on current chain
-  const relayChainId = useMemo<keyof Chains>(
-    () => (chainId as string).replace("_people", "") as keyof Chains,
+  const relayChainId = useMemo<Network>(
+    () => (chainId as string).replace("_people", "") as Network,
     [chainId]
   );
 
   // Get list of relay and parachains
   const relayAndParachains = useMemo(() =>
-    Object.entries(CHAIN_CONFIG.chains)
+    Object.entries(CHAINS)
       .filter(([id]) => id.includes(relayChainId) && id !== chainId)
       .map(([id, chain]) => ({ id, name: chain.name })),
     [relayChainId, chainId]
@@ -44,16 +42,14 @@ export function useXcmParameters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relayChainId]);
 
-  // Get typed API for from chain
-  const fromTypedApi = useTypedApi({
-    chainId: xcmParams.fromChain.id || relayChainId as ChainId
-  });
+  // TODO Init later when needed
+  const fromTypedApi = null;
 
   // Function to get parachain ID
-  const getParachainId = useCallback(async (typedApi: TypedApi<ChainDescriptorOf<keyof Chains>>) => {
+  const getParachainId = useCallback(async (typedApi: ApiPromise) => {
     if (typedApi) {
       try {
-        const paraId = await typedApi.constants.ParachainSystem.SelfParaId();
+        const paraId = await typedApi.consts.parachainSystem.selfParaId.toNumber();
         console.log({ paraId });
         return paraId;
       } catch (error) {
@@ -94,10 +90,23 @@ export function useXcmParameters({
     parachainId
   }: {
     amount: BigNumber;
-    fromApi: TypedApi<ChainDescriptorOf<keyof Chains>>;
-    toAddress: AccountData['polkadotSigner'];
+    fromApi: ApiPromise;
+    toAddress: SS58String;
     parachainId?: number;
   }) => {
+    // Input validation
+    if (!toAddress || typeof toAddress !== 'string') {
+      throw new Error('Invalid destination address for teleport');
+    }
+
+    let publicKey: Uint8Array;
+    try {
+      publicKey = getPublicKey(toAddress);
+    } catch {
+      throw new Error('Unable to decode destination address for teleport');
+    }
+
+    // TODO Refacror as per PAPI conventions
     const txArguments = ({
       dest: {
         type: "V3",
@@ -120,7 +129,7 @@ export function useXcmParameters({
             value: {
               type: "AccountId32",
               value: {
-                id: Binary.fromBytes(toAddress.publicKey),
+                id: Binary.fromBytes(publicKey),
               },
             },
           },
@@ -162,7 +171,7 @@ export function useXcmParameters({
     });
 
     console.log({ txArguments });
-    return fromApi.tx.XcmPallet.limited_teleport_assets(txArguments);
+    return fromApi.tx.xcmPallet.limitedTeleportAssets(txArguments);
   }, [xcmParams.fromChain.paraId]);
 
   // Teleport accordion state

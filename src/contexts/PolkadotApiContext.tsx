@@ -1,8 +1,6 @@
-import { CHAIN_UPDATE_INTERVAL } from "@/constants";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
-import { useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
-import { useChallengeWebSocket } from "@/hooks/useChallengeWebSocket";
+import { ChainConstants, useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import { useIdentity } from "@/hooks/useIdentity";
@@ -10,27 +8,32 @@ import { useSupportedFields } from "@/hooks/useSupportedFields";
 import { UrlParamsArgs, useUrlParams } from "@/hooks/useUrlParams";
 import { useWalletAccounts } from "@/hooks/useWalletAccounts";
 import { useXcmParameters } from "@/hooks/useXcmParameters";
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config";
-import { Account, AccountData } from "@/store/AccountStore";
+import { AccountData } from "@/store/AccountStore";
 import { DialogMode, EstimatedCostInfo, IdentityFormRef, OpenTxDialogArgs, OpenTxDialogArgs_modeSet, SignSubmitAndWatchParams, TxStateUpdate } from "@/types";
-import { ApiStorage, ApiTx } from "@/types/api";
-import { Identity, IdentityInfo, verifyStatuses } from "@/types/Identity";
+import { ApiTx } from "@/types/api";
+import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
-import { ChainId } from "@reactive-dot/core";
-import { ChainDescriptorOf, Chains } from "@reactive-dot/core/internal.js";
-import { ChainProvider, ReactiveDotProvider, useClient, useSpendableBalance, useTypedApi } from "@reactive-dot/react";
-import { HexString, InvalidTxError, SS58String, TypedApi } from "polkadot-api";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
-import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, memo } from "react";
+import { InvalidTxError, SS58String } from "polkadot-api";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
-import { useNetwork } from "./network-context";
+import { Network } from "./network-context";
 
-import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 import { accountStore as _accountStore } from "@/store/AccountStore";
+import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
+import { useSystemAccountData } from "@/hooks/use-system-account-data";
+import { CHAINS, cleanupAllConnections, cleanupConnection, createChainClient, getTypedApi } from "@/polkadot-api/chain-config";
+import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
+import { ApiPromise, WsProvider } from '@polkadot/api';
 import BigNumber from "bignumber.js";
-import { ChallengeStore } from "@/store/challengesStore";
+import { usePolkadotWallet } from "./PolkadotWalletContext";
+
+// Define the missing type based on the usage in useXcmParameters
+type GetTeleportCallParams = {
+  amount: BigNumber;
+};
 
 // Context interface definition
 interface PolkadotApiContextType {
@@ -50,8 +53,8 @@ interface PolkadotApiContextType {
   accountStore: AccountData;
 
   // APIs
-  typedApi: TypedApi<any> | undefined;
-  fromTypedApi: TypedApi<any> | undefined;
+  typedApi: ApiPromise | undefined;
+  fromTypedApi: ApiPromise | null;
 
   // URL params
   urlParams: UrlParamsArgs;
@@ -71,18 +74,18 @@ interface PolkadotApiContextType {
   onRequestWalletConnection: () => void;
 
   // Identity
-  identityFormRef: React.RefObject<IdentityFormRef>;
+  identityFormRef: React.RefObject<IdentityFormRef | null>;
   registrarIndex: number;
-  supportedFields: (keyof IdentityInfo)[];
+  supportedFields: string[];
   identity: Identity;
-  fetchIdAndJudgement: () => Promise<Identity>;
+  fetchIdAndJudgement: () => Promise<Identity | null>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
 
   // Chain
   chainClient: any;
   onChainSelect: (chainId: string | number | symbol) => void;
-  chainConstants: any;
+  chainConstants: ChainConstants | null;
 
   // Challenges
   challenges: ChallengeStore;
@@ -123,7 +126,7 @@ interface PolkadotApiContextType {
   // Balances
   fromBalance: BigNumber;
   balance: BigNumber;
-  hasEnoughBalance: boolean;
+  hasEnoughBalance: boolean | null;
   minimunTeleportAmount: BigNumber;
 
   // Transaction confirmation
@@ -138,10 +141,12 @@ interface PolkadotApiContextType {
   // Error details
   errorDetails: Error | null;
   setErrorDetails: (error: Error | null) => void;
+
+  connect: (network: Network) => void;
+  isConnected: boolean;
 }
 
-// Create the context
-const PolkadotApiContext = createContext<PolkadotApiContextType | undefined>(undefined);
+const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
 
 // Custom hook to use the context
 export const usePolkadotApi = () => {
@@ -152,31 +157,34 @@ export const usePolkadotApi = () => {
   return context;
 };
 
-const PolkadotApiProviderWrapper: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  const { network } = useNetwork();
+interface PolkadotApiProviderProps {
+  children: ReactNode;
+}
 
-  return (
-    <ReactiveDotProvider config={CHAIN_CONFIG}>
-      <ChainProvider chainId={(network || import.meta.env.VITE_APP_DEFAULT_CHAIN) as keyof typeof CHAIN_CONFIG.chains}>
-        <Suspense>
-          {children}
-        </Suspense>
-      </ChainProvider>
-    </ReactiveDotProvider>
-  )
-})
+const CHAIN_UPDATE_INTERVAL = 6000
 
-const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  //#region Hooks
+export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
+  // State
+  const [client, setClient] = useState<WsProvider | null>(null);
+  const [typedApi, setTypedApi] = useState<ApiPromise | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentChain, setCurrentChain] = useState<keyof typeof CHAINS | null>(null);
+  const [chainInfo, setChainInfo] = useState<any>(null);
+
+  // Add refs to track cleanup and debouncing
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentProviderRef = useRef<WsProvider | null>(null);
+  const currentApiRef = useRef<ApiPromise | null>(null);
+
   const {
     alerts, add: addAlert, remove: removeAlert, clearAll: clearAllAlerts, size: alertsCount
   } = useAlerts();
   const { isDark, setDark } = useDarkMode()
 
   const chainStore = useProxy(_chainStore);
-  const typedApi = useTypedApi({ chainId: chainStore.id as ChainId })
-
-  const accountStore = useProxy(_accountStore)
+  const accountStore = useProxy(_accountStore);
 
   const { urlParams, updateUrlParams } = useUrlParams()
 
@@ -191,6 +199,8 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   } = useWalletAccounts({
     chainSs58Format: chainStore.ss58Format
   });
+
+  const { getSignerForAddress } = usePolkadotWallet();
 
   // UI-specific account handling
   useEffect(() => {
@@ -239,26 +249,30 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     }
     // ESLint Expects us to add accountStore as a dependency, but it will cause an infinite loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountStore.polkadotSigner, urlParams.address, getWalletAccount, addAlert, removeAlert, chainStore.ss58Format]);
+  }, [
+    accountStore.address,
+    urlParams.address,
+    getWalletAccount,
+    addAlert,
+    removeAlert,
+    chainStore.ss58Format
+  ]);
 
-  const updateAccount = useCallback(({ name, address, polkadotSigner }: AccountData) => {
-    const account = { name, address, polkadotSigner };
+  const updateAccount = useCallback(({ name, address }: Pick<AccountData, 'name' | 'address'>) => {
+    const account = { name, address };
     console.log({ account });
     Object.assign(accountStore, account);
     updateUrlParams({ ...urlParams, address });
   }, [accountStore, urlParams, updateUrlParams]);
 
   //#region identity
-  const identityFormRef = useRef<IdentityFormRef>()
+  const identityFormRef = useRef<IdentityFormRef>(null)
 
   const _formattedChainId = (chainStore.name as string)?.split(' ')[0]?.toUpperCase()
   const registrarIndex = import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${_formattedChainId}`] as number
 
   // Make sure to clear anything else that might change according to the chain or account
   useEffect(clearAllAlerts, [chainStore.id, accountStore.address, clearAllAlerts])
-
-  //#region chains
-  const chainClient = useClient({ chainId: chainStore.id as keyof Chains })
 
   // Use the new hook for supported fields
   const supportedFields = useSupportedFields({ typedApi, registrarIndex, });
@@ -272,24 +286,34 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }, [identity])
 
   useEffect(() => {
+    if (!typedApi) return;
+
     ((async () => {
       const id = chainStore.id;
 
       let chainProperties
       try {
-        chainProperties = (await chainClient.getChainSpecData()).properties
+        chainProperties = (await typedApi.rpc.system.properties()).toHuman()
+        if (chainProperties) {
+          chainProperties = {
+            ...chainProperties,
+            ss58Format: Number(chainProperties.ss58Format || 0),
+            tokenDecimals: Number(chainProperties.tokenDecimals[0] || 0),
+            tokenSymbol: chainProperties.tokenSymbol[0] || '',
+          }
+        }
         console.log({ id, chainProperties })
       } catch {
         console.error({ id, })
       }
       const relayId = id.split("_")[0];
       const newChainData = {
-        name: CHAIN_CONFIG.chains[id as keyof typeof CHAIN_CONFIG.chains].name,
+        name: CHAINS[id as keyof typeof CHAINS].name,
         registrarIndex: registrarIndex,
         relay: {
           id: relayId,
-          name: CHAIN_CONFIG.chains[relayId as keyof typeof CHAIN_CONFIG.chains].name,
-          parachains: Object.entries(CHAIN_CONFIG.chains)
+          name: CHAINS[relayId as keyof typeof CHAINS].name,
+          parachains: Object.entries(CHAINS)
             .filter(([key]) => key.startsWith(relayId) && key !== relayId)
             .map(([key, value]) => ({ id: key, name: value.name, paraId: value.paraId }))
           ,
@@ -297,9 +321,10 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
         ...chainProperties,
       }
       Object.assign(chainStore, newChainData)
-      console.log({ id, newChainData })
+      console.log({ id, newChainData });
     })())
-  }, [chainStore, chainClient])
+  }, [chainStore.id, typedApi]);
+
   const onChainSelect = useCallback((chainId: string | number | symbol) => {
     updateUrlParams({ ...urlParams, chain: chainId as string })
     chainStore.id = chainId
@@ -313,7 +338,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     "Identity.JudgementGiven": {
       onEvent: async (_data: object) => {
         const newIdentity = await fetchIdAndJudgement()
-        if (newIdentity?.status === verifyStatuses.IdentityVerified) {
+        if (newIdentity?.status === IdentityVerificationStatus.IdentityVerified) {
           addAlert({
             type: "info",
             message: "Judgement Given! Identity verified successfully. Congratulations!",
@@ -339,26 +364,13 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   //#endregion chains
 
   //#region challenges
-  const { challenges,
-    error: challengeError,
-    isConnected: isChallengeWsConnected,
-    loading: challengeLoading,
-    subscribe: subscribeToChallenges,
-    sendPGPVerification,
-  } = useChallengeWebSocket({
-    url: import.meta.env.VITE_APP_CHALLENGES_API_URL as string,
-    address: accountStore.encodedAddress,
-    network: (chainStore.id as string).split("_")[0],
-    identity: { info: identity.info, status: identity.status, },
-  });
-
-  useEffect(() => {
-    if (isChallengeWsConnected && identity.status === verifyStatuses.FeePaid) {
-      subscribeToChallenges()
-    }
-    // Don't add suggested deps, as this somehow causes an infinite loop. Don't ask me why :D
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isChallengeWsConnected])
+  // Stub WebSocket variables, as useChallengeWebSocket is no longer used here
+  const challenges = {};
+  const challengeError = null;
+  const challengeLoading = false;
+  const isChallengeWsConnected = false;
+  const subscribeToChallenges = () => { };
+  const sendPGPVerification = () => { };
   //#endregion challenges
 
   const formatAmount = useFormatAmount({
@@ -372,9 +384,10 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }, [isTxBusy])
 
   //#region Transactions
-  const getNonce = useCallback(async (api: TypedApi<ChainDescriptorOf<ChainId>>, address: SS58String) => {
+  const getNonce = useCallback(async (api: ApiPromise, address: SS58String) => {
     try {
-      return (await (api.query.System.Account as ApiStorage).getValue(address, { at: "best" })).nonce
+      const accountInfo = await api.query.system.account(address);
+      return (accountInfo as any).nonce.toNumber();
     } catch (error) {
       console.error(error)
       return null
@@ -391,6 +404,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   // Keep hashes of recent notifications to prevent duplicates, as a transaction might produce 
   //  multiple notifications
   const recentNotifsIds = useRef<string[]>([])
+  // TODO Might need to be refactored as per new logic to access chains
   const signSubmitAndWatch = useCallback((
     params: SignSubmitAndWatchParams
     // Awaiting for async function, so ignore this rule
@@ -400,13 +414,25 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     reject: (err: Error) => void
   ) => {
     const { call, name } = params;
-    let api = params.api;
+    let api = params.api || null;
 
-    console.log({ call: call.decodedCall, signSubmitAndWatchParams: params })
+    console.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
 
     if (!api) {
       api = typedApi
     }
+    // Validate API availability
+    if (!api) {
+      const error = new Error("No API connection available")
+      reject(error)
+      addAlert({
+        type: "error",
+        message: "Connection to blockchain network is not available. Please try again.",
+      })
+      return
+    }
+
+    // Prevent concurrent transactions
     if (isTxBusy) {
       reject(new Error("Transaction already in progress"))
       addAlert({
@@ -430,111 +456,187 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
       return
     }
 
-    const signer = params.signer ?? accountStore.polkadotSigner
-    const signedCall = call.signSubmitAndWatch(signer,
-      { at: "best", nonce: nonce }
-    )
-    let txHash: HexString | null = null
+    const signer = params.signer ?? await getSignerForAddress(accountStore.address);
+    if (!signer) {
+      setTxBusy(false);
+      addAlert({
+        type: "error",
+        message: "No signer available for the selected account",
+      });
+      reject(new Error("No signer available"));
+      return;
+    }
 
-    const disposeSubscription = (callback?: () => void) => {
+    let txHash = call.hash.toHex();
+    recentNotifsIds.current = [...recentNotifsIds.current, txHash]
+      .slice(-10); // Keep only the last 10 hashes
+    let unsubscribe: (() => void) | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const disposeSubscription = (callback: () => void) => {
+      if (!callback || typeof callback !== 'function') {
+        throw new Error("Callback must be a function");
+      }
       setTxBusy(false)
       if (txHash) {
         recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
       }
-      if (!subscription.closed)
-        subscription.unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       callback?.()
     }
+    const dispatchFail = (error: Error, alertMessage: string) => {
+      disposeSubscription(() => {
+        recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
+        addAlert({
+          key: txHash,
+          type: "error",
+          message: alertMessage,
+        })
+        reject(error)
+      })
+    }
+    const dispatchSuccess = (message: string) => {
+      disposeSubscription(() => {
+        recentNotifsIds.current = recentNotifsIds.current.filter(id => id !== txHash)
+        addAlert({
+          key: txHash,
+          type: "success",
+          message,
+        })
+        resolve({
+          txHash,
+          found: true,
+          ok: true,
+          isValid: true,
+          type: "txBestBlocksState",
+        })
+      })
+    }
+    const alertLoading = (message: string) => {
+      addAlert({
+        key: txHash,
+        type: "loading",
+        message,
+        closable: false,
+      })
+    }
 
-    const subscription = signedCall.subscribe({
-      next: (txStateUpdate) => {
-        txHash = txStateUpdate.txHash;
-        // TODO Add result type as below
-        // Define type for transaction state updates
+    const checkTxFail = (result: any) => {
+      // Check for system events to determine success/failure
+      const { events } = result;
+      let hasError = false;
+      let errorInfo: string | null = null;
 
-        const _txStateUpdate: TxStateUpdate = {
-          found: txStateUpdate["found"] || false,
-          ok: txStateUpdate["ok"] || false,
-          isValid: txStateUpdate["isValid"],
-          ...txStateUpdate,
-        };
-        if (txStateUpdate.type === "broadcasted") {
-          addAlert({
-            key: txStateUpdate.txHash,
-            type: "loading",
-            closable: false,
-            message: `${name} transaction broadcasted`,
-          })
-        }
-        else if (_txStateUpdate.type === "txBestBlocksState") {
-          if (_txStateUpdate.ok) {
-            if (params.awaitFinalization) {
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "loading",
-                message: `Waiting for ${name.toLowerCase()} to finalize...`,
-                closable: false,
-              })
+      // Look for system.ExtrinsicFailed or system.ExtrinsicSuccess
+      events.some(({ event }: any) => {
+        if (api && api.events.system.ExtrinsicFailed.is(event)) {
+          hasError = true;
+          const [dispatchError] = event.data;
+          try {
+            if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError && dispatchError.isModule) {
+              const decoded = api.registry.findMetaError((dispatchError as any).asModule);
+              errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+              // Enhanced logging for debugging
+              console.error(`Module error in ${name}:`, {
+                section: decoded.section,
+                name: decoded.name,
+                docs: decoded.docs,
+                dispatchError,
+                txHash
+              });
             } else {
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "success",
-                message: `${name} completed successfully`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => resolve(txStateUpdate))
+              errorInfo = dispatchError?.toString() || 'Unknown error';
+              console.error(`Non-module error in ${name}:`, { dispatchError, txHash });
             }
-          } else if (!_txStateUpdate.isValid) {
-            if (!recentNotifsIds.current.includes(txHash)) {
-              recentNotifsIds.current = [...recentNotifsIds.current, txHash]
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "error",
-                message: `${name} failed: invalid transaction`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => reject(new Error("Invalid transaction")))
-            }
+          } catch (e) {
+            errorInfo = 'Error parsing transaction failure details';
+            console.error(`Error parsing failure details for ${name}:`, { e, dispatchError, txHash });
           }
         }
-        else if (_txStateUpdate.type === "finalized") {
-          // Tx need only be processed successfully. If Ok, it's already been found in best blocks.
-          if (!_txStateUpdate.ok) {
-            addAlert({
-              key: _txStateUpdate.txHash,
-              type: "error",
-              message: `${name} failed`,
-            })
-            fetchIdAndJudgement()
-            disposeSubscription(() => reject(new Error("Transaction failed")))
+        return hasError; // Stop if we found an error
+      });
+
+      return errorInfo
+    }
+
+    try {
+      // Set a timeout to prevent hanging transactions (5 minutes)
+      timeoutId = setTimeout(() => {
+        dispatchFail(
+          new Error("Transaction timeout"),
+          `${name} transaction timed out. The transaction may still be processing on the blockchain.`
+        );
+      }, 5 * 60 * 1000);
+      // TODO Set Transaction mortality so it's invalid if not signed in time
+
+      unsubscribe = await call.signAndSend(accountStore.address, {
+        nonce: nonce,
+        signer: signer,
+      }, (result) => {
+        console.log("Transaction result:", result);
+
+        // Handle different transaction states
+        if (result.status.isBroadcast) {
+          console.log(`Transaction ${txHash} broadcasted`);
+          alertLoading(`${name} transaction sent...`);
+        }
+
+        else if (result.status.isInBlock) {
+          console.log(`Transaction ${txHash} included in block`);
+
+          const errorInfo = checkTxFail(result)
+          if (errorInfo) {
+            return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
           } else {
+            // Transaction succeeded
             if (params.awaitFinalization) {
-              addAlert({
-                key: _txStateUpdate.txHash,
-                type: "success",
-                message: `${name} completed successfully`,
-              })
-              fetchIdAndJudgement()
-              disposeSubscription(() => resolve(txStateUpdate))
+              console.log(`Transaction ${txHash} is waiting for finalization`);
+              alertLoading(`Waiting for ${name.toLowerCase()} to finalize...`);
+            } else {
+              console.log(`Transaction ${txHash} completed successfully`);
+              return dispatchSuccess(`${name} completed successfully`);
             }
           }
         }
-        console.log({ _txStateUpdate, recentNotifsIds: recentNotifsIds.current })
-      },
-      error: (error) => {
-        console.error(error);
-        if (error.message === "Cancelled") {
-          console.log("Cancelled");
-          addAlert({
-            type: "error",
-            message: `${name} transaction didn't get signed. Please sign it and try again`,
-          })
-          disposeSubscription()
-          return
+
+        else if (result.status.isFinalized) {
+          console.log(`Transaction ${txHash} finalized`);
+
+          if (params.awaitFinalization) {
+            const errorInfo = checkTxFail(result)
+            if (errorInfo) {
+              return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
+            } else {
+              return dispatchSuccess(`${name} completed successfully`);
+            }
+          }
         }
-        // TODO Handle other errors
-        if (!recentNotifsIds.current.includes(txHash)) {
-          if (error instanceof InvalidTxError || error.invalid) {
+
+        else if (result.status.isInvalid) {
+          console.log(`Transaction ${txHash} invalid`);
+          return dispatchFail(new Error("Transaction is invalid"), `${name} transaction is invalid. Please try again.`);
+        }
+        else if (result.status.isDropped || result.status.isUsurped) {
+          console.log(`Transaction ${txHash} dropped or usurped`);
+          return dispatchFail(new Error("Transaction dropped or usurped"), `${name} transaction was dropped or replaced. Please try again.`);
+        }
+      });
+    } catch (error: any) {
+      console.error(`Transaction ${txHash} signing/sending error:`, error);
+
+      if (error.message === "Cancelled") {
+        return dispatchFail(error, `${name} transaction cancelled by user`);
+      }
+
+      // Handle other errors
+      if (recentNotifsIds.current.includes(txHash)) {
+        if (error instanceof InvalidTxError || error.invalid) {
+          try {
             const errorDetails: {
               type: string,
               value: {
@@ -548,32 +650,21 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
 
             const { type: pallet, value: { type: errorType } } = errorDetails;
 
-            console.log({ errorDetails });
-            addAlert({
-              type: "error",
-              message: errorMessages[pallet]?.[errorType] ?? errorMessages[pallet]?.default
-                ?? `Error with ${name}: Please try again`
-              ,
-              seeDetails: () => setErrorDetails(error),
-            })
-            disposeSubscription(() => reject(error))
-            return
+            const _errorMessage = (errorMessages as any)[pallet]?.[errorType] ?? (errorMessages as any)[pallet]?.default
+              ?? `Error with ${name}: Please try again`;
+            return dispatchFail(error, `${name} failed: ${_errorMessage}`);
+          } catch (parseError) {
+            console.error("Error parsing error message:", parseError);
+            return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
           }
-          addAlert({
-            type: "error",
-            message: `Error with ${name}: ${error.message || "Please try again"}`,
-          })
-          disposeSubscription(() => reject(error))
         }
-      },
-      complete: () => {
-        console.log("Completed")
-        disposeSubscription()
+
+        return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
       }
-    })
+    }
     // Still, proposed deps remain inmutable, such as AddAlert and getNonce
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [accountStore.polkadotSigner, accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
+  }), [accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
   //#endregion Transactions
 
   const onIdentityClear = useCallback(async () => {
@@ -609,13 +700,14 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }: {
     amount: BigNumber
   }) => {
+    if (!fromTypedApi) return null;
     return _getTeleportCall({
       amount,
       fromApi: fromTypedApi,
       parachainId,
-      toAddress: accountStore.polkadotSigner,
+      toAddress: accountStore.address,
     })
-  }, [_getTeleportCall, fromTypedApi, parachainId, displayedAccounts])
+  }, [_getTeleportCall, fromTypedApi, parachainId, accountStore.address])
 
   useEffect(() => {
     if (typedApi) {
@@ -628,16 +720,9 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   }, [typedApi, getParachainId])
 
   //#region Balances
-  const genericAddress = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" as SS58String // Alice
-  const fromBalance = BigNumber(useSpendableBalance(
-    xcmParams.fromAddress || genericAddress, { chainId: xcmParams.fromChain.id }
-  ).planck.toString())
-  const balance = BigNumber(useSpendableBalance(
-    accountStore.address || genericAddress, { chainId: chainStore.id as keyof Chains }
-  ).planck.toString())
-  //#endregion Balances
-
-  const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
+  // TODO Init when needed
+  const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi || undefined);
+  const { balance } = useSystemAccountData(accountStore.address, typedApi || undefined);
 
   const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
@@ -653,19 +738,39 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   useEffect(() => {
     balanceRef.current = balance
   }, [balance])
+  //#endregion Balances
+
+  //#region Transactions
+  const [txToConfirm, setTxToConfirm] = useState<ApiTx | null>(null)
+
   const submitTransaction = async () => {
     if (xcmParams.enabled) {
       try {
+        if (!fromTypedApi) {
+          throw new Error("From API not available");
+        }
+        const fromAccount = getWalletAccount(xcmParams.fromAddress);
+        if (!fromAccount) {
+          throw new Error("From account not found");
+        }
+
+        const fromSigner = await getSignerForAddress(fromAccount.address);
+        if (!fromSigner) {
+          throw new Error("Signer not available for from account");
+        }
+
+        const teleportCall = getTeleportCall({
+          amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
+        });
+        if (!teleportCall) {
+          throw new Error("Failed to create teleport call");
+        }
+
         await signSubmitAndWatch({
           nonce: await getNonce(fromTypedApi, xcmParams.fromAddress),
-          signer: getWalletAccount(xcmParams.fromAddress).polkadotSigner,
+          signer: fromSigner,
           awaitFinalization: true,
-          call: getTeleportCall({
-            amount: minimunTeleportAmount.integerValue(BigNumber.ROUND_UP),
-            fromApi: fromTypedApi,
-            signer: getWalletAccount(xcmParams.fromAddress).polkadotSigner,
-            parachainId
-          }),
+          call: teleportCall,
           name: "Teleport Assets"
         })
       } catch (error) {
@@ -682,8 +787,8 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
       for (awaitedBlocks = 0; awaitedBlocks < maxBlocksAwait; awaitedBlocks++) {
         await wait(CHAIN_UPDATE_INTERVAL)
         console.log({ awaitedBlocks })
-        if (balanceRef.current.isGreaterThanOrEqualTo(xcmParams.txTotalCost
-          .plus(chainConstants.existentialDeposit?.toString())
+        if (balanceRef.current && balanceRef.current.isGreaterThanOrEqualTo(xcmParams.txTotalCost
+          .plus(chainConstants?.existentialDeposit?.toString() || "0")
         )) {
           break
         }
@@ -709,55 +814,70 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
         await onIdentityClear()
         break
       case "setIdentity":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Set Identity"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Set Identity"
+          })
+        }
         break
       case "requestJudgement":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Request Judgement"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Request Judgement"
+          })
+        }
         break
       case "addSubaccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Add Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after adding subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Add Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after adding subaccount
+        }
         break;
       case "removeSubaccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Remove Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after removing subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Remove Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after removing subaccount
+        }
         break;
       case "quitSub":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Quit Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after quitting subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Quit Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after quitting subaccount
+        }
         break;
       case "editSubAccount":
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Edit Subaccount"
-        })
-        refreshAccountTree(); // Refresh accounts tree after editing subaccount
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Edit Subaccount"
+          })
+          refreshAccountTree(); // Refresh accounts tree after editing subaccount
+        }
         break;
       default:
         console.error("Unexpected openDialog value:", openDialog);
-        await signSubmitAndWatch({
-          call: txToConfirm,
-          name: "Unknown Transaction"
-        })
+        if (txToConfirm) {
+          await signSubmitAndWatch({
+            call: txToConfirm,
+            name: "Unknown Transaction"
+          })
+        }
         break;
     }
     closeTxDialog()
   }
+  //#endregion Transactions
 
   const {
     accountTree,
@@ -765,7 +885,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
     refresh: refreshAccountTree,
   } = useAccountsTree({
     address: accountStore.encodedAddress,
-    api: typedApi,
+    api: typedApi as any, // Type assertion needed for compatibility
   })
 
   const openTxDialog = useCallback((args: OpenTxDialogArgs) => {
@@ -795,7 +915,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
         break;
       case "Disconnect":
         disconnectAllWallets();
-        Object.keys(accountStore).forEach((k) => delete accountStore[k]);
+        Object.keys(accountStore).forEach((k) => delete (accountStore as any)[k]);
         break;
       case "Teleport":
         setOpenDialog("teleport")
@@ -806,7 +926,7 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
           mode: "clearIdentity",
           tx: tx,
           estimatedCosts: {
-            fees: await tx.getEstimatedFees(accountStore.address, { at: "best" }),
+            fees: await (tx as any).getEstimatedFees?.(accountStore.address, { at: "best" }) || 0n,
           },
         })
         break;
@@ -823,40 +943,190 @@ const InnerProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children
   const onRequestWalletConnection = useCallback(() => setWalletDialogOpen(true), [])
   //#endregion Hooks
 
+  // Connect to a specific chain
+  const connect = useCallback(async (chainId: keyof typeof CHAINS) => {
+    if (isConnecting) return;
+    if (currentChain === chainId && isConnected) return; // Already connected to this chain
+
+    console.debug("Connecting to chain:", chainId);
+
+    // Clear any existing timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      // Disconnect from previous chain if different
+      if (currentChain && currentChain !== chainId) {
+        await disconnect();
+      }
+
+      // Create new client and typed API (using cached connections)
+      const newProvider = createChainClient(chainId);
+      const newTypedApi = await getTypedApi(chainId, newProvider);
+
+      // Store refs for cleanup
+      currentProviderRef.current = newProvider;
+      currentApiRef.current = newTypedApi;
+
+      const currentBlock = (await newTypedApi.rpc.chain.getFinalizedHead()).toHuman();
+      console.debug("Current block:", currentBlock);
+
+      // Set up the client and typed API
+      setClient(newProvider);
+      setTypedApi(newTypedApi);
+      setCurrentChain(chainId);
+      setIsConnected(true);
+
+    } catch (err) {
+      console.error("Connection error:", err);
+      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setClient(null);
+      setTypedApi(null);
+      setCurrentChain(null);
+      setIsConnected(false);
+
+      // Clean up refs on error
+      currentProviderRef.current = null;
+      currentApiRef.current = null;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [isConnecting, currentChain, isConnected]);
+
+  // Disconnect
+  const disconnect = useCallback(async () => {
+    // Clear any pending connection timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
+    // Clean up using the central cleanup function
+    if (currentChain) {
+      await cleanupConnection(currentChain);
+    }
+
+    // Clean up refs
+    currentApiRef.current = null;
+    currentProviderRef.current = null;
+
+    setClient(null);
+    setTypedApi(null);
+    setCurrentChain(null);
+    setChainInfo(null);
+    setIsConnected(false);
+    setError(null);
+  }, [currentChain]);
+
+  // Switch chain
+  const switchChain = useCallback(async (chainId: keyof typeof CHAINS) => {
+    await connect(chainId);
+  }, [connect]);
+
+  const network = chainStore.id;
+  // Auto-connect on network change with debouncing
+  useEffect(() => {
+    if (isConnected || isConnecting) return;
+    if (!network || network === currentChain) return;
+    if (!(network in CHAINS)) return;
+
+    // Clear existing timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+    }
+
+    // Debounce connection attempts
+    connectionTimeoutRef.current = setTimeout(() => {
+      connect(network as keyof typeof CHAINS);
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+    };
+  }, [network, currentChain, connect, isConnected, isConnecting]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup all connections when the provider unmounts
+      cleanupAllConnections().catch(console.warn);
+    };
+  }, []);
+
+  const value = useMemo(() => ({
+    alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
+    isDark, setDark,
+    chainStore, accountStore,
+    typedApi: typedApi || undefined, fromTypedApi,
+    urlParams, updateUrlParams,
+    walletDialogOpen, setWalletDialogOpen,
+    accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
+    updateAccount, onAccountSelect, onRequestWalletConnection,
+    identityFormRef, registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
+    chainClient: client,
+    onChainSelect, chainConstants,
+    challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
+    formatAmount,
+    isTxBusy, signSubmitAndWatch, submitTransaction,
+    openDialog, setOpenDialog, openTxDialog, closeTxDialog, handleOpenChange,
+    estimatedCosts, setEstimatedCosts,
+    xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
+    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    txToConfirm, setTxToConfirm,
+    accountTree, accountTreeLoading, refreshAccountTree,
+    errorDetails, setErrorDetails,
+    client,
+    isConnected,
+    isConnecting,
+    error,
+    currentChain,
+    chainInfo,
+    connect,
+    disconnect,
+    switchChain,
+  }), [
+    alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
+    isDark, setDark,
+    chainStore, accountStore,
+    typedApi, fromTypedApi,
+    urlParams, updateUrlParams,
+    walletDialogOpen,
+    displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
+    updateAccount, onAccountSelect, onRequestWalletConnection,
+    registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
+    onChainSelect, chainConstants,
+    challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
+    formatAmount,
+    isTxBusy, signSubmitAndWatch, submitTransaction,
+    openDialog, openTxDialog, closeTxDialog, handleOpenChange,
+    estimatedCosts,
+    xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
+    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    txToConfirm,
+    accountTree, accountTreeLoading, refreshAccountTree,
+    errorDetails,
+    client,
+    isConnected,
+    isConnecting,
+    error,
+    currentChain,
+    chainInfo,
+    connect,
+    disconnect,
+    switchChain,
+  ]);
+
   return (
-    <PolkadotApiContext.Provider value={{
-      alerts, addAlert, removeAlert, clearAllAlerts, alertsCount,
-      isDark, setDark,
-      chainStore, accountStore,
-      typedApi, fromTypedApi,
-      urlParams, updateUrlParams,
-      walletDialogOpen, setWalletDialogOpen,
-      accounts: displayedAccounts, getWalletAccount, connectedWallets, disconnectAllWallets,
-      updateAccount, onAccountSelect, onRequestWalletConnection,
-      identityFormRef, registrarIndex, supportedFields, identity, fetchIdAndJudgement, prepareClearIdentityTx, onIdentityClear,
-      chainClient, onChainSelect, chainConstants,
-      challenges, challengeError, isChallengeWsConnected, challengeLoading, subscribeToChallenges, sendPGPVerification,
-      formatAmount,
-      isTxBusy, signSubmitAndWatch, submitTransaction,
-      openDialog, setOpenDialog, openTxDialog, closeTxDialog, handleOpenChange,
-      estimatedCosts, setEstimatedCosts,
-      xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
-      fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
-      txToConfirm, setTxToConfirm,
-      accountTree, accountTreeLoading, refreshAccountTree,
-      errorDetails, setErrorDetails,
-    }}>
+    <PolkadotApiContext.Provider value={value}>
       {children}
     </PolkadotApiContext.Provider>
   );
-})
-
-export const PolkadotApiProvider: React.FC<{ children: React.ReactNode; }> = memo(({ children }) => {
-  return (
-    <PolkadotApiProviderWrapper>
-      <InnerProvider>
-        {children}
-      </InnerProvider>
-    </PolkadotApiProviderWrapper>
-  );
-})
+};

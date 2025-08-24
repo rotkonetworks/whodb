@@ -1,16 +1,16 @@
-// All required dependencies are already in the dependency array.
-import { Chains } from "@reactive-dot/core/internal.js"
 import BigNumber from "bignumber.js"
 import { HelpCircle } from 'lucide-react'
 import { SS58String } from "polkadot-api"
-import React, { ReactNode, useEffect, useRef } from "react"
+import React, { ReactNode, useEffect } from "react"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+import { Network } from "@/contexts/network-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
+import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
+import { CHAINS } from "@/polkadot-api/chain-config"
 import { AccountDropdown } from "../ui/account-dropdown"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
 
@@ -34,6 +34,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
     getWalletAccount,
     fromTypedApi,
   } = polkadotApi
+  const { getSignerForAddress } = usePolkadotWallet()
 
   useEffect(() => {
     if (teleportAmount) {
@@ -71,8 +72,8 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   }
 
   const [selectedChain, setSelectedChain] = React.useState<string>(chainStore.relay.id)
-  const fromChainId = selectedChain as keyof Chains
-  const toChainId = chainStore.id as keyof Chains
+  const fromChainId = selectedChain as Network
+  const toChainId = chainStore.id as Network
 
   const handleFromWalletChange = React.useCallback((address: SS58String) => {
     setFromAddress(address)
@@ -82,7 +83,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   const otherChains = [chainStore.relay, ...chainStore.relay.parachains]
     .filter((chain) => chain.id !== toChainId)
 
-  const handleTeleport = React.useCallback(() => {
+  const handleTeleport = React.useCallback(async () => {
     const tokenDecimals = chainStore.tokenDecimals
     const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
     console.log({ amount, newAmount })
@@ -90,11 +91,21 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
       amount: newAmount,
     })
 
+    const fromAccount = getWalletAccount(fromAddress);
+    if (!fromAccount) {
+      throw new Error("From account not found");
+    }
+    
+    const fromSigner = await getSignerForAddress(fromAccount.address);
+    if (!fromSigner) {
+      throw new Error("Signer not available for from account");
+    }
+
     signSubmitAndWatch({
       call: tx,
       name: `Teleport Assets from ${fromChainId} to ${toChainId}`,
       awaitFinalization: true,
-      signer: getWalletAccount(fromAddress).polkadotSigner, // Ensure to use the correct signer
+      signer: fromSigner, // Ensure to use the correct signer
       api: fromTypedApi, // Pass the API for the from chain
     })
   }, [amount, xcmParams, getTeleportCall, chainStore, signSubmitAndWatch, fromChainId, toChainId])
@@ -147,7 +158,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Select value={fromChainId as keyof Chains}
+                  <Select value={fromChainId as Network}
                     onValueChange={setSelectedChain as (value: string) => void}
                   >
                     <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
@@ -169,7 +180,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
           <div className="space-y-2">
             <Label className="text-gray-400">Current Chain:</Label>
             <Input
-              value={CHAIN_CONFIG.chains[toChainId].name}
+              value={CHAINS[toChainId].name}
               readOnly
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
@@ -181,11 +192,11 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
         <h3 className="text-white font-medium mb-4">Transferable Balances</h3>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{CHAIN_CONFIG.chains[fromChainId].name}</span>
+            <span className="text-gray-400">{CHAINS[fromChainId].name}</span>
             <span className="text-white font-mono text-sm">{formatAmount(fromBalance)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">{CHAIN_CONFIG.chains[toChainId].name}</span>
+            <span className="text-gray-400">{CHAINS[toChainId].name}</span>
             <span className="text-white font-mono text-sm">{formatAmount(toBalance)}</span>
           </div>
         </div>

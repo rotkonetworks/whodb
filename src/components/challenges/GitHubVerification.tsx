@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Github, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, CheckCircle, Github } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface GitHubVerificationProps {
   url: string; // Required URL for challenge verification
   expectedUsername: string; // From identity.info.github
   onVerify: (verified: boolean) => void;
-  isVerified: boolean;
+  isVerified?: boolean;
 }
 
-export function GitHubVerification({ url, expectedUsername, onVerify, isVerified }: GitHubVerificationProps) {
+export function GitHubVerification(
+  { url, expectedUsername, onVerify, isVerified }: GitHubVerificationProps
+) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +39,11 @@ export function GitHubVerification({ url, expectedUsername, onVerify, isVerified
         toast.error('GitHub verification timed out. Please try again.');
       }, 10000); // Simulate loading time
     } catch (err) {
-      setError(err.message);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
       setLoading(false);
     }
   };

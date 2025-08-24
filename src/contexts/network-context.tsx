@@ -1,12 +1,13 @@
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { CHAIN_CONFIG } from "@/polkadot-api/chain-config"
+import { CHAINS } from "@/polkadot-api/chain-config"
 import type React from "react"
+import type { ChainInfo } from "@/store/ChainStore"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, Key } from "react"
 
-export type Network = "paseo" | "polkadot" | "kusama"
+export type Network = keyof typeof CHAINS
 
-interface NetworkContextType {
+interface NetworkContextType extends ChainInfo {
   network: Network
   setNetwork: (network: Network) => void
   networkColor: string
@@ -17,15 +18,18 @@ interface NetworkContextType {
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
 
-export function NetworkProvider({ children }: { children: React.ReactNode }) {
-  const { urlParams, setParam } = useUrlParams()
+export function NetworkProvider({ children }: { children: React.ReactNode, network?: Network }) {
+  const { urlParams, setParam, deleteParam } = useUrlParams()
   const [_network, _setNetwork] = useState<Network | undefined>(urlParams.network as Network | undefined)
 
   const setNetwork = (newNetwork: Network | undefined) => {
+    if (!newNetwork) {
+      deleteParam("network")
+    }
     setParam("network", newNetwork)
     _setNetwork(newNetwork)
   }
-  const networks = CHAIN_CONFIG.chains
+  const networks = CHAINS
 
   useEffect(() => {
     const urlNetwork = urlParams.network as Network | undefined
@@ -38,14 +42,36 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   }, [urlParams.network])
 
 
-  const networkColor = networks?.primaryColor
-  const networkDisplayName = networks.name
+  const networkColor = networks[_network]?.primaryColor || "#000000" // Default to black if not defined
+  const networkDisplayName = networks[_network]?.name.replace(" People", "") || networks[_network]?.name
   // TODO Remove, maybe display if it's testnet, or if it has test tokens
-  const isEncrypted = true
-  const isFree = networks.features?.includes("Free Tokens") || false
+  const isEncrypted = networks[_network]?.isEncrypted || false
+  const isFree = networks[_network]?.isFree || false // True if it's a testnet or has free tokens
+
+  const relayId = _network?.split("_")[0] || "";
+  const relay = _network ? {
+    id: relayId,
+    name: networks[relayId]?.name || "",
+    parachains: Object.keys(networks)
+      .filter(key => key.startsWith(relayId))
+      .map(key => ({
+        id: key,
+        name: networks[key]?.name || "",
+      }))
+    ,
+  } : null;
 
   return (
-    <NetworkContext.Provider value={{ network: _network, setNetwork, networkColor, networkDisplayName, isEncrypted, isFree }}>
+    <NetworkContext.Provider value={{ 
+      network: _network, setNetwork, networkColor, networkDisplayName, isEncrypted, isFree,
+      id: networks[_network]?.id,
+      name: networks[_network]?.name || "",
+      ss58Format: networks[_network]?.ss58Format,
+      tokenDecimals: networks[_network]?.tokenDecimals,
+      tokenSymbol: networks[_network]?.tokenSymbol,
+      registrarIndex: networks[_network]?.registrarIndex,
+      relay,
+    }}>
       {children}
     </NetworkContext.Provider>
   )

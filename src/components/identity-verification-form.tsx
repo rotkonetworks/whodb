@@ -1,9 +1,10 @@
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { Separator } from "@/components/ui/separator"
 import { VerifiableFormField } from "@/components/verifiable-form-field"
-import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
-import { IdentityData, verifyStatuses } from "@/types/Identity"
+import { useTriggerLog } from "@/hooks/use-trigger-log"
+import { useUrlParams } from "@/hooks/useUrlParams"
+import { IdentityData, IdentityVerificationStatus } from "@/types/Identity"
 import {
   AlertTriangle,
   CheckCircle,
@@ -19,11 +20,11 @@ import {
   User,
 } from "lucide-react"
 import type React from "react"
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
-  identityStatus: verifyStatuses
+  identityStatus: IdentityVerificationStatus
   supportedFields?: string[]
 }
 
@@ -32,47 +33,40 @@ export function IdentityVerificationForm({
   identityStatus,
   supportedFields = [],
 }: IdentityVerificationFormProps) {
-  const { getVerifiedFields } = useVerification()
-  const { challengeError, challengeLoading, challenges } = usePolkadotApi()
+  const { urlParams: { address, network } } = useUrlParams()
+  const {
+    error: challengeError,
+    isLoading: challengeLoading,
+    challenges,
+    getVerifiedFields,
+    setWebSocketParams,
+  } = useVerification()
+  useTriggerLog(challenges, "IdentityVerificationForm Challenges")
+
+  useEffect(() => {
+    setWebSocketParams({ address, network, identityStatus })
+  }, [address, network, identityStatus, setWebSocketParams])
 
   // Determine which fields to show based on supportedFields and what's filled
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
-      'display', 'email', 'web', 'twitter', 'github', 'matrix', 'pgp_fingerprint', 'discord', 'image', 'legal'
+      'display',
+      'email',
+      'web',
+      'twitter',
+      'github',
+      'matrix',
+      'pgp_fingerprint',
+      'discord',
+      'image',
+      'legal'
     ]
 
     // Only show fields that are actually filled
-    return supportedSet.filter(field => {
-      const fieldMapping: Record<string, keyof IdentityData> = {
-        'display': 'display',
-        'email': 'email',
-        'web': 'web',
-        'twitter': 'twitter',
-        'github': 'github',
-        'matrix': 'matrix',
-        'pgp_fingerprint': 'pgp_fingerprint',
-        'discord': 'discord',
-        'image': 'image',
-        'legal': 'legal',
-      }
-      const formFieldKey = fieldMapping[field]
-      return formFieldKey && identityData[formFieldKey] && identityData[formFieldKey].trim() !== ""
-    })
+    return supportedSet.filter(field => field && identityData[field]
+      && identityData[field].trim() !== ""
+    )
   }, [supportedFields, identityData])
-
-  // Field mapping from blockchain field names to form field names
-  const fieldMapping = useMemo((): Record<string, keyof IdentityData> => ({
-    'display': 'display',
-    'email': 'email',
-    'web': 'web',
-    'twitter': 'twitter',
-    'github': 'github',
-    'matrix': 'matrix',
-    'pgp_fingerprint': 'pgp_fingerprint',
-    'discord': 'discord',
-    'image': 'image',
-    'legal': 'legal'
-  }), [])
 
   // Field configuration with verification instructions
   const fieldConfig = useMemo(() => ({
@@ -178,26 +172,25 @@ export function IdentityVerificationForm({
 
   // Create field components for verification
   const createVerificationComponent = useCallback((fieldKey: string) => {
-    const formFieldKey = fieldKey
-    if (!formFieldKey || formFieldKey === 'display') return null
+    if (!fieldKey || fieldKey === 'display') return null
 
-    const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
+    const config = fieldConfig[fieldKey as keyof typeof fieldConfig]
     if (!config) return null
 
     return (
       <VerifiableFormField
-        key={formFieldKey}
-        fieldId={formFieldKey as any}
+        key={fieldKey}
+        fieldId={fieldKey as any}
         label={config.label}
         icon={config.icon}
-        value={identityData[formFieldKey]}
+        value={identityData[fieldKey]}
         onChange={() => { }} // Read-only in verification step
         placeholder={config.placeholder}
         type={config.type}
         verificationInstructions={config.verificationInstructions}
       />
     )
-  }, [fieldMapping, identityData, fieldConfig])
+  }, [identityData, fieldConfig])
 
   // Group fields into sections
   const verificationSections = useMemo(() => {
@@ -240,7 +233,7 @@ export function IdentityVerificationForm({
 
   console.debug({ identityData, identityStatus })
 
-  const verifiedFields = getVerifiedFields().filter(f => 
+  const verifiedFields = getVerifiedFields().filter(f =>
     !["", "display"].includes(f.field) && identityData[f.field] && identityData[f.field].trim() !== ""
   )
   const totalVerifiableFields = fieldsToShow.filter(f => f !== 'display').length
@@ -272,12 +265,12 @@ export function IdentityVerificationForm({
       </div>
 
       {/* Status-based instructions */}
-      {identityStatus < verifyStatuses.FeePaid
+      {identityStatus < IdentityVerificationStatus.FeePaid
         ? (
           <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
             <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
             <span>
-              Verification challenges are not yet available. You need to request judgement and pay the verification fee first.
+              You need to request judgement and pay the verification fee to proceed with identity verification.
             </span>
           </div>
         )
@@ -297,14 +290,22 @@ export function IdentityVerificationForm({
                 Error connecting to verification service: {String(challengeError)}
               </span>
             </div>
-          ) : (challenges && (
+          ) : (Object.keys(challenges).length > 0 ? (
             <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
               <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
               <span>
                 Verification challenges are now available! Complete all field verifications below to proceed.
               </span>
             </div>
-          ))
+          ) : (
+            <div className="flex items-start p-3 text-sm text-gray-300 bg-gray-900/20 border border-gray-500/30 rounded-md">
+              <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400" />
+              <span>
+                No verification challenges available yet. Please check back later.
+              </span>
+            </div>
+          )
+          )
         )
       }
 
