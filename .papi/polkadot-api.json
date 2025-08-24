@@ -6,7 +6,7 @@
       "chain": "polkadot",
       "metadata": ".papi/metadata/polkadot.scale",
       "genesis": "0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
-      "codeHash": "0x716bb701ec19452fa522cdaa83ef101d368ba2bcfd89fde9acb6f793a420a616"
+      "codeHash": "0xe260d17fcfa34f10503c91148a7bc2fd820e356295d2e18f828b5fa4190d47f7"
     },
     "paseo": {
       "chain": "paseo",
@@ -24,13 +24,13 @@
       "chain": "ksmcc3_people",
       "metadata": ".papi/metadata/ksmcc3_people.scale",
       "genesis": "0xc1af4cb4eb3918e5db15086c0cc5ec17fb334f728b7c65dd44bfe1e174ff8b3f",
-      "codeHash": "0xc897696af11fac9547bdd053b5ef06ee2c5fb4d9465e5be1f6955770b1f2d082"
+      "codeHash": "0xa38a46dd18803fa0288e07220033dabaf4286ce776608b8e546dc08fb312568e"
     },
     "ksmcc3": {
       "chain": "ksmcc3",
       "metadata": ".papi/metadata/ksmcc3.scale",
       "genesis": "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
-      "codeHash": "0xf45689276dfdcf05b6defd26da68e3283a96190d789f7a311ff31f64b455b421"
+      "codeHash": "0x4c843d1c1b5ce542fcc0e9cc1439ad3384e5753da24d2747c4aa24162a202449"
     },
     "paseo_people": {
       "chain": "paseo_people",
@@ -48,7 +48,7 @@
       "chain": "ksmcc3_asset_hub",
       "metadata": ".papi/metadata/ksmcc3_asset_hub.scale",
       "genesis": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-      "codeHash": "0xe47150af4545236c2ec6915ad0dbc56a9aadf59e7a031e4d133d962d38ab0ab4"
+      "codeHash": "0xc614bece9b065c25a8a4939343bf4171104d348a82caa987f1ce5829dd9f997e"
     },
     "paseo_asset_hub": {
       "chain": "paseo_asset_hub",

@@ -1,6 +1,6 @@
 import React from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/lib/ui"
+import { Badge } from "@/lib/ui"
 import { Check } from "lucide-react"
 
 interface NetworkOption {

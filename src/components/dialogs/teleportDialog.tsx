@@ -1,8 +1,8 @@
 import { Dialog } from "@radix-ui/react-dialog";
 import BigNumber from "bignumber.js";
 
-import { Button } from "../ui/button";
-import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Button } from "@/lib/ui";
+import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/lib/ui";
 
 import { useEffect, useState } from "react";
 import Teleporter from "./Teleporter";

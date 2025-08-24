@@ -1,5 +1,5 @@
 import { CheckCircle, Clock, AlertTriangle } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/lib/ui"
 import { Timeline, TimelineEventType } from "@/types/timeline";
 import { formatDate } from "../utils/date-time";
 

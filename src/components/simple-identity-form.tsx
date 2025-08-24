@@ -15,7 +15,7 @@ import {
   Info,
   AlertTriangle,
 } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
+import { Separator } from "@/lib/ui"
 
 interface SimpleIdentityFormProps {
   initialData: IdentityData

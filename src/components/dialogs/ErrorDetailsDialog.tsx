@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/lib/ui";
 
 import { GenericDialog } from "./GenericDialog";
 

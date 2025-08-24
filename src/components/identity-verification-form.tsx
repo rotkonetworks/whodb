@@ -1,5 +1,5 @@
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
-import { Separator } from "@/components/ui/separator"
+import { Separator } from "@/lib/ui"
 import { VerifiableFormField } from "@/components/verifiable-form-field"
 import { useVerification } from "@/contexts/verification-context"
 import { useTriggerLog } from "@/hooks/use-trigger-log"

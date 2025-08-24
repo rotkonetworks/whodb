@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 import { IdentityVerificationStatus } from "@/types/Identity";
 
-import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/lib/ui";
 
 export const IdentityStatusInfo = ({ status }: { status: IdentityVerificationStatus }) => {
   const verifiyStatusColor = useMemo(() => {

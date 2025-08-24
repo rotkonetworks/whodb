@@ -6,7 +6,7 @@ import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { AccountData } from "@/store/AccountStore";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
 import { AccountBalanceBadge } from "./balance-badge";
-import { Card, CardContent } from "./card";
+import { Card, CardContent } from "@/lib/ui";
 
 interface AccountSelectorProps {
   accounts?: AccountData[];

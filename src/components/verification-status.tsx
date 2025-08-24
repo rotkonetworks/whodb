@@ -1,5 +1,5 @@
 import { CheckCircle, Loader2, AlertTriangle, Clock } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/lib/ui"
 import { useVerification } from "@/contexts/verification-context"
 
 interface VerificationStatusProps {

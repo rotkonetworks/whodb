@@ -1,5 +1,5 @@
 import { Verified, Shield, ShieldQuestion } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/lib/ui"
 
 /**
  * Returns a verification badge based on the verification status and judgement.

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+import { Label } from "@/lib/ui"
+import { Input } from "@/lib/ui"
 
 interface FormFieldProps {
   id: string

@@ -24,7 +24,13 @@ export function useXcmParameters({
 
   // Determine relay chain ID based on current chain
   const relayChainId = useMemo<Network>(
-    () => (chainId as string).replace("_people", "") as Network,
+    () => {
+      // Add null check and default value
+      if (!chainId) {
+        return "polkadot" as Network; // or whatever your default network should be
+      }
+      return (chainId as string).replace("_people", "") as Network;
+    },
     [chainId]
   );
 

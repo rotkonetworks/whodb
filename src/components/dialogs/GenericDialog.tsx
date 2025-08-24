@@ -1,6 +1,6 @@
 import { DialogContentProps, DialogTitle } from "@radix-ui/react-dialog";
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader } from "@/lib/ui";
 
 export const GenericDialog = ({ open, onOpenChange, description, title, children, footer, }: {
   open: boolean;

@@ -1,6 +1,6 @@
 import type React from "react"
 import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/lib/ui"
 import { ChallengeType, useVerification } from "@/contexts/verification-context"
 import { toast } from "sonner"
 import { useEffect, useState } from "react"
