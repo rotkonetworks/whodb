@@ -10,7 +10,6 @@ import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
 // Import pages
 import HomePage from './pages/homepage'
-import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
@@ -35,7 +34,6 @@ export default function App() {
                 <UserProvider>
                   <QueryClientProvider client={queryClient}>
                     <Routes>
-                      <Route path="/login" element={<LoginPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="*" element={
                         <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL as string}>

@@ -10,16 +10,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <header className="container mx-auto px-4 py-4">
         <div className="flex justify-end space-x-2">
-          <Link to="/login">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-gray-400 hover:bg-white/10 hover:text-white p-2 md:px-3 md:py-1 text-xs md:text-sm rounded-md transition-colors"
-            >
-              <User className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Login</span>
-            </Button>
-          </Link>
           <Link to="/register">
             <Button
               size="sm"
