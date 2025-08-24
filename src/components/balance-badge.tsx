@@ -1,7 +1,7 @@
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useSystemAccountData } from "@/hooks/use-system-account-data";
 import { SS58String } from "polkadot-api";
-import { Badge } from "./badge";
+import { Badge } from "@/lib/ui";
 
 // Component to display individual account balance
 export const AccountBalanceBadge = ({ address, chainId }: { address: SS58String; chainId: string }) => {

@@ -1,13 +1,13 @@
 import BigNumber from "bignumber.js";
 import { AlertCircle, Coins } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/lib/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/lib/ui";
 import { DialogMode, EstimatedCostInfo, FormatAmountFn, OpenTxDialogArgs } from "@/types";
 import { Identity } from "@/types/Identity";
 import { ApiTx } from "@/types/api";
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/lib/ui";
 
 
 export default function ConfirmActionDialog({

@@ -1,15 +1,8 @@
-import React from 'react';
-
-import { Github, RefreshCcw } from 'lucide-react'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import React from "react";
+import { Github, RefreshCcw } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Button, Card, Separator } from "@/lib/ui"
+import { Card } from "@/lib/ui"
+import { Separator } from "@/lib/ui"
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {

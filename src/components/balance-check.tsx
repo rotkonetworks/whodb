@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/lib/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/lib/ui";
 import { useNetwork } from "@/contexts/network-context";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
@@ -10,7 +10,7 @@ import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet
 import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
-import { CopyButton } from "./ui/copy-button";
+import { CopyButton } from "./copy-button";
 import { CHAINS } from "@/polkadot-api/chain-config";
 
 interface BalanceCheckProps {

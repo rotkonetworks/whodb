@@ -4,7 +4,7 @@ import { NetworkProvider } from '@/contexts/network-context'
 import { UserProvider } from '@/contexts/user-context'
 import { VerificationProvider } from '@/contexts/verification-context'
 import { BalanceProvider } from '@/contexts/balance-context'
-import { Toaster } from '@/components/ui/sonner'
+import { Toaster } from '@/lib/ui'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 

@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/lib/ui"
+import { Card, CardContent } from "@/lib/ui"
 import type { Profile } from "@/lib/profile"
 import { shortenAddress } from "@/lib/utils"
 import { Edit2, ExternalLink, PlusCircle, User, Users } from "lucide-react"

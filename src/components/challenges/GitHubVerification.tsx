@@ -1,5 +1,5 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/lib/ui';
+import { Button } from '@/lib/ui';
 import { AlertCircle, CheckCircle, Github } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';

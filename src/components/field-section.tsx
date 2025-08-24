@@ -2,8 +2,8 @@ import type React from "react"
 
 import { useState } from "react"
 import { ChevronDown, ChevronUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/lib/ui"
+import { Badge } from "@/lib/ui"
 
 interface FieldSectionProps {
   title: string

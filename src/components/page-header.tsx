@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/lib/ui"
 import type { ReactNode } from "react"
 import { Logo } from "./logo"
 

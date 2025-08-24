@@ -2,7 +2,7 @@ import SearchForm from "@/components/search-form"
 import { Logo } from "@/components/logo"
 import { Footer } from "@/components/footer"
 import { Link } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/lib/ui"
 import { User, UserPlus } from "lucide-react"
 
 export default function HomePage() {

@@ -3,16 +3,16 @@ import { HelpCircle } from 'lucide-react'
 import { SS58String } from "polkadot-api"
 import React, { ReactNode, useEffect } from "react"
 
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/lib/ui"
+import { Label } from "@/lib/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/lib/ui"
 
 import { Network } from "@/contexts/network-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { CHAINS } from "@/polkadot-api/chain-config"
-import { AccountDropdown } from "../ui/account-dropdown"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
+import { AccountDropdown } from "../account-dropdown"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/lib/ui"
 
 export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTeleportClick, }: {
   teleportAmount: BigNumber,

@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-import { Separator } from "@/components/ui/separator"
+import { Button } from "@/lib/ui"
+import { Switch } from "@/lib/ui"
+import { Separator } from "@/lib/ui"
 import { PageHeader } from "@/components/page-header"
 import { User, Bell, Palette, Globe, Save } from "lucide-react"
 
