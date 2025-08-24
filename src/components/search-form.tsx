@@ -33,7 +33,7 @@ export default function SearchForm() {
       // TODO First, make sure to parse query, before actually searching. if not, while typing the 
       //  query, it's not going to be valid, it has to be e.g. field:foo
       //  Or, even better, if it can't match anything, we might assume it must look for display name.
-      if (query.length >= 1) {
+      if (query.length >= 3) {
         const filteredProfiles = await search(query, 5)
         setSuggestions(filteredProfiles)
         setShowSuggestions(true)
