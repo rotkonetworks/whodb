@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { WebSocketHookReturn } from '.';
 import { TimelineEventRecord } from '@/types/timeline';
-import { IdentityInfo, IdentityVerificationStatus } from '@/types/Identity';
 import { FullProfile } from '@/types/profile';
 import { CHAINS } from '@/polkadot-api/chain-config';
 
@@ -146,16 +145,8 @@ export const useSearchWebSocket = (
     limit?: number,
   ): Promise<Array<FullProfile>> => {
     // Search across all fields for autocomplete
-    const message = {
-      type: 'SearchRegistration',
-      // TODO By passing quoted strings, parse them as strict matching
-      payload: constructSearchParameters(query, limit),
-    };
-
-    console.log('Sending search query:', message);
-
     try {
-      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(message);
+      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(query);
 
       if ((response as ErrorResponse).type === 'error') {
         const errorResponse = response as ErrorResponse;
@@ -167,19 +158,15 @@ export const useSearchWebSocket = (
         return (response as SearchResults).map((profile) => {
           const timeline = profile.timeline;
           return ({
-            address: profile.wallet_id,
+            wallet_id: profile.wallet_id,
             network: profile.network as keyof typeof CHAINS,
-            identity: {
-              info: Object.entries(profile)
-                .filter(([, v]) => v !== undefined && v !== null && v !== "NULL")
-                .filter(([k]) => Object.keys(FULL_PROFILE_IDENTIY_INFO_MAPPING).includes(k))
-                .reduce((acc, [k, v]) => ({
-                  ...acc,
-                  [FULL_PROFILE_IDENTIY_INFO_MAPPING[k as keyof IdentityInfo] || k]: v
-                }), {}) as IdentityInfo,
-
-              status: IdentityVerificationStatus.Unknown, // Status is not provided in search results
-            },
+            ...Object.entries(profile)
+              .filter(([, v]) => v !== undefined && v !== null && v !== "NULL")
+              .filter(([k]) => Object.keys(FULL_PROFILE_IDENTIY_INFO_MAPPING).includes(k))
+              .reduce((acc, [k, v]) => ({
+                ...acc,
+                [FULL_PROFILE_IDENTIY_INFO_MAPPING[k as keyof IdentityInfo] || k]: v
+              }), {}) as IdentityInfo,
             timeline: timeline
           });
         })

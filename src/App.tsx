@@ -33,19 +33,27 @@ export default function App() {
             <AccountProvider>
               <BalanceProvider>
                 <UserProvider>
-                  <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={
-                      <OptimizedPolkadotRoute>
-                        <RegisterPage />
-                      </OptimizedPolkadotRoute>
-                    } />
-                    <Route path="/search" element={<SearchPage />} />
-                    <Route path="/profile/:id" element={<ProfilePage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={<div>Page not found</div>} />
-                  </Routes>
+                  <WebSocketProvider url="ws://localhost:8080/ws">
+                    <SearchProvider>
+                      <QueryClientProvider client={queryClient}>
+                        <VerificationProvider>
+                          <Routes>
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/register" element={
+                              <OptimizedPolkadotRoute>
+                                <RegisterPage />
+                              </OptimizedPolkadotRoute>
+                            } />
+                            <Route path="/search" element={<SearchPage />} />
+                            <Route path="/profile/:id" element={<ProfilePage />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="*" element={<div>Page not found</div>} />
+                          </Routes>
+                        </VerificationProvider>
+                      </QueryClientProvider>
+                    </SearchProvider>
+                  </WebSocketProvider>
                   <Toaster />
                 </UserProvider>
               </BalanceProvider>

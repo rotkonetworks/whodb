@@ -37,6 +37,7 @@ interface PendingRequest {
 // TODO Bundle all constants into single file
 const WS_MAX_TIMEOUT = 30000;
 
+// TODO: clear this mess, we don't need request id
 /**
  * Main WebSocket hook that provides generic WebSocket connection management
  * with automatic reconnection, request/response handling, and subscription capabilities.
@@ -95,12 +96,6 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       }
 
       const requestId = generateRequestId();
-      const versionedMessage = {
-        id: requestId,
-        version: '1.0',
-        ...message,
-      };
-
       const timeout = window.setTimeout(() => {
         const request = pendingRequests.current.get(requestId);
         if (request) {
@@ -116,8 +111,8 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       });
 
       try {
-        ws.current.send(JSON.stringify(versionedMessage));
-        console.log('WebSocket message sent:', versionedMessage);
+        ws.current.send(message);
+        console.log('WebSocket message sent:', message);
       } catch (err) {
         clearTimeout(timeout);
         pendingRequests.current.delete(requestId);
@@ -131,7 +126,7 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
    */
   const subscribe = useCallback((messageHandler: (message: any) => void): (() => void) => {
     messageHandlers.current.add(messageHandler);
-    
+
     return () => {
       messageHandlers.current.delete(messageHandler);
     };

@@ -29,7 +29,7 @@ export const useWebSocketContext = () => {
 
 export type ProfileResults = Array<{
   id: SS58String;
-  walletAddress: SS58String;
+  wallet_id: SS58String;
   network: string;
   discord?: string;
   displayName?: string;
@@ -68,22 +68,24 @@ export const SearchProvider = ({ children }: {
 
     // Search across all networks seamlessly
     const filtered = (await searchWebSocket.search(query, limit))
-      .map((profile) => ({
-        id: profile.wallet_id,
-        discord: profile.discord,
-        displayName: profile.display_name,
-        email: profile.email,
-        matrix: profile.matrix,
-        twitter: profile.twitter,
-        github: profile.github,
-        legal: profile.legal,
-        web: profile.web,
-        pgp_fingerprint: profile.pgp_fingerprint,
-        walletAddress: profile.wallet_id,
-        //avatar: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
-        network: profile.network,
-        verified: profile.timeline?.some(event => event.event === 'verified') || false,
-      }))
+      .map((profile) => {
+        return ({
+          id: profile.wallet_id,
+          wallet_id: profile.wallet_id,
+          network: profile.network,
+          discord: profile.discord,
+          display: profile.display,
+          email: profile.email,
+          matrix: profile.matrix,
+          twitter: profile.twitter,
+          github: profile.github,
+          legal: profile.legal,
+          web: profile.web,
+          pgp_fingerprint: profile.pgp_fingerprint,
+          //image: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
+          verified: profile.timeline?.some(event => event.event === 'verified') || false,
+        })
+      })
     setResults(filtered);
 
     return filtered;

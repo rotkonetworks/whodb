@@ -1,76 +1,77 @@
 import { useEffect, useState } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import SearchForm from "@/components/search-form"
-import { User, Mail, Wallet, Globe } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { Link } from "react-router-dom"
+import { useSearchContext } from "@/contexts/web-socket-provider"
+import { FullProfile } from "@/types/profile"
+import * as Avatar from "@radix-ui/react-avatar"
+import { constructSearcObject } from "@/lib/utils"
 
 // TODO: fix loading animation
 // TODO: fix navigation (forward and backward page)
 // TODO: fix search suggestion
 export default function SearchPage() {
   const { urlParams } = useUrlParams()
-  const [results, setResults] = useState<any[]>([])
+  const { search } = useSearchContext()
+  const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Get search object from URL params
-  const getSearchObj = () => {
-    const searchData = searchParams.get('data');
-    if (searchData) {
-      try {
-        const decodedData = atob(searchData);
-        return JSON.parse(decodedData);
-      } catch (error) {
-        console.error('Failed to parse search data:', error);
-        return null;
-      }
+  // Get query from URL params
+  const query = searchParams.get('data') || '';
+  const decodedString = atob(query);
+  const searchData = JSON.parse(decodedString);
+  const searchTxt = searchData.searchTxt;
+  const searchJson = searchData.searchJson;
+
+  const fetchResults = async (searchQuery: string, limit: number = 20) => {
+
+    setIsLoading(true);
+    try {
+      // Use the centralized search function from context
+      const searchResults = await search(JSON.stringify(searchQuery), limit);
+      setResults(searchResults);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setResults([]);
+    } finally {
+      setIsLoading(false);
     }
-    return null;
   };
 
-  const searchObj = getSearchObj();
+  // Initialize search query from URL on component mount
+  useEffect(() => {
+    if (query && query !== searchQuery) {
+      setSearchQuery("");
+    }
+  }, [query]);
 
   useEffect(() => {
-    if (searchObj && searchObj["type"] == "SearchRegistration") {
-      setIsLoading(true)
-      const ws = new WebSocket(import.meta.env.VITE_WS_URL)
-      ws.onopen = () => {
-        ws.send(JSON.stringify(searchObj))
+    if (query) {
+      try {
+        // Extract the enum and JSON object from searchData
+        fetchResults(searchJson, 20);
+      } catch (error) {
+        console.error('Failed to decode search data:', error);
+        fetchResults(searchJson, 20);
       }
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        console.log(JSON.stringify(data))
-        setResults(data)
-        setIsLoading(false)
-      }
-
-      ws.onerror = (error) => {
-        setIsLoading(false)
-      }
-
-      return () => {
-        ws.close()
-      }
-    } else {
-      setResults([])
     }
-  }, [searchParams.get('data')])
+  }, [query])
 
-    if (!pushedResults) {
-      fetchResults(query, 20);  // TODO Maybe add flags
-    } else {
-      setResults(pushedResults)
-      setIsLoading(false)
-    }
-  }, [query, navigate, pushedResults])
-  
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!searchQuery.trim()) return
-    navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
-    fetchResults(searchQuery.trim())
+    const searchObj = constructSearcObject(searchQuery);
+    // Use Base64 encoding for safer URL handling
+    const searchString = btoa(JSON.stringify({ "searchTxt": searchQuery, "searchJson": searchObj }));
+    navigate(`/search?data=${searchString}`);
   }
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -87,7 +88,7 @@ export default function SearchPage() {
     if (verified && judgement === "KnownGood") {
       return (
         <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-          <Verified className="w-3 h-3 mr-1" />
+          <CheckCircle className="w-3 h-3 mr-1" />
           <span className="hidden sm:inline">Verified</span>
         </Badge>
       )
@@ -153,13 +154,17 @@ export default function SearchPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-lg md:text-xl font-bold mb-2">{isLoading ? "Searching..." : `Results for "${query}"`}</h1>
+          <h1 className="text-lg md:text-xl font-bold mb-2">{isLoading ? "Searching..." : `Results for "${searchTxt}"`}</h1>
           <p className="text-gray-400 text-sm">
             {!isLoading && `Found ${resultsLength} ${resultsLength === 1 ? "identity" : "identities"}`}
           </p>
         </div>
 
-        {isLoading && <LoadingSpinner />}
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-4">
@@ -178,30 +183,35 @@ export default function SearchPage() {
         ) : results.length > 0 ? (
           <div className="space-y-4">
             {results.map((profile) => (
-              <div key={profile.wallet_id} className="bg-card p-6 rounded-lg border border-border/30 hover:border-accent/50 transition-colors">
+              < div key={profile.id} className="bg-card p-6 rounded-lg border border-border/30 hover:border-accent/50 transition-colors" >
                 <div className="flex items-start space-x-4">
-                  <img
-                    src={profile.image || "../assets/placeholder.svg"}
-                    alt={profile.display_name}
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
+                  <Avatar.Root className="w-16 h-16 rounded-full overflow-hidden">
+                    <Avatar.Image
+                      src={profile.image}
+                      alt={profile.display}
+                      className="w-full h-full object-cover"
+                    />
+                    <Avatar.Fallback className="w-full h-full bg-muted flex items-center justify-center text-lg font-semibold">
+                      {profile.display?.charAt(0)?.toUpperCase() || "?"}
+                    </Avatar.Fallback>
+                  </Avatar.Root>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="text-xl font-semibold text-foreground">{profile.display_name}</h3>
-                      {profile.verified && (
+                      <h3 className="text-xl font-semibold text-foreground">{profile.display}</h3>
+                      {profile.timeline?.some(event => event.event === 'verified') && (
                         <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
-                      </div>
-                    )}
-                    {profile.email ?
+                      )}
+                    </div>
+                    {profile.email ? (
                       <div className="flex items-center text-muted mb-2">
                         <Mail className="w-4 h-4 mr-2" />
                         <span className="truncate">{profile.email}</span>
                       </div>
-                      : <></>}
+                    ) : null}
 
                     <div className="flex items-center text-muted">
                       <Wallet className="w-4 h-4 mr-2" />
@@ -228,8 +238,9 @@ export default function SearchPage() {
             <h3 className="text-xl font-semibold text-foreground mb-2">Start searching</h3>
             <p className="text-muted">Enter at least 3 characters to search for identities.</p>
           </div>
-        )}
-      </main>
-    </div>
+        )
+        }
+      </main >
+    </div >
   )
 }

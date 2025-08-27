@@ -1,10 +1,20 @@
-import { useParams, Link, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, XCircle, Globe } from "lucide-react"
-import VerificationTimeline from "../components/verification-timeline";
+import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe } from "lucide-react"
+
+
+const getNetworkColor = (network: string) => {
+  switch (network?.toLowerCase()) {
+    case 'polkadot':
+      return 'bg-pink-100 text-pink-800'
+    case 'kusama':
+      return 'bg-purple-100 text-purple-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
 
 export default function ProfilePage() {
   const [searchParams] = useSearchParams()
-  
+
   // Get profile object from URL params
   const getProfile = () => {
     const profileData = searchParams.get('data');
@@ -19,52 +29,12 @@ export default function ProfilePage() {
     }
     return null;
   };
-  
+
   const profile = getProfile();
 
-  const { search } = useSearchWebSocket(useWebSocketContext())
-  const {
-    data: profile,
-    isLoading: isProfileLoading,
-    isError: isProfileFetchError,
-  } = useQuery({
-    queryKey: ['profile', network, address],
-    queryFn: async () => {
-      if (pushedProfile) {// TODO Maybe use it as initial value?
-        return pushedProfile
-      }
-      try {
-        // TODO Matching here should be strict.
-        const fetchedProfiles = await search(`wallet_id:${address} network:${network}`, 1)
-        if (fetchedProfiles.length === 0) {
-          throw new Error("Profile not found")
-        }
-        return fetchedProfiles?.[0]!!;
-      } catch (error) {
-        console.error("Error fetching profile:", error)
-        throw new Error(`Failed to fetch profile: ${error}`)
-      }
-    }
-  })
-
-  const [activeTab, setActiveTab] = useState<ProfileTab>("contact")
-  const [copiedField, setCopiedField] = useState<string | null>(null)
-
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedField(field)
-    toast?.success(`${field.charAt(0).toUpperCase() + field.slice(1)} copied!`)
-    setTimeout(() => setCopiedField(null), 2000)
+  if (!profile) {
+    return <div>Profile not found</div>
   }
-
-  const tabItems = [
-    { id: "contact" as ProfileTab, label: "Contact", icon: Contact },
-    { id: "timeline" as ProfileTab, label: "Timeline", icon: ListChecks }
-  ]
-  useTriggerLog(tabItems, "tabItems")
-  useTriggerLog(profile, "profile")
-
-  const info = profile?.identity.info
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,6 +90,8 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
 
             {/* Contact Information */}
             <div className="mt-6 space-y-3">
@@ -140,8 +112,9 @@ export default function ProfilePage() {
                 <Shield className="w-5 h-5 mr-2" />
                 Verification Status
               </h3>
-
-              <VerificationTimeline timeline={profile.timeline} />
+              <div className="text-muted">
+                {profile.verified ? "Verified" : "Unverified"}
+              </div>
             </div>
           </div>
         </div>
