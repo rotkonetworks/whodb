@@ -3,7 +3,7 @@ export type TimelineEventType = 'created' | 'verified' | 'discord' | 'display' |
   | 'twitter' | 'github' | 'legal' | 'web' | 'image' | 'pgp_fingerprint';
 
 export type TimelineEventRecord = {
-  event: TimelineEventType;
+  event: string;
   date: Date;
 };
 export type Timeline = TimelineEventRecord[];

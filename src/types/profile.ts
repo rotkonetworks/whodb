@@ -1,11 +1,11 @@
-import { Timeline } from "./timeline";
+import { Timeline, TimelineEventRecord } from "./timeline";
 import { CHAINS } from "@/polkadot-api/chain-config";
 import { SS58String } from "polkadot-api";
 
 export type FullProfile = {
   network: keyof typeof CHAINS;
   wallet_id: SS58String;
-  timeline?: Timeline;
+  timeline?: Array<TimelineEventRecord>;
   discord?: string;
   display?: string;
   email?: string;

@@ -3,6 +3,7 @@ import { SearchOptions, useSearchWebSocket } from "@/hooks/websocket/search";
 import { useWebSocket, WebSocketHookReturn } from "@/hooks/websocket";
 import { SS58String } from "polkadot-api";
 import { createContext, useCallback, useContext, useState } from "react";
+import { FullProfile } from "@/types/profile";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
@@ -27,22 +28,8 @@ export const useWebSocketContext = () => {
   return context;
 };
 
-export type ProfileResults = Array<{
-  id: SS58String;
-  wallet_id: SS58String;
-  network: string;
-  discord?: string;
-  displayName?: string;
-  email?: string;
-  matrix?: string;
-  twitter?: string;
-  github?: string;
-  legal?: string;
-  web?: string;
-  pgp_fingerprint?: string;
-  avatar?: string;
-  verified: boolean;
-}>;
+export type ProfileResults = Array<FullProfile>;
+
 const SearchContext = createContext<{
   webSocket: WebSocketHookReturn | undefined;
   search: (query: string, limit?: number, options?: SearchOptions) => Promise<ProfileResults>;
@@ -82,6 +69,7 @@ export const SearchProvider = ({ children }: {
           legal: profile.legal,
           web: profile.web,
           pgp_fingerprint: profile.pgp_fingerprint,
+          timeline: profile.timeline,
           //image: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
           verified: profile.timeline?.some(event => event.event === 'verified') || false,
         })

@@ -1,4 +1,5 @@
 import { AllowedFields, PossibleDisplayedOutputs } from "@/types/search_fields"
+import { todo } from "node:test"
 
 /**
  * Shortens a blockchain address by showing only the beginning and end parts
@@ -14,6 +15,33 @@ export function shortenAddress(address: string, startChars = 8, endChars = 8): s
   return `${address.substring(0, startChars)}...${address.substring(address.length - endChars)}`
 }
 
+export function mapSearchKey(key: string): string | null {
+  switch (key) {
+    case "discord":
+      return "Discord"
+    case "id":
+      return "AccountId32"
+    case "twitter":
+      return "Twitter"
+    case "x":
+      return "Twitter"
+    case "matrix":
+      return "Matrix"
+    case "web":
+      return "Web"
+    case "email":
+      return "Email"
+    case "network":
+      return "Network"
+    case "pgp":
+      return "PGPFingerprint"
+    case "github":
+      return "Github"
+    default:
+      return null
+  }
+}
+
 /**
  * Utility function to join class names conditionally
  */
@@ -21,7 +49,7 @@ export function cn(...classes: (string | undefined | boolean)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
-export const constructSearcObject = (query: string): any => {
+export const constructSearcObject = (query: string, desierdOutputs: string[] = PossibleDisplayedOutputs): any => {
   const parseSearchString = (input: string): Record<string, string> => {
     const result: Record<string, string> = {};
     const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
@@ -45,17 +73,22 @@ export const constructSearcObject = (query: string): any => {
   const result_size = pairs["result_size"] ? parseInt(pairs["result_size"]) : 8;
   delete pairs.network;
   delete pairs.result_size;
-
-  const toPascalCase = (s: string) => s.replace(/_(\w)/g, (_, c) => c.toUpperCase()).replace(/^\w/, (c) => c.toUpperCase());
-
-  const outputs: string[] = Array.from(PossibleDisplayedOutputs).map(key => toPascalCase(key))
+  const outputs: string[] = Array.from(desierdOutputs)
 
 
+  // TODO: handle wrong search keys
   const filtersFields = Object.keys(pairs)
-    .map(key => ({
-      field: { [toPascalCase(key)]: "%" + pairs[key] + "%" },
-      strict: false, // Default to strict for now
-    }));
+    .map(key => {
+      if (mapSearchKey(key) != null) {
+        return {
+          // ?? is fine since we are guarenteed a string by the if guard
+          field: { [mapSearchKey(key) ?? ""]: pairs[key] },
+          strict: false, // Default for now
+        }
+      } else {
+        // TODO: handle wrong search keys
+      }
+    });
 
   var search_obj = {
     version: "1.0",

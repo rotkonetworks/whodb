@@ -16,7 +16,6 @@ import { constructSearcObject } from "@/lib/utils"
 // TODO: fix navigation (forward and backward page)
 // TODO: fix search suggestion
 export default function SearchPage() {
-  const { urlParams } = useUrlParams()
   const { search } = useSearchContext()
   const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -24,12 +23,17 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Get query from URL params
   const query = searchParams.get('data') || '';
   const decodedString = atob(query);
-  const searchData = JSON.parse(decodedString);
-  const searchTxt = searchData.searchTxt;
-  const searchJson = searchData.searchJson;
+  var searchTxt = '';
+  var searchJson = null;
+
+  // Get query from decoded base64 url param
+  if (decodedString != '') {
+    const searchData = JSON.parse(decodedString);
+    searchTxt = searchData.searchTxt;
+    searchJson = searchData.searchJson;
+  }
 
   const fetchResults = async (searchQuery: string, limit: number = 20) => {
 
@@ -62,57 +66,22 @@ export default function SearchPage() {
         console.error('Failed to decode search data:', error);
         fetchResults(searchJson, 20);
       }
+    } else {
+      // Clear results when no query is present
+      setResults([]);
     }
   }, [query])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) {
+      navigate('/search')
+      return
+    }
     const searchObj = constructSearcObject(searchQuery);
     // Use Base64 encoding for safer URL handling
     const searchString = btoa(JSON.stringify({ "searchTxt": searchQuery, "searchJson": searchObj }));
     navigate(`/search?data=${searchString}`);
-  }
-
-  const copyToClipboard = async (text: string, field: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
-    }
-  }
-
-  const getVerificationBadge = (verified: boolean, judgement: string) => {
-    if (verified && judgement === "KnownGood") {
-      return (
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Verified</span>
-        </Badge>
-      )
-    } else if (verified && judgement === "Reasonable") {
-      return (
-        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
-          <Shield className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Reasonable</span>
-        </Badge>
-      )
-    } else if (judgement === "Fee Paid") {
-      return (
-        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
-          <Shield className="w-3 h-3 mr-1" />
-          <span className="hidden sm:inline">Fee Paid</span>
-        </Badge>
-      )
-    } else {
-      return (
-        <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-xs">
-          <span className="hidden sm:inline">Unverified</span>
-        </Badge>
-      )
-    }
   }
 
   const resultsLength = results?.length || 0
@@ -145,7 +114,6 @@ export default function SearchPage() {
               type="submit"
               className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium"
             >
-              <span className="md:hidden">Go</span>
               <span className="hidden md:inline">Search</span>
             </button>
           </form>
@@ -183,7 +151,7 @@ export default function SearchPage() {
         ) : results.length > 0 ? (
           <div className="space-y-4">
             {results.map((profile) => (
-              < div key={profile.id} className="bg-card p-6 rounded-lg border border-border/30 hover:border-accent/50 transition-colors" >
+              <div key={profile.id} className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
                 <div className="flex items-start space-x-4">
                   <Avatar.Root className="w-16 h-16 rounded-full overflow-hidden">
                     <Avatar.Image
@@ -191,13 +159,13 @@ export default function SearchPage() {
                       alt={profile.display}
                       className="w-full h-full object-cover"
                     />
-                    <Avatar.Fallback className="w-full h-full bg-muted flex items-center justify-center text-lg font-semibold">
+                    <Avatar.Fallback className="w-full h-full bg-gray-600 flex items-center justify-center text-lg font-semibold text-white">
                       {profile.display?.charAt(0)?.toUpperCase() || "?"}
                     </Avatar.Fallback>
                   </Avatar.Root>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="text-xl font-semibold text-foreground">{profile.display}</h3>
+                      <h3 className="text-xl font-semibold text-white">{profile.display}</h3>
                       {profile.timeline?.some(event => event.event === 'verified') && (
                         <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -207,14 +175,14 @@ export default function SearchPage() {
                       )}
                     </div>
                     {profile.email ? (
-                      <div className="flex items-center text-muted mb-2">
-                        <Mail className="w-4 h-4 mr-2" />
+                      <div className="flex items-center text-gray-300 mb-2">
+                        <Mail className="w-4 h-4 mr-2 text-pink-400" />
                         <span className="truncate">{profile.email}</span>
                       </div>
                     ) : null}
 
-                    <div className="flex items-center text-muted">
-                      <Wallet className="w-4 h-4 mr-2" />
+                    <div className="flex items-center text-gray-300">
+                      <Wallet className="w-4 h-4 mr-2 text-pink-400" />
                       <span className="font-mono text-xs truncate">{profile.wallet_id}</span>
                     </div>
                   </div>
@@ -224,7 +192,7 @@ export default function SearchPage() {
                     className="btn-primary px-4 py-2 rounded-lg text-sm"
                     onClick={() => {
                       const profileString = btoa(JSON.stringify(profile));
-                      navigate(`/profile/${profile.wallet_id}?data=${profileString}`);
+                      navigate(`/profile/${profile.wallet_id}`);
                     }}>
                     View Profile
                   </button>
@@ -234,9 +202,9 @@ export default function SearchPage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <Globe className="w-16 h-16 text-muted mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">Start searching</h3>
-            <p className="text-muted">Enter at least 3 characters to search for identities.</p>
+            <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Start searching</h3>
+            <p className="text-gray-400">Enter at least 3 characters to search for identities.</p>
           </div>
         )
         }
