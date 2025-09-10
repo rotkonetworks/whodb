@@ -33,7 +33,7 @@ export default function App() {
             <AccountProvider>
               <BalanceProvider>
                 <UserProvider>
-                  <WebSocketProvider url="ws://localhost:8080/ws">
+                  <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}>
                     <SearchProvider>
                       <QueryClientProvider client={queryClient}>
                         <VerificationProvider>
