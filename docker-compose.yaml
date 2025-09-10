@@ -1,19 +1,7 @@
 services:
-  # NOTE: not needed for deploying through workflows
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     target: production
-  #   container_name: web
-  #   ports:
-  #     - "${PORT:-3000}:3000"
-  web-nginx:
-    build:
-      context: .
-      dockerfile: ./nginx/Dockerfile
-    # depends_on:
-    #   - web
+  whodb:
+    image: whodb:${VERSION_TAG:-prod}
+    container_name: ${SERVICE_NAME:-whodb}
     ports:
-      - "127.0.0.1:${NGINX_PORT:-63999}:80"
+      - "${PORT:-3000}:3000"
     restart: unless-stopped

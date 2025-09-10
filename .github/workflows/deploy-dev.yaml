@@ -1,22 +1,6 @@
 name: Build and Deploy Dev
 
-env:
-  SERVER_USER: "w3reg"
-  SERVER_IP: "135.181.202.179"
-  DEPLOY_PATH: "/home/w3reg/dev.whodb.org"
-  NODE_VERSION: "18"
-  VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
-  VITE_APP_DEFAULT_WS_URL: "wss://dev.rotko.net/people-rococo"
-  VITE_APP_DEFAULT_WS_URL_RELAY: "wss://dev.rotko.net/rococo"
-  VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT: 5
-  VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA: 7
-  VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO: 1
-  VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO: 0
-  VITE_APP_AVAILABLE_CHAINS: polkadot_people,ksmcc3_people,paseo_people,rococo_people
-  VITE_APP_DEFAULT_CHAIN: paseo_people
-  MODE: "development"
-  # we using staging api
-
+# Not sure if most of these env:s are needed, but they will do for now 
 on:
   pull_request:
     branches:
@@ -30,45 +14,69 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env: 
+      VERSION_TAG: dev
+      PROJECT_DIR: dev-whodb
+      NODE_VERSION: "18"
+      VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
+      VITE_APP_DEFAULT_WS_URL: "wss://dev.rotko.net/people-rococo"
+      VITE_APP_DEFAULT_WS_URL_RELAY: "wss://dev.rotko.net/rococo"
+      VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT: 5
+      VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA: 7
+      VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO: 1
+      VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO: 0
+      VITE_APP_AVAILABLE_CHAINS: polkadot_people,ksmcc3_people,paseo_people,rococo_people
+      VITE_APP_DEFAULT_CHAIN: paseo_people
+      BUILD_TARGET: "dev"
+      VITE_APP_CHALLENGES_API_URL: wss://dapi.w3reg.org
+      MODE: "development"
     steps:
       - uses: actions/checkout@v3
 
-      - uses: ./.github/actions/setup-build-env
+      # Set env vars
+      - name: Create env vars
+        run: |
+          echo "VITE_APP_CHALLENGES_API_URL=${{env.VITE_APP_CHALLENGES_API_URL}}" > .env
+          echo "VITE_APP_DEFAULT_CHAIN=${{ env.VITE_APP_DEFAULT_CHAIN }}" >> .env
+          echo "VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT=${{ env.VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT }}" >> .env
+          echo "VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA=${{ env.VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA }}" >> .env
+          echo "VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO=${{ env.VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO }}" >> .env
+          echo "VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO=${{ env.VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO }}" >> .env
+          echo "# used for docker-compose"
+          echo "VERSION_TAG=${{ env.VERSION_TAG }}" >> .env
+          echo "SERVICE_NAME=whodb-${{ env.VERSION_TAG }}" >> .env
 
+      # Build app
+      # - name: Build the application
+      #   uses: ./.github/actions/setup-build-env
+
+      # Build app
       - name: Build the application
-        env:
-          BUILD_TARGET: "production"
-          VITE_APP_CHALLENGES_API_URL: wss://dapi.w3reg.org
         run: |
-          nix-shell --command "bash scripts/setup.sh"
-          nix-shell --command "bash scripts/build.sh"
+          docker build -t whodb:${{ env.VERSION_TAG }} .
+          docker save whodb:${{ env.VERSION_TAG }} | gzip > ${{ env.VERSION_TAG }}-whodb.tar.gz
 
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.5.3
+      # Copy app to server
+      - name: Copy to server
+        uses: appleboy/scp-action@v0.1.5
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "${{ env.VERSION_TAG }}-whodb.tar.gz,Dockerfile,docker-compose.yaml,.env"
+          target: "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
 
-      - name: Add SSH Key to Known Hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t ed25519 ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
+      # Run app
       - name: Deploy to server
-        run: |
-          set -euo pipefail
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
-            set -euo pipefail
-            rm -fr ${{ env.DEPLOY_PATH }}/nginx || true
-            rm -fr ${{ env.DEPLOY_PATH }}/dist || true
-            mkdir -p ${{ env.DEPLOY_PATH }}
-          EOF
-          scp -r ./nginx ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}
-          scp -r ./dist ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}
-          scp docker-compose.yaml ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}/docker-compose.yaml
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
-            set -euo pipefail
-            cd ${{ env.DEPLOY_PATH }}
-            echo "NGINX_PORT=41999" > .env
-            docker compose up --build -d web-nginx
-          EOF
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
+            podman compose down
+            podman load --input ${{ env.VERSION_TAG }}-whodb.tar.gz
+            podman tag $(podman images --format "{{.Repository}}:{{.Tag}}" | head -1) whodb:${{ env.VERSION_TAG }}
+            podman compose up -d
+            # rm ${{ env.VERSION_TAG }}-whodb.tar.gz
