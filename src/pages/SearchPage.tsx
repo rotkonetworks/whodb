@@ -23,16 +23,14 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const query = searchParams.get('data') || '';
-  const decodedString = atob(query);
-  var searchTxt = '';
+  const query = searchParams.get('query') || '';
+  // const decodedString = atob(query);
+  var searchTxt = query;
   var searchJson = null;
 
   // Get query from decoded base64 url param
-  if (decodedString != '') {
-    const searchData = JSON.parse(decodedString);
-    searchTxt = searchData.searchTxt;
-    searchJson = searchData.searchJson;
+  if (query != '') {
+    searchJson = constructSearcObject(query);
   }
 
   const fetchResults = async (searchQuery: string, limit: number = 20) => {
@@ -78,10 +76,8 @@ export default function SearchPage() {
       navigate('/search')
       return
     }
-    const searchObj = constructSearcObject(searchQuery);
     // Use Base64 encoding for safer URL handling
-    const searchString = btoa(JSON.stringify({ "searchTxt": searchQuery, "searchJson": searchObj }));
-    navigate(`/search?data=${searchString}`);
+    navigate(`/search?query=${searchQuery}`);
   }
 
   const resultsLength = results?.length || 0
