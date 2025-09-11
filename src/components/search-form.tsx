@@ -34,10 +34,8 @@ export default function SearchForm() {
 
     setIsSubmitting(true)
     setShowSuggestions(false)
-    const searchObj = constructSearcObject(query);
     // Use Base64 encoding for safer URL handling
-    const searchString = btoa(JSON.stringify({ "searchTxt": query, "searchJson": searchObj }));
-    navigate(`/search?data=${searchString}`);
+    navigate(`/search?query=${query}`);
   }
 
   const handleSuggestionClick = (profile: any) => {
