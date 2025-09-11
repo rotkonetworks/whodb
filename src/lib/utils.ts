@@ -37,6 +37,8 @@ export function mapSearchKey(key: string): string | null {
       return "PGPFingerprint"
     case "github":
       return "Github"
+    case "display_name":
+      return "Display"
     default:
       return null
   }
@@ -59,13 +61,19 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
       const key = match[1].trim();
       const value = match[2].trim();
 
-      if (key && value !== undefined) {
-        if (AllowedFields.includes(key.toLowerCase()) || key.toLowerCase() === "network" || key.toLowerCase() === "result_size") {
-          result[key] = value;
-        }
+      if (key && value !== undefined && AllowedFields.includes(key.toLowerCase())) {
+        result[key] = value;
       }
     }
-
+    
+    // If no structured fields found and query is not empty, search across multiple fields
+    if (Object.keys(result).length === 0 && input.trim()) {
+      const searchableFields = ["display_name", "discord", "matrix", "twitter", "email", "web"];
+      searchableFields.forEach(field => {
+        result[field] = input.trim();
+      });
+    }
+    
     return result;
   }
 

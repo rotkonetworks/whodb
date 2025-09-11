@@ -187,7 +187,6 @@ export default function SearchPage() {
                     type="button"
                     className="btn-primary px-4 py-2 rounded-lg text-sm"
                     onClick={() => {
-                      const profileString = btoa(JSON.stringify(profile));
                       navigate(`/profile/${profile.wallet_id}`);
                     }}>
                     View Profile
