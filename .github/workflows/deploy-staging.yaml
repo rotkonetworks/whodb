@@ -1,9 +1,9 @@
 name: Build and Deploy preproduction
 env:
   NODE_VERSION: "18"
-  SERVER_USER: "w3reg"
+  SERVER_USER: "deploy"
   SERVER_IP: "157.180.90.37"
-  DEPLOY_PATH: "/home/w3reg/staging.whodb.org"
+  DEPLOY_PATH: "/home/deploy/staging.whodb.org"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
   VITE_APP_DEFAULT_WS_URL: wss://people-paseo.dotters.network
   VITE_APP_DEFAULT_WS_URL_RELAY: wss://paseo.dotters.network

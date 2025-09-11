@@ -10,7 +10,6 @@ import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
 // Import pages
 import HomePage from './pages/homepage'
-import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
@@ -39,7 +38,6 @@ export default function App() {
                         <VerificationProvider>
                           <Routes>
                             <Route path="/" element={<HomePage />} />
-                            <Route path="/login" element={<LoginPage />} />
                             <Route path="/register" element={
                               <OptimizedPolkadotRoute>
                                 <RegisterPage />

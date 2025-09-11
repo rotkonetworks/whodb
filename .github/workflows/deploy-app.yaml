@@ -1,11 +1,11 @@
 name: Deploy app
 
 env:
-  SERVER_USER: "w3reg"
+  SERVER_USER: "deploy"
   SERVER_IP: "157.180.90.37"
-  DEPLOY_PATH: "/home/w3reg/app.whodb.org"
-  BACKUP_PATH: "/home/w3reg/backups"
-  STAGING_PATH: "/home/w3reg/staging.whodb.org"
+  DEPLOY_PATH: "/home/deploy/app.whodb.org"
+  BACKUP_PATH: "/home/deploy/backups"
+  STAGING_PATH: "/home/deploy/staging.whodb.org"
   MODE: "production"
 
 on:
