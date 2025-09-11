@@ -1,8 +1,8 @@
-name: whodb
 services:
-  whodb:
-    image: whodb:${VERSION_TAG:-prod}
-    container_name: ${SERVICE_NAME:-whodb}
+  web-nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
     ports:
-      - "${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-63999}:80"
     restart: unless-stopped

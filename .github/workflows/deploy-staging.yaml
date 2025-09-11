@@ -56,6 +56,6 @@ jobs:
             DEPLOY_PATH="/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
             mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
-            echo "NGINX_PORT=51999" > .env
+            echo "PORT=51999" > .env
             docker compose down
             docker compose up --build -d web-nginx

@@ -53,5 +53,5 @@ jobs:
             set -euo pipefail
             cd "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
             docker compose down
-            echo "NGINX_PORT=61999" > .env
+            echo "PORT=61999" > .env
             docker compose up --build -d web-nginx
