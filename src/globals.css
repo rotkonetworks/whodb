@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 /* Base theme variables */
 :root {
   --background: 222.2 84% 4.9%;
@@ -10,7 +9,7 @@
   --card-foreground: 210 40% 98%;
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
-  --primary: 230 100% 48%;
+  --primary: 343 89% 58%;
   --primary-foreground: 210 40% 98%;
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
@@ -25,34 +24,28 @@
   --ring: 212.7 26.8% 83.9%;
   --radius: 0.5rem;
 }
-
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
   font-feature-settings: "rlig" 1, "calt" 1;
 }
-
 /* Base button styles */
 @layer base {
   * {
     border-color: hsl(var(--border));
   }
-
   button,
   .btn {
     transition: all 200ms ease-in-out;
   }
 }
-
 /* Network-specific accent colors */
 .network-polkadot {
   --primary: 339 100% 48%;
 }
-
 .network-kusama {
   --primary: 206 100% 50%;
 }
-
 .network-paseo {
   --primary: 330 81% 60%;
 }
