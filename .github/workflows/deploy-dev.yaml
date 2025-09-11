@@ -1,9 +1,7 @@
 name: Build and Deploy Dev
 
 env:
-  SERVER_USER: "deploy"
-  SERVER_IP: "157.180.90.37"
-  DEPLOY_PATH: "/home/deploy/dev.whodb.org"
+  PROJECT_DIR: dev.whodb.org
   NODE_VERSION: "18"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
   VITE_APP_DEFAULT_WS_URL: "wss://people-paseo.dotters.network"
@@ -31,7 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-build-env
+
       - name: Build the application
         env:
           BUILD_TARGET: "production"
@@ -39,32 +39,27 @@ jobs:
         run: |
           nix-shell --command "bash scripts/setup.sh"
           nix-shell --command "bash scripts/build.sh"
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Add SSH Key to Known Hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t ed25519 ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+
       - name: Deploy to server
-        run: |
-          set -euo pipefail
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "nginx/,docker-compose.yaml,dist/"
+          target: "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
+
+      - name: Start services
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
             set -euo pipefail
-            rm -fr ${{ env.DEPLOY_PATH }}/nginx || true
-            rm -fr ${{ env.DEPLOY_PATH }}/dist || true
-            mkdir -p ${{ env.DEPLOY_PATH }}
-          EOF
-          scp -r ./nginx ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}
-          scp -r ./dist ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}
-          scp docker-compose.yaml ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}/docker-compose.yaml
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
-            set -euo pipefail
-            cd ${{ env.DEPLOY_PATH }}
-            # stop and remove existing containers
-            docker compose down --remove-orphans || true
+            DEPLOY_PATH="/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
+            mkdir -p "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
             echo "NGINX_PORT=41999" > .env
-            docker compose up --build -d
-          EOF
+            docker compose down
+            docker compose up --build -d web-nginx

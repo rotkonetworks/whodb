@@ -1,11 +1,8 @@
 name: Deploy app
 
 env:
-  SERVER_USER: "deploy"
-  SERVER_IP: "157.180.90.37"
-  DEPLOY_PATH: "/home/deploy/app.whodb.org"
-  BACKUP_PATH: "/home/deploy/backups"
-  STAGING_PATH: "/home/deploy/staging.whodb.org"
+  PROJECT_DIR: whodb.org
+  STAGING_DIR: staging.whodb.org
   MODE: "production"
 
 on:
@@ -22,40 +19,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add SSH Key to Known Hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t ed25519 ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
       - name: Backup current app.whodb.org
-        run: |
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
             set -euo pipefail
-            TIMESTAMP=\$(date +%Y%m%d%H%M%S)
-            mkdir -p ${{ env.BACKUP_PATH }}
-            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
-              mv ${{ env.DEPLOY_PATH }} ${{ env.BACKUP_PATH }}/whodb-org-\$TIMESTAMP
+            TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+            mkdir -p "/home/${{ secrets.DEPLOY_USER }}/backups/${{ env.PROJECT_DIR }}"
+            if [ -d "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}" ]; then
+              mv "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}" "/home/${{ secrets.DEPLOY_USER }}/backups/${{ env.PROJECT_DIR }}-${TIMESTAMP}"
             fi
-            cp -r ${{ env.STAGING_PATH }} ${{ env.DEPLOY_PATH }}
-          EOF
+            cp -r "/home/${{ secrets.DEPLOY_USER }}/${{ env.STAGING_DIR }}" "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
 
       - name: Deploy specific docker-compose
-        run: |
-          scp docker-compose.yaml ${{ env.SERVER_USER }}@${{ env.SERVER_IP }}:${{ env.DEPLOY_PATH }}/docker-compose.yaml
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "docker-compose.yaml"
+          target: "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
 
       - name: Deploy/Build with docker compose
-        run: |
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
             set -euo pipefail
-            cd ${{ env.DEPLOY_PATH }}
-            # stop and remove existing containers
-            docker compose down --remove-orphans || true
+            cd "/home/${{ secrets.DEPLOY_USER }}/${{ env.PROJECT_DIR }}"
+            docker compose down
             echo "NGINX_PORT=61999" > .env
-            docker compose up --build -d
-          EOF
+            docker compose up --build -d web-nginx
