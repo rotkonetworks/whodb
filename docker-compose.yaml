@@ -1,3 +1,4 @@
+name: whodb
 services:
   # NOTE: not needed for deploying through workflows
   # web:

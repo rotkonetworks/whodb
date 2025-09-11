@@ -2,7 +2,7 @@ name: Build and Deploy Dev
 
 env:
   SERVER_USER: "w3reg"
-  SERVER_IP: "135.181.202.179"
+  SERVER_IP: "157.180.90.37"
   DEPLOY_PATH: "/home/w3reg/dev.whodb.org"
   NODE_VERSION: "18"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
@@ -69,6 +69,8 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
+            # stop and remove existing containers
+            docker compose down --remove-orphans || true
             echo "NGINX_PORT=41999" > .env
-            docker compose up --build -d web-nginx
+            docker compose up --build -d
           EOF

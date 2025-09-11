@@ -61,6 +61,8 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
+            # stop and remove existing containers
+            docker compose down --remove-orphans || true
             echo "NGINX_PORT=51999" > .env
-            docker compose up --build -d web-nginx
+            docker compose up --build -d
           EOF
