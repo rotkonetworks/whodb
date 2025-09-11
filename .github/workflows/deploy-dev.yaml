@@ -12,6 +12,8 @@ env:
   VITE_APP_REGISTRAR_INDEX__PEOPLE_ROCOCO: 0
   VITE_APP_AVAILABLE_CHAINS: polkadot_people,ksmcc3_people,paseo_people,rococo_people
   VITE_APP_DEFAULT_CHAIN: paseo_people
+  BUILD_TARGET: "production"
+  VITE_APP_CHALLENGES_API_URL: wss://sapi.w3reg.org
   MODE: "development"
 
 on:
@@ -33,9 +35,6 @@ jobs:
       - uses: ./.github/actions/setup-build-env
 
       - name: Build the application
-        env:
-          BUILD_TARGET: "production"
-          VITE_APP_CHALLENGES_API_URL: wss://sapi.w3reg.org
         run: |
           nix-shell --command "bash scripts/setup.sh"
           nix-shell --command "bash scripts/build.sh"

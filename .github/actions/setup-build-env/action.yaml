@@ -1,27 +1,27 @@
 name: Set up environment
-
 runs:
   using: "composite"
   steps:
     - name: Install Nix
-      uses: cachix/install-nix-action@v30 
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixos-unstable
-
     - shell: bash
       run: |
         curl -fsSL https://bun.sh/install | bash -s "canary"
         nix-shell --command "bun run scripts/safeParseEnv.js"
-        
+
         # Filter and override with existing non-empty VITE_APP_ variables
-        # echo "Appending valid overrides to .env:"
-        # while IFS='=' read -r key value; do
-        #   if [[ "$key" == VITE_APP_* ]] && [[ -n "$value" ]]; then
-        #     echo "$key=$value" >> .env
-        #     echo "$key added"
-        #   fi
-        # done < <(env)
-        
+        echo "Appending valid overrides to .env:"
+        while IFS='=' read -r key value; do
+          if [[ "$key" == VITE_APP_* ]] && [[ -n "$value" ]]; then
+            # Remove existing key from .env and append new value
+            sed -i "/^$key=/d" .env
+            echo "$key=$value" >> .env
+            echo "$key overridden with: $value"
+          fi
+        done < <(env)
+
         # Check if .env file exists and has content
         line_count=$(cat .env | wc -l)
         echo "Environment file has $line_count lines"
