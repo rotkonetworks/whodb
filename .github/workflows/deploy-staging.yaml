@@ -2,7 +2,7 @@ name: Build and Deploy preproduction
 env:
   NODE_VERSION: "18"
   SERVER_USER: "w3reg"
-  SERVER_IP: "135.181.202.179"
+  SERVER_IP: "157.180.90.37"
   DEPLOY_PATH: "/home/w3reg/staging.whodb.org"
   VITE_APP_WALLET_CONNECT_PROJECT_ID: w3reg
   VITE_APP_DEFAULT_WS_URL: wss://people-paseo.dotters.network
@@ -61,6 +61,8 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
+            # stop and remove existing containers
+            docker compose down --remove-orphans || true
             echo "NGINX_PORT=51999" > .env
-            docker compose up --build -d web-nginx
+            docker compose up --build -d
           EOF

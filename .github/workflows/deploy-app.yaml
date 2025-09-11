@@ -2,7 +2,7 @@ name: Deploy app
 
 env:
   SERVER_USER: "w3reg"
-  SERVER_IP: "135.181.202.179"
+  SERVER_IP: "157.180.90.37"
   DEPLOY_PATH: "/home/w3reg/app.whodb.org"
   BACKUP_PATH: "/home/w3reg/backups"
   STAGING_PATH: "/home/w3reg/staging.whodb.org"
@@ -54,6 +54,8 @@ jobs:
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_IP }} << EOF
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
+            # stop and remove existing containers
+            docker compose down --remove-orphans || true
             echo "NGINX_PORT=61999" > .env
-            docker compose up --build -d web-nginx
+            docker compose up --build -d
           EOF

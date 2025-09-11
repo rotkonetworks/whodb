@@ -1,3 +1,4 @@
+name: whodb
 services:
   whodb:
     image: whodb:${VERSION_TAG:-prod}
