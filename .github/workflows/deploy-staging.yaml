@@ -9,7 +9,7 @@ env:
   VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO: 1
   VITE_APP_AVAILABLE_CHAINS: paseo_people
   VITE_APP_DEFAULT_CHAIN: paseo_people
-  VITE_APP_CHALLENGES_API_URL: ${{ vars.WS_API_URL }}
+  VITE_APP_CHALLENGES_API_URL: wss://api.w3reg.org
   MODE: "staging"
 
 on:

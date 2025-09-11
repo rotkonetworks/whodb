@@ -18,8 +18,13 @@ while [ ! -d .papi/descriptors/dist ]; do
     fi
 done
 
-if [ ! -f .env ]; then
+# Only copy .env.example if we're NOT in a CI environment
+# CI environments should provide their own environment variables
+if [ ! -f .env ] && [ -z "${CI:-}" ] && [ -z "${GITHUB_ACTIONS:-}" ]; then
     cp .env.example .env
+    echo "Copied .env.example to .env for local development"
+else
+    echo "Skipping .env creation - using CI environment variables"
 fi
 
 echo "Papi setup completed successfully."
