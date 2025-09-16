@@ -111,8 +111,9 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       });
 
       try {
-        ws.current.send(message);
-        console.log('WebSocket message sent:', message);
+        const messageString = JSON.stringify(message);
+        ws.current.send(messageString);
+        console.log('WebSocket message sent:', messageString);
       } catch (err) {
         clearTimeout(timeout);
         pendingRequests.current.delete(requestId);

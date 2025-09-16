@@ -945,10 +945,16 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   // Connect to a specific chain
   const connect = useCallback(async (chainId: keyof typeof CHAINS) => {
-    if (isConnecting) return;
-    if (currentChain === chainId && isConnected) return; // Already connected to this chain
+    if (isConnecting) {
+      console.log("Connection already in progress, skipping");
+      return;
+    }
+    if (currentChain === chainId && isConnected) {
+      console.log("Already connected to chain:", chainId);
+      return; // Already connected to this chain
+    }
 
-    console.debug("Connecting to chain:", chainId);
+    console.log("Connecting to chain:", chainId, "- Config:", CHAINS[chainId]);
 
     // Clear any existing timeout
     if (connectionTimeoutRef.current) {
@@ -962,11 +968,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     try {
       // Disconnect from previous chain if different
       if (currentChain && currentChain !== chainId) {
+        console.log("Disconnecting from previous chain:", currentChain);
         await disconnect();
       }
 
       // Create new client and typed API (using cached connections)
+      console.log("Creating chain client for:", chainId);
       const newProvider = createChainClient(chainId);
+      console.log("Getting typed API...");
       const newTypedApi = await getTypedApi(chainId, newProvider);
 
       // Store refs for cleanup
@@ -983,7 +992,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       setIsConnected(true);
 
     } catch (err) {
-      console.error("Connection error:", err);
+      console.error("Connection error for chain", chainId, ":", err);
+      console.error("Chain config:", CHAINS[chainId]);
       setError(err instanceof Error ? err.message : 'Failed to connect');
       setClient(null);
       setTypedApi(null);
@@ -1031,6 +1041,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const network = chainStore.id;
   // Auto-connect on network change with debouncing
   useEffect(() => {
+    console.log('Auto-connect effect triggered:', {
+      network,
+      currentChain,
+      isConnected,
+      isConnecting,
+      networkInChains: network && (network in CHAINS)
+    });
+    
     if (isConnected || isConnecting) return;
     if (!network || network === currentChain) return;
     if (!(network in CHAINS)) return;
@@ -1042,7 +1060,11 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
     // Debounce connection attempts
     connectionTimeoutRef.current = setTimeout(() => {
-      connect(network as keyof typeof CHAINS);
+      console.log('Attempting to connect to network:', network);
+      connect(network as keyof typeof CHAINS).catch(err => {
+        console.error('Connection failed:', err);
+        setError(err.message || 'Connection failed');
+      });
     }, 300); // 300ms debounce
 
     return () => {

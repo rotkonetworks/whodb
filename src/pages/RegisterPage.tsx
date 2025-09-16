@@ -61,12 +61,10 @@ export default function RegisterPage() {
     accountStore,
     identity,
     fetchIdAndJudgement,
-    challenges,
     formatAmount,
     isTxBusy,
     supportedFields,
     typedApi,
-    sendPGPVerification,
     signSubmitAndWatch,
     chainConstants,
     balance, // Current account balance
@@ -90,9 +88,8 @@ export default function RegisterPage() {
     getFieldStatus,
     getAllFilledFields,
     resetFieldVerification,
-    setChallenges,
-    setSendPGPVerification,
     setInitialVerifications,
+    challenges,
   } = useVerification()
 
   useEffect(() => {
@@ -103,15 +100,16 @@ export default function RegisterPage() {
       [ChallengeStatus.Failed]: "failed",
     }
 
+    // Convert WebSocket challenges to FieldVerification format
     const verifications: FieldVerification[] = Object.entries(challenges || {}).map(([key, challenge]) => {
-      const status = challengeStatusMapping[challenge.status] || "unknown"
+      const status = challengeStatusMapping[challenge.status] || "unverified"
 
       return {
         field: key,
         status,
         lastVerified: challenge.lastVerified,
-        verificationMethod: challenge.verificationMethod,
-        verificationPayload: challenge.verificationPayload,
+        verificationMethod: challenge.verificationMethod || "code",
+        verificationPayload: challenge.code,
       }
     })
 
@@ -226,15 +224,10 @@ export default function RegisterPage() {
       return true
     }
 
-    // For the fillIdentityInfo step, we only need displayName + at least one other field
-    // No verification required at this step
-    const hasDisplayName = identityData.display.trim() !== ""
-    const otherFields = Object.entries(identityData)
-      .filter(([key, value]) => key !== "displayName" && value && value.trim() !== "")
-    const hasOtherFields = otherFields.length > 0
-
-    return hasDisplayName && hasOtherFields
-  }, [identityData])
+    // For the fillIdentityInfo step, identity must be submitted to chain to proceed
+    // This ensures identity data is on-chain before verification step
+    return identity.status >= IdentityVerificationStatus.IdentitySet
+  }, [identity.status])
 
   const canProceedFromVerificationStep = useMemo(() => {
     if (identity.status === IdentityVerificationStatus.IdentityVerified) {
@@ -266,14 +259,19 @@ export default function RegisterPage() {
       handleNetworkSelect(_network)
     }
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) {
-      // For fillIdentityInfo, we only need displayName + at least one other field
-      // No verification required at this step
-      if (identityData.display.trim() === "") {
-        toast.error("Please provide a Display Name.")
-        return
-      } else if (getAllFilledFields(identityData).filter((f) => f !== "display").length === 0) {
-        toast.error("Please fill at least one other field besides Display Name.")
-        return
+      // For fillIdentityInfo step, identity must be submitted to chain first
+      if (identity.status < IdentityVerificationStatus.IdentitySet) {
+        // Check if form has required data before prompting to submit
+        if (identityData.display.trim() === "") {
+          toast.error("Please provide a Display Name before submitting.")
+          return
+        } else if (getAllFilledFields(identityData).filter((f) => f !== "display").length === 0) {
+          toast.error("Please fill at least one other field besides Display Name before submitting.")
+          return
+        } else {
+          toast.error("Please submit your identity data to the blockchain before proceeding to verification.")
+          return
+        }
       }
     }
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) {
@@ -313,6 +311,7 @@ export default function RegisterPage() {
     setEstimatedCosts({})
     setTxToConfirm(null)
     setCurrentDialogMode(null)
+    setIsSubmittingIdentity(false) // Reset submitting state when dialog closes
   }, [])
 
   const submitTransaction = useCallback(async () => {
@@ -333,8 +332,14 @@ export default function RegisterPage() {
 
       // Determine action based on dialog mode
       if (currentDialogMode === "setIdentity") {
-        action = isEditMode ? "Updating" : "Submitting"
-        nextStep = STEP_NUMBERS.reviewAndSubmit
+        // Check if this is a batch transaction (multiple operations)
+        const isBatchTransaction = txToConfirm?.method?.method === "batchAll"
+        if (isBatchTransaction) {
+          action = "Processing identity update (multi-step)"
+        } else {
+          action = isEditMode ? "Updating" : "Submitting"
+        }
+        nextStep = currentStep === STEP_NUMBERS.fillIdentityInfo ? STEP_NUMBERS.reviewAndSubmit : currentStep
       } else if (currentDialogMode === "requestJudgement") {
         action = "Requesting judgement for"
         // Stay on same step to complete verification
@@ -342,8 +347,13 @@ export default function RegisterPage() {
 
       await signSubmitAndWatch({
         call: txToConfirm,
-        name: `${action} identity`,
+        name: action.endsWith("(multi-step)") ? action : `${action} identity`,
       })
+
+      // Auto-advance to next step if identity was submitted from step 5
+      if (currentDialogMode === "setIdentity" && currentStep === STEP_NUMBERS.fillIdentityInfo) {
+        setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
+      }
 
       // Close the dialog
       closeTxDialog()
@@ -361,8 +371,73 @@ export default function RegisterPage() {
   const onSetIdentity = async () => {
     if (!walletAddress || !typedApi) return
 
+    // Set submitting state early to prevent double-clicks
+    setIsSubmittingIdentity(true)
+
     try {
-      // Prepare transaction data
+      // Prepare all three transactions in sequence
+      const transactions = await prepareIdentityTransactions()
+      
+      if (transactions.length === 0) {
+        throw new Error("No transactions to execute")
+      }
+      
+      console.log(`Preparing ${transactions.length} transaction(s) for execution`)
+
+      // For multi-transaction, use the batch transaction for fee estimation
+      // This is more accurate than summing individual fees
+      const estimatedCosts = {
+        fees: transactions.length > 1 
+          ? await getTxFees(typedApi.tx.utility.batchAll(transactions))(walletAddress)
+          : await getTxFees(transactions[0])(walletAddress),
+        deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
+      }
+      
+      console.log('Estimated costs for transaction:', estimatedCosts)
+
+      // Create batch transaction if multiple operations needed
+      const batchTx = transactions.length > 1 
+        ? typedApi.tx.utility.batchAll(transactions)
+        : transactions[0]
+
+      // Set dialog state for transaction confirmation
+      setEstimatedCosts(estimatedCosts)
+      setTxToConfirm(batchTx)
+      setCurrentDialogMode("setIdentity")
+
+      // Open transaction dialog
+      setOpenDialog("setIdentity")
+      setTxName(transactions.length > 1 ? "Update Identity (Multi-step)" : "Set Identity")
+      
+      // Reset submitting state since we're now waiting for user confirmation in dialog
+      setIsSubmittingIdentity(false)
+    } catch (error: any) {
+      console.error("Transaction preparation error:", error)
+      toast.error(`Failed to prepare transaction: ${error.message}`)
+      setIsSubmittingIdentity(false) // Reset on error
+    }
+  }
+
+  // Helper function to prepare all identity-related transactions
+  const prepareIdentityTransactions = async () => {
+    const transactions = []
+
+    try {
+      // Step 1: Cancel any pending registration request (if needed)
+      if (identity?.status === IdentityVerificationStatus.PendingJudgement) {
+        console.log("Adding cancel request transaction...")
+        const registrarIndex = Number(import.meta.env[
+          `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
+        ])
+        
+        if (!isNaN(registrarIndex)) {
+          const cancelTx = typedApi.tx.identity.cancelRequest(registrarIndex)
+          transactions.push(cancelTx)
+        }
+      }
+
+      // Step 2: Set identity (existing logic)
+      console.log("Adding set identity transaction...")
       const dataToSubmit = identityData
 
       // Transform the data to the format expected by the blockchain
@@ -406,26 +481,39 @@ export default function RegisterPage() {
         info.pgp_fingerprint = fromHexString(`14${formattedPgpFingerprint}`)
       }
 
-      // Create the transaction
-      const tx = typedApi.tx.identity.setIdentity(info)
+      const setIdentityTx = typedApi.tx.identity.setIdentity(info)
+      transactions.push(setIdentityTx)
 
-      // Estimate costs
-      const estimatedCosts = {
-        fees: await getTxFees(tx)(walletAddress),
-        deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
+      // Step 3: Request judgement
+      console.log("Adding request judgement transaction...")
+      const registrarIndex = Number(import.meta.env[
+        `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
+      ])
+      
+      if (isNaN(registrarIndex)) {
+        throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
       }
 
-      // Set dialog state for transaction confirmation
-      setEstimatedCosts(estimatedCosts)
-      setTxToConfirm(tx)
-      setCurrentDialogMode("setIdentity")
+      const registrars = await typedApi.query.identity.registrars()
+      const registrarFee = BigInt(registrars[registrarIndex]?.value.fee)
+      const requestJudgementTx = typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee)
+      transactions.push(requestJudgementTx)
 
-      // Open transaction dialog
-      setOpenDialog("setIdentity")
-      setTxName("Set Identity")
-    } catch (error: any) {
-      console.error("Transaction preparation error:", error)
-      toast.error(`Failed to prepare transaction: ${error.message}`)
+      console.log(`✅ Prepared ${transactions.length} transactions:`, {
+        steps: transactions.map((tx, index) => {
+          if (tx.method.method === "cancelRequest") return `${index + 1}. Cancel pending request`
+          if (tx.method.method === "setIdentity") return `${index + 1}. Set identity`  
+          if (tx.method.method === "requestJudgement") return `${index + 1}. Request judgment`
+          return `${index + 1}. ${tx.method.method}`
+        }),
+        totalSteps: transactions.length
+      })
+
+      return transactions
+
+    } catch (error) {
+      console.error("Error preparing identity transactions:", error)
+      throw error
     }
   }
 
@@ -507,7 +595,27 @@ export default function RegisterPage() {
     [balance, minBalanceAmount]
   )
 
+  // Auto-select a default network if none is selected 
+  useEffect(() => {
+    if (!network && !_network) {
+      // Set default network to paseo_people (testnet with free tokens)
+      const defaultNetwork = "paseo_people" as AppNetwork;
+      console.log('Setting default network:', defaultNetwork);
+      setNetwork(defaultNetwork);
+      _setNetwork(defaultNetwork);
+      chainStore.id = defaultNetwork;
+    }
+  }, [network, _network, setNetwork, chainStore]);
+
   useEffect(() => {// Set steps based on whether required information is available
+    console.log('RegisterPage step determination:', {
+      network,
+      connectedWallets: connectedWallets.length,
+      accounts: accounts.length,
+      accountAddress: accountStore.address,
+      hasEnoughBalance
+    });
+    
     if (network) {
       setCurrentStep(STEP_NUMBERS.connectWallet)
     } else {
@@ -556,19 +664,7 @@ export default function RegisterPage() {
 
   const { theme: isDark } = useTheme()
 
-  // Sync WebSocket challenges with verification context
-  useEffect(() => {
-    if (challenges && typeof challenges === 'object') {
-      setChallenges(challenges)
-    }
-  }, [challenges, setChallenges])
-
-  // Sync sendPGPVerification function with verification context
-  useEffect(() => {
-    if (sendPGPVerification) {
-      setSendPGPVerification(() => sendPGPVerification)
-    }
-  }, [sendPGPVerification, setSendPGPVerification])
+  // Console log challenges from WebSocket for debugging
 
   if (isUserLoading || isLoadingProfileForEdit) {
     return (
@@ -757,10 +853,10 @@ export default function RegisterPage() {
                   className="w-full mt-6"
                 >
                   {isSubmittingIdentity
-                    ? "Submitting Identity Data..."
+                    ? "Processing Identity Update..."
                     : identity.status === IdentityVerificationStatus.NoIdentity
-                      ? "Submit Identity Data"
-                      : "Update Identity Data"
+                      ? "Submit Identity & Request Judgment"
+                      : "Update Identity & Request Judgment"
                   }
                 </Button>
               </>
@@ -799,7 +895,7 @@ export default function RegisterPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400 text-sm">Wallet Address:</span>
                         <span className="text-gray-300 text-sm font-mono break-all">
-                          {accountStore.encodedAddress.substring(0, 10)}...{accountStore.encodedAddress.substring(accountStore.encodedAddress.length - 10)}
+                          {accountStore.encodedAddress}
                         </span>
                       </div>
                       {Object.entries(identityData)

@@ -127,6 +127,12 @@ export function createChainClient(chainId: keyof typeof CHAINS) {
   }
 
   const config = CHAINS[chainId];
+  console.log('Creating WebSocket connection for:', chainId, 'to endpoint:', config.endpoint);
+  
+  if (!config.endpoint) {
+    throw new Error(`No endpoint configured for chain ${chainId}. Check environment variables.`);
+  }
+  
   const provider = new WsProvider(config.endpoint);
   
   // Store in cache (will be completed when getTypedApi is called)

@@ -1,0 +1,11 @@
+File /home/tinker/Programming/JS/whodb/log.txt
+
+Errors :
+5 : there is no definition with the identity: 0
+
+Warnings :
+1 : the definition is not identified
+4 : the definition is not identified
+7 : the definition is not identified
+
+Your trace has 1 errors and 3 warnings.

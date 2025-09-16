@@ -19,12 +19,18 @@ export interface NotifyAccountPayload {
   verification_state: VerificationState;
 }
 
+export interface PendingChallenge {
+  account_name: string;
+  account_type: string;
+  challenge: string;
+}
+
 export interface ResponseAccountState {
   account: string;
   network?: string;
   hashed_info: string;
   verification_state: VerificationState;
-  pending_challenges: [string, string][];
+  pending_challenges: PendingChallenge[];
 }
 
 interface VerificationState {
@@ -113,14 +119,15 @@ export const useChallengeWebSocket = (
           account: address,
           network: cleanNetwork,
         },
+        version: '1.0',
       };
 
       try {
         webSocketInstance.sendMessage(message);
         unsubscribe.current = webSocketInstance.subscribe(handleMessage);
-        console.log('Subscription message sent:', message);
+        console.log('WebSocket subscription successful - automatically fetching pending challenges:', message);
       } catch (err) {
-        console.error('Subscription failed:', err);
+        console.error('WebSocket subscription failed:', err);
         setHasSubscribed(false);
       }
     }
@@ -138,7 +145,8 @@ export const useChallengeWebSocket = (
   );
 
   const handleMessage = (message: any) => {
-    console.log('Challenge WebSocket message received:', message);
+    console.log('🔵 Challenge WebSocket message received');
+    console.log('🔵 Message type:', message.type);
 
     switch (message.type) {
       case 'JsonResult':
@@ -150,19 +158,7 @@ export const useChallengeWebSocket = (
           } else if (message.payload.message && typeof message.payload.message === 'object') {
             const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
             if (response) {
-              // Normalize pending challenges and apply key mapping
-              response.pending_challenges = response.pending_challenges.map(([key, code]): [string, string] => {
-                let value: [string, string];
-                if (Array.isArray(key)) {
-                  value = [key[0], key[1]];
-                } else {
-                  value = [key, code];
-                }
-                const newKey = keyMapping[value[0]] || value[0];
-                return [newKey, value[1]];
-              });
-
-              console.log('Account state received:', response);
+              console.log('🟢 Account state received with pending challenges');
               setChallengeState({
                 ...response,
                 network: response.network,
@@ -199,74 +195,125 @@ export const useChallengeWebSocket = (
     }
   }, [webSocketInstance.isConnected, address, cleanNetwork, hasSubscribed, subscribe]);
 
-  // Process challenge state and update challenges store
+  // Helper function to normalize pending challenges from new format
+  const normalizePendingChallenges = (pending_challenges: PendingChallenge[]): Record<string, {code: string, accountName: string}> => {
+    const normalizedChallenges: Record<string, {code: string, accountName: string}> = {};
+    
+    pending_challenges.forEach((challengeObj) => {
+      const { account_name, account_type, challenge } = challengeObj;
+      
+      // Map account_type to field name (account_type should match our field names like "email", "twitter", etc.)
+      const fieldName = keyMapping[account_type] || account_type;
+      
+      normalizedChallenges[fieldName] = {
+        code: challenge,
+        accountName: account_name
+      };
+    });
+    return normalizedChallenges;
+  };
+
+  // Helper function to determine challenge status
+  const getChallengeStatus = (isFieldVerified: boolean, identityStatus: IdentityVerificationStatus): ChallengeStatus => {
+    if (identityStatus === IdentityVerificationStatus.IdentityVerified) {
+      return ChallengeStatus.Passed;
+    }
+    return isFieldVerified ? ChallengeStatus.Passed : ChallengeStatus.Pending;
+  };
+
+  // Helper function to create challenge object
+  const createChallenge = (
+    fieldKey: string,
+    isFieldVerified: boolean,
+    identityStatus: IdentityVerificationStatus,
+    pendingChallenges: Record<string, {code: string, accountName: string}>
+  ): Challenge => {
+    const status = getChallengeStatus(isFieldVerified, identityStatus);
+    const challengeInfo = pendingChallenges[fieldKey];
+    const challengeCode = !isFieldVerified ? challengeInfo?.code : undefined;
+    const accountName = !isFieldVerified ? challengeInfo?.accountName : undefined;
+
+
+    return {
+      type: 'matrixChallenge',
+      status,
+      code: challengeCode,
+      accountName: accountName,
+    };
+  };
+
+  // Helper function to process verification state into challenges
+  const processVerificationState = (
+    verifyState: Record<string, boolean>,
+    pendingChallenges: Record<string, {code: string, accountName: string}>,
+    identityStatus: IdentityVerificationStatus
+  ): ChallengeStore => {
+    const challenges: ChallengeStore = {};
+
+    // Get all unique field names from both verifyState AND pendingChallenges
+    const allFieldNames = new Set([
+      ...Object.keys(verifyState || {}),
+      ...Object.keys(pendingChallenges || {})
+    ]);
+
+    allFieldNames.forEach((key) => {
+      const boolValue = verifyState[key] || false; // Default to false if not in verifyState
+      const hasPendingChallenge = !!pendingChallenges[key];
+      
+      // Include field if:
+      // 1. It has a pending challenge (regardless of verification state), OR
+      // 2. Identity is fully verified AND field is true in verification state
+      if (hasPendingChallenge || (identityStatus === IdentityVerificationStatus.IdentityVerified && boolValue)) {
+        challenges[key as keyof ChallengeStore] = createChallenge(
+          key,
+          // Only mark as verified if identity is fully verified AND the field is true
+          identityStatus === IdentityVerificationStatus.IdentityVerified && boolValue,
+          identityStatus,
+          pendingChallenges
+        );
+      }
+    });
+    return challenges;
+  };
+
+  // Helper function to check if challenges have changed
+  const hasChanges = (oldChallenges: ChallengeStore, newChallenges: ChallengeStore): boolean => {
+    return JSON.stringify(oldChallenges) !== JSON.stringify(newChallenges);
+  };
+
+  // Main challenge processing effect
   useEffect(() => {
-    const idWsDeps = [challengeState, webSocketInstance.error, address, identityStatus, network];
+    const dependencies = [challengeState, webSocketInstance.error, address, identityStatus, network];
+    console.log('Challenge dependencies changed:', { dependencies });
 
-    console.log('Challenge dependencies changed:', { idWsDeps });
-
+    // Early returns for invalid states
     if (webSocketInstance.error) {
       console.error('WebSocket error:', webSocketInstance.error);
       return;
     }
 
-    if (idWsDeps.some((value) => value === undefined)) {
+    if (dependencies.some((value) => value === undefined)) {
+      console.log('Missing required dependencies');
       return;
     }
 
-    if (challengeState && identityStatus) {
-      const {
-        pending_challenges,
-        verification_state: { fields: verifyState },
-      } = challengeState;
-
-      console.log('Processing challenges:', { pending_challenges, verifyState });
-
-      const pendingChallenges = Object.fromEntries(
-        pending_challenges.map(([key, code]: [string | [string, string], string | undefined]) => {
-          if (Array.isArray(key)) {
-            return [key[0], key[1]];
-          } else {
-            return [key, code];
-          }
-        })
-      );
-
-      const _challenges: ChallengeStore = {};
-      Object.entries(verifyState)
-        .filter(([key, done]) => pendingChallenges[key] || done)
-        .forEach(([key, done]) => {
-          let status;
-          if (identityStatus === IdentityVerificationStatus.IdentityVerified) {
-            status = ChallengeStatus.Passed;
-          } else {
-            status = done ? ChallengeStatus.Passed : ChallengeStatus.Pending;
-          }
-
-          _challenges[key as keyof ChallengeStore] = {
-            type: 'matrixChallenge',
-            status,
-            code: !done ? pendingChallenges[key] : undefined,
-          };
-        });
-
-      // Simple deep equality check for challenges object
-      const hasChanges = JSON.stringify(challenges) !== JSON.stringify(_challenges);
-      if (!hasChanges) {
-        console.log('No changes in challenges');
-        return;
-      }
-
-      console.debug({ _challenges })
-      setChallenges(_challenges);
-
-      console.log({
-        origin: 'challengeState',
-        pendingChallenges,
-        verifyState,
-        challenges: _challenges,
-      });
+    if (!challengeState || !identityStatus) {
+      console.log('Missing challenge state or identity status');
+      return;
     }
+
+    // Process challenge state
+    const { pending_challenges, verification_state: { fields: verifyState } } = challengeState;
+    
+    const pendingChallenges = normalizePendingChallenges(pending_challenges);
+    const newChallenges = processVerificationState(verifyState, pendingChallenges, identityStatus);
+
+    // Only update if there are actual changes
+    if (!hasChanges(challenges, newChallenges)) {
+      return;
+    }
+    
+    setChallenges(newChallenges);
   }, [challengeState, webSocketInstance.error, address, identityStatus, network, challenges]);
 
   return {

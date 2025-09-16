@@ -12,6 +12,7 @@ export interface Challenge {
   type: string;
   status: ChallengeStatus;
   code?: string;
+  accountName?: string;  // Account name/handle from WebSocket (e.g., "@username", "user@email.com")
 }
 
 export interface ChallengeStore {

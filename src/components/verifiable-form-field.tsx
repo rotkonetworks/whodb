@@ -6,7 +6,7 @@ import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
 import { AlertTriangle, CheckCircle, ClipboardCopy, Github, Loader2, ShieldQuestion } from "lucide-react"
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { GitHubVerification } from "./challenges/GitHubVerification"
 
@@ -35,27 +35,33 @@ export function VerifiableFormField({
   type = "text",
   verificationInstructions,
 }: VerifiableFormFieldProps) {
-  const { startVerification, confirmVerification, getFieldStatus, isVerifying } = useVerification()
+  const { startVerification, confirmVerification, getFieldStatus, isVerifying, challenges } = useVerification()
   const [challengeOrCode, setChallengeOrCode] = useState<string | null>(null)
   const [signedChallenge, setSignedChallenge] = useState<string>("")
 
   const fieldStatus = getFieldStatus(fieldId)
+  
 
   const { identity, chainStore, accountStore } = usePolkadotApi()
 
+  // Auto-populate challenge code when available from WebSocket
+  useEffect(() => {
+    const wsChallenge = challenges[fieldId]
+    
+    if (wsChallenge && wsChallenge.code && !challengeOrCode) {
+      setChallengeOrCode(wsChallenge.code)
+    }
+  }, [challenges, fieldId, challengeOrCode, fieldStatus])
+
   const handleVerifyClick = async () => {
-    if (!value) {
+    // Check if we have a value (either from user input or WebSocket account name)
+    const effectiveValue = challenges[fieldId]?.accountName || value
+    if (!effectiveValue) {
       toast.error(`Please enter your ${label.toLowerCase()} before verifying.`)
       return
     }
-    if (!challengeOrCode) {
-      const payload = await startVerification(fieldId, verificationInstructions.method, label)
-      if (payload) {
-        setChallengeOrCode(payload)
-      }
-      return
-    }
-
+    
+    // For PGP verification, handle signed challenge submission
     if (fieldId === "pgp_fingerprint" && verificationInstructions.method === "gpg-challenge") {
       if (!signedChallenge) {
         toast.error("Please paste your signed PGP message before confirming verification.")
@@ -63,11 +69,10 @@ export function VerifiableFormField({
       }
       const isConfirmed = await confirmVerification(fieldId, {
         signed_challenge: signedChallenge,
-        pubkey: value, // Assuming value is the PGP fingerprint
-        network: (chainStore.id as string).split("_")[0], // TODO Add prop to chainStore to get relay chain name more reliably
+        pubkey: effectiveValue,
+        network: (chainStore.id as string).split("_")[0],
         account: accountStore.encodedAddress!!
-      }
-      )
+      })
       if (isConfirmed) {
         toast.success("PGP verification confirmed!")
       } else {
@@ -75,6 +80,10 @@ export function VerifiableFormField({
       }
       return
     }
+
+    // For other verification methods, just trigger the check
+    // Challenges are automatically provided by WebSocket
+    await confirmVerification(fieldId, {})
   }
 
   const copyToClipboard = (text: string, message = "Copied to clipboard!") => {
@@ -94,6 +103,10 @@ export function VerifiableFormField({
       case "failed":
         return <AlertTriangle className="w-4 h-4 text-red-400" />
       default:
+        // If we have a challenge from WebSocket but no status, show as ready for verification
+        if (challengeOrCode) {
+          return <ShieldQuestion className="w-4 h-4 text-yellow-400" />
+        }
         return <ShieldQuestion className="w-4 h-4 text-gray-500" />
     }
   }
@@ -107,7 +120,10 @@ export function VerifiableFormField({
       )
     }
 
-    if (fieldStatus?.status === "pending") {
+    // Show verification button when we have a challenge to process OR when field has value (fallback)
+    const shouldShowButton = challengeOrCode || (value && value.trim() !== "")
+    
+    if (shouldShowButton) {
       const isGithubChallengeUrl = verificationInstructions.method === "challenge-url"
         && fieldId === "github"
       if (isGithubChallengeUrl) {
@@ -140,10 +156,17 @@ export function VerifiableFormField({
           disabled={isVerifyingThisField}
           className="text-xs h-8 px-2.5 border border-yellow-500/70 text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300"
         >
-          {isVerifyingThisField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Check Verification"}
+          {isVerifyingThisField ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            challengeOrCode ? "Check Verification" : "Request Challenge"
+          )}
         </Button>
       )
     }
+
+    // No button when no challenge is available - challenges come automatically from WebSocket
+    return null
   }
 
   return (
@@ -159,24 +182,30 @@ export function VerifiableFormField({
         <Input
           id={fieldId}
           type={type}
-          value={value}
+          value={challenges[fieldId]?.accountName || value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="bg-gray-700 border-pink-500/30 text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
-          disabled={isInputDisabled || isVerifyingThisField}
+          className={`text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 disabled:opacity-70 disabled:cursor-not-allowed text-sm ${
+            challenges[fieldId]?.accountName 
+              ? 'bg-blue-900/30 border-blue-500/50 text-blue-200' 
+              : 'bg-gray-700 border-pink-500/30'
+          }`}
+          disabled={isInputDisabled || isVerifyingThisField || !!challenges[fieldId]?.accountName}
         />
         {renderVerificationButton()}
       </div>
 
-      {fieldStatus?.status === "pending" && challengeOrCode && (
+      {(fieldStatus?.status === "pending" || challengeOrCode) && challengeOrCode && (
         <div className="p-2.5 mt-2.5 text-xs text-yellow-200 bg-yellow-900/30 border border-yellow-500/40 rounded-md space-y-1.5">
           <p className="font-semibold text-yellow-100 mb-1">Action Required:</p>
-          {verificationInstructions.method === "code" && (
+          
+          {/* Show instructions */}
+          {verificationInstructions.details && (
+            <p className="text-yellow-200 mb-2">{verificationInstructions.details}</p>
+          )}
+
+          {(verificationInstructions.method === "code" || verificationInstructions.method === "challenge") && (
             <>
-              <p>
-                Send this code to <strong className="text-yellow-100">{verificationInstructions.contactAddress}</strong>{" "}
-                via {label}:
-              </p>
               <div className="my-1.5 p-1.5 bg-gray-900 rounded-md flex items-center justify-between">
                 <span className="font-mono text-sm tracking-wider text-white">{challengeOrCode}</span>
                 <Button
@@ -194,6 +223,10 @@ export function VerifiableFormField({
           )}
           {verificationInstructions.method === "gpg-challenge" && fieldId === "pgp_fingerprint" && (
             <>
+              {/* Show instructions for PGP */}
+              {verificationInstructions.details && (
+                <p className="text-yellow-200 mb-2">{verificationInstructions.details}</p>
+              )}
               <p>1. Sign the following challenge string with your PGP key ({value || "your key"}):</p>
               <div className="my-1.5 p-2 bg-gray-900 rounded-md">
                 <pre className="font-mono text-xs text-white whitespace-pre-wrap break-all">{challengeOrCode}</pre>
@@ -223,6 +256,10 @@ export function VerifiableFormField({
           )}
           {verificationInstructions.method === "dns-challenge" && fieldId === "web" && (
             <>
+              {/* Show instructions for DNS */}
+              {verificationInstructions.details && (
+                <p className="text-yellow-200 mb-2">{verificationInstructions.details}</p>
+              )}
               <p>
                 Add the following TXT record to your domain&apos;s DNS settings for{" "}
                 <strong className="text-yellow-100">{value || "your website"}</strong>:
@@ -262,13 +299,6 @@ export function VerifiableFormField({
         </div>
       )}
 
-      {/* Show verification instructions when field is not yet being verified */}
-      {!fieldStatus?.status && verificationInstructions.details && (
-        <div className="p-2.5 mt-2.5 text-xs text-blue-200 bg-blue-900/20 border border-blue-500/30 rounded-md">
-          <p className="font-semibold text-blue-100 mb-1">Verification Instructions:</p>
-          <p className="whitespace-pre-line">{verificationInstructions.details}</p>
-        </div>
-      )}
     </div>
   )
 }
