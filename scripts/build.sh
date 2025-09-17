@@ -4,9 +4,10 @@ shopt -s nullglob globstar
 umask 077
 
 if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
+    set -a
+    source <(grep -v '^#' .env)
+    set +a
 fi
-
 # Strict environment sanitization
 for var in $(compgen -e); do
     case $var in
