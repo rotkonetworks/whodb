@@ -38,7 +38,7 @@ export default function ConfirmActionDialog({
   return (
     <Dialog
       open={[
-        "clearIdentity", "setIdentity", "requestJudgement", "addSubaccount", "removeSubaccount",
+        "clearIdentity", "setIdentity", "requestJudgement", "cancelRequest", "addSubaccount", "removeSubaccount",
         "quitSub", "editSubAccount"
       ].includes(openDialog)}
       onOpenChange={v => v
@@ -126,6 +126,12 @@ export default function ConfirmActionDialog({
                     After having fees paid, you will need to complete all verification challenges
                     in order to be verified.
                   </li>
+                </>)}
+                {openDialog === "cancelRequest" && (<>
+                  <li>Your current judgment request will be cancelled.</li>
+                  <li>Any fees paid for the judgment request will be forfeited.</li>
+                  <li>You will be able to update your identity information and request judgment again.</li>
+                  <li>You will return to the identity setting step after cancellation.</li>
                 </>)}
                 {["setIdentity", "requestJudgement"].includes(openDialog) && (<>
                   <li>Your identity information will remain publicly visible on-chain to everyone until you clear it.</li>

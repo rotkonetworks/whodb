@@ -21,7 +21,7 @@ import {
   User,
 } from "lucide-react"
 import type React from "react"
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
@@ -44,10 +44,26 @@ export function IdentityVerificationForm({
   } = useVerification()
   useTriggerLog(challenges, "IdentityVerificationForm Challenges")
   
+  // Track identity data hash to detect changes
+  const identityDataRef = useRef<string>('')
+  const identityDataHash = JSON.stringify(identityData)
 
   useEffect(() => {
+    const identityDataChanged = identityDataRef.current !== identityDataHash
+    
+    console.log("🔄 Identity verification form - setting WebSocket params:", {
+      address, network, identityStatus, identityDataChanged
+    });
+    
+    if (identityDataChanged) {
+      console.log("🔄 Identity data changed - forcing verification reset");
+      identityDataRef.current = identityDataHash
+    }
+    
+    // Force reset of verification state when identity status indicates a new judgment request
+    // This ensures old verification data doesn't persist
     setWebSocketParams({ address, network, identityStatus })
-  }, [address, network, identityStatus, setWebSocketParams])
+  }, [address, network, identityStatus, identityDataHash, setWebSocketParams])
 
   // Determine which fields to show based on chain identity data AND WebSocket challenges
   const fieldsToShow = useMemo(() => {
@@ -71,20 +87,24 @@ export function IdentityVerificationForm({
       field && identityData[field] && identityData[field].trim() !== ""
     )
     
-    const fieldsWithChallenges = Object.keys(challenges || {}).filter(field => 
-      supportedSet.includes(field) && challenges[field]?.code
-    )
+    const fieldsWithChallenges = Object.keys(challenges || {}).filter(field => {
+      const hasChallenge = challenges[field]?.code
+      const isSupported = supportedSet.includes(field)
+      console.log(`🔍 Field ${field}: hasChallenge=${hasChallenge}, isSupported=${isSupported}`)
+      return isSupported && hasChallenge
+    })
     
     // Combine and deduplicate
     const allRelevantFields = [...new Set([...fieldsWithData, ...fieldsWithChallenges])]
     
     console.log('📋 Fields to show:', {
+      supportedSet,
       fieldsWithData,
       fieldsWithChallenges, 
       allRelevantFields,
       identityData: Object.entries(identityData).filter(([k,v]) => v?.trim()),
-      challenges: Object.entries(challenges || {}).filter(([k,v]) => v?.code),
-      challengesWithCodes: Object.entries(challenges || {}).map(([k,v]) => ({ field: k, code: v?.code, status: v?.status }))
+      challenges: Object.entries(challenges || {}),
+      challengesWithCodes: Object.entries(challenges || {}).map(([k,v]) => ({ field: k, code: v?.code, status: v?.status, hasCode: !!v?.code }))
     })
     
     return allRelevantFields

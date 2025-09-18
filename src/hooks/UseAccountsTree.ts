@@ -54,16 +54,14 @@ async function buildAccountHierarchy(
   // Prevent infinite loops and too deep recursion
   // But make an exception for the current account to ensure it's included
   if (allNodes[address]) {
-    console.log("Already visited:", address);
+    console.log("Already visited address");
     return null;
   }
   if (maxDepth <= 0) {
-    console.log("Max depth reached, address:", address);
+    console.log("Max depth reached");
     return null;
   }
-  console.log(`Visiting address: ${address}, maxDepth: ${maxDepth}, 
-    isVisited: ${allNodes[address] ? "yes" : "no"}`
-  );
+  console.log(`Visiting address, maxDepth: ${maxDepth}, isVisited: ${allNodes[address] ? "yes" : "no"}`);
   console.log("allNodes:", allNodes);
 
   const node: AccountTreeNode = {
@@ -76,10 +74,10 @@ async function buildAccountHierarchy(
   // Try to fetch super account (parent)
   try {
     const superAccount = await fetchSuperOf(api, address);
-    console.log(`Superaccount for ${address}:`, superAccount);
+    console.log(`Found superaccount:`, !!superAccount);
     if (superAccount) {
       if (!allNodes[superAccount.address]) {
-        console.log(`Found superaccount for ${address}: ${superAccount.address}`);
+        console.log(`Found superaccount`);
 
         // Recursively get the super's hierarchy
         node.super = await buildAccountHierarchy({
@@ -93,12 +91,12 @@ async function buildAccountHierarchy(
 
         if (node.super) {
           allNodes[superAccount.address] = node.super; // Store the super node in allNodes
-          console.log(`Set super for ${address}: ${superAccount.address}`);
+          console.log(`Set superaccount relationship`);
         }
       } else {
         // If the super account is already visited, just link it
         node.super = allNodes[superAccount.address];
-        console.log(`Superaccount ${superAccount.address} already visited for ${address}`);
+        console.log(`Superaccount already visited`);
       }
     }
   } catch (error) {
@@ -108,12 +106,12 @@ async function buildAccountHierarchy(
   // Fetch subaccounts
   try {
     const subsResult = await fetchSubsOf(api, address);
-    console.log(`Subaccounts for ${address}:`, subsResult);
+    console.log(`Found subaccounts:`, !!subsResult);
     if (subsResult && subsResult.subs.length > 0) {
       node.deposit = subsResult.deposit;
       node.subs = [];
 
-      console.log(`Found ${subsResult.subs.length} subaccounts for ${address}`, [...subsResult.subs]);
+      console.log(`Found ${subsResult.subs.length} subaccounts`);
 
       // Process all subaccounts in parallel using Promise.all
       const subPromises = subsResult.subs.map(async (subAddress) => {
@@ -159,7 +157,7 @@ async function buildAccountHierarchy(
     console.error(`Error fetching subaccounts for ${address}:`, error);
   }
   node.name = node.name || (await fetchIdentity(api, address)).info?.display;
-  console.log(`Finished building node for ${address}:`, node);
+  console.log(`Finished building node`);
 
   return node;
 }
@@ -216,7 +214,7 @@ export const useAccountsTree = ({
     setLoading(true);
 
     try {
-      console.log(`Starting to build hierarchy for ${address}`);
+      console.log(`Starting to build hierarchy`);
 
       const allNodes = {}; // Reset allNodes for each fetch
 
@@ -243,13 +241,13 @@ export const useAccountsTree = ({
             subNode.isDirectSubOfCurrentAccount = true;
           }
         }
-        console.log(`Root account: ${rootAccount.address}`);
+        console.log(`Found root account`);
         console.log(`Current account found in tree: ${!!currentAccountNode}`);
 
         setAccountTree(rootAccount);
       } else {
         // If no hierarchy found, create a simple node for the current address
-        console.log(`No hierarchy found, creating simple node for ${address}`);
+        console.log(`No hierarchy found, creating simple node`);
         setAccountTree({
           address,
           isCurrentAccount: true,

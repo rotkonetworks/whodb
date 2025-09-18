@@ -53,7 +53,42 @@ export function VerifiableFormField({
     }
   }, [challenges, fieldId, challengeOrCode, fieldStatus])
 
+  const handleRequestChallenge = async () => {
+    console.log(`🔵 Request Challenge clicked for ${fieldId}`);
+    
+    // Check if we have a value (either from user input or WebSocket account name)
+    const effectiveValue = challenges[fieldId]?.accountName || value
+    if (!effectiveValue) {
+      toast.error(`Please enter your ${label.toLowerCase()} before requesting verification.`)
+      return
+    }
+    
+    console.log(`🔵 Requesting challenge for ${fieldId}`);
+    
+    try {
+      const challengeCode = await startVerification(
+        fieldId,
+        verificationInstructions.method,
+        label
+      );
+      
+      console.log(`🔵 Challenge requested successfully`);
+      
+      if (challengeCode) {
+        setChallengeOrCode(challengeCode);
+        toast.success(`Challenge received for ${label}!`);
+      } else {
+        toast.info(`Challenge request submitted for ${label}. Please wait...`);
+      }
+    } catch (error) {
+      console.error('Challenge request error:', error);
+      toast.error(`Failed to request challenge for ${label}`);
+    }
+  }
+
   const handleVerifyClick = async () => {
+    console.log(`🔵 Verify clicked for ${fieldId}`);
+    
     // Check if we have a value (either from user input or WebSocket account name)
     const effectiveValue = challenges[fieldId]?.accountName || value
     if (!effectiveValue) {
@@ -83,6 +118,7 @@ export function VerifiableFormField({
 
     // For other verification methods, just trigger the check
     // Challenges are automatically provided by WebSocket
+    console.log(`🔵 Confirming verification for ${fieldId}`);
     await confirmVerification(fieldId, {})
   }
 
@@ -152,7 +188,7 @@ export function VerifiableFormField({
           type="button"
           size="sm"
           variant="ghost"
-          onClick={handleVerifyClick}
+          onClick={challengeOrCode ? handleVerifyClick : handleRequestChallenge}
           disabled={isVerifyingThisField}
           className="text-xs h-8 px-2.5 border border-yellow-500/70 text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300"
         >
@@ -199,8 +235,10 @@ export function VerifiableFormField({
         <div className="p-2.5 mt-2.5 text-xs text-yellow-200 bg-yellow-900/30 border border-yellow-500/40 rounded-md space-y-1.5">
           <p className="font-semibold text-yellow-100 mb-1">Action Required:</p>
           
-          {/* Show instructions */}
-          {verificationInstructions.details && (
+          {/* Show general instructions (except for methods with specific detailed instructions) */}
+          {verificationInstructions.details && 
+           verificationInstructions.method !== "dns-challenge" && 
+           verificationInstructions.method !== "gpg-challenge" && (
             <p className="text-yellow-200 mb-2">{verificationInstructions.details}</p>
           )}
 

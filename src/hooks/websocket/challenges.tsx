@@ -111,7 +111,7 @@ export const useChallengeWebSocket = (
   const subscribe = useCallback(() => {
     if (!hasSubscribed && webSocketInstance.isConnected && address && cleanNetwork) {
       setHasSubscribed(true);
-      console.log(`Subscribing to account state for ${address} on ${cleanNetwork}`);
+      console.log(`Subscribing to account state`);
 
       const message = {
         type: 'SubscribeAccountState' as const,
@@ -119,13 +119,13 @@ export const useChallengeWebSocket = (
           account: address,
           network: cleanNetwork,
         },
-        version: '1.0',
+        version: '1.1',
       };
 
       try {
         webSocketInstance.sendMessage(message);
         unsubscribe.current = webSocketInstance.subscribe(handleMessage);
-        console.log('WebSocket subscription successful - automatically fetching pending challenges:', message);
+        console.log('WebSocket subscription successful - automatically fetching pending challenges');
       } catch (err) {
         console.error('WebSocket subscription failed:', err);
         setHasSubscribed(false);
@@ -145,33 +145,48 @@ export const useChallengeWebSocket = (
   );
 
   const handleMessage = (message: any) => {
-    console.log('🔵 Challenge WebSocket message received');
+    console.log('🔵 RAW WebSocket message received:', message);
+    console.log('🔵 WebSocket message JSON:', JSON.stringify(message, null, 2));
     console.log('🔵 Message type:', message.type);
 
     switch (message.type) {
       case 'JsonResult':
+        console.log('🔵 JsonResult payload:', JSON.stringify(message.payload, null, 2));
         if (message.payload.type === 'ok') {
+          console.log('🔵 Payload message type:', typeof message.payload.message);
+          console.log('🔵 Payload message content:', JSON.stringify(message.payload.message, null, 2));
+          
           if (typeof message.payload.message === 'string') {
             if (message.payload.message === 'PGP verification is done') {
               console.log('PGP verification completed');
             }
           } else if (message.payload.message && typeof message.payload.message === 'object') {
+            console.log('🔵 Processing object message:', message.payload.message);
             const response: ResponseAccountState = (message.payload.message as ResponsePayload).AccountState;
+            console.log('🔵 Extracted AccountState');
+            
             if (response) {
-              console.log('🟢 Account state received with pending challenges');
+              console.log('🟢 Account state received with challenges and verification data');
+              
               setChallengeState({
                 ...response,
                 network: response.network,
               });
+            } else {
+              console.log('❌ No AccountState found in message');
             }
           }
         } else {
-          console.error('Challenge WebSocket error:', message.payload.message);
+          console.error('Challenge WebSocket error - payload not ok:', message.payload.message);
         }
         break;
 
       case 'error':
         console.error('Challenge WebSocket error:', message.message);
+        break;
+      
+      default:
+        console.log('🔵 Unknown message type:', message.type, message);
         break;
     }
   };
@@ -195,21 +210,68 @@ export const useChallengeWebSocket = (
     }
   }, [webSocketInstance.isConnected, address, cleanNetwork, hasSubscribed, subscribe]);
 
-  // Helper function to normalize pending challenges from new format
-  const normalizePendingChallenges = (pending_challenges: PendingChallenge[]): Record<string, {code: string, accountName: string}> => {
+  // Helper function to normalize pending challenges from WebSocket format
+  const normalizePendingChallenges = (pending_challenges: any[]): Record<string, {code: string, accountName: string}> => {
     const normalizedChallenges: Record<string, {code: string, accountName: string}> = {};
     
-    pending_challenges.forEach((challengeObj) => {
-      const { account_name, account_type, challenge } = challengeObj;
+    console.log('🔍 Processing pending challenges:', pending_challenges?.length || 0);
+    
+    if (!Array.isArray(pending_challenges)) {
+      console.log('⚠️ pending_challenges is not an array');
+      return normalizedChallenges;
+    }
+    
+    // Handle both object and nested array formats
+    pending_challenges.forEach((challengeItem, index) => {
+      console.log(`🔍 Processing challenge item ${index}`);
       
-      // Map account_type to field name (account_type should match our field names like "email", "twitter", etc.)
-      const fieldName = keyMapping[account_type] || account_type;
-      
-      normalizedChallenges[fieldName] = {
-        code: challenge,
-        accountName: account_name
-      };
+      // Handle object format: {account_name: "...", account_type: "email", challenge: "..."}
+      if (challengeItem && typeof challengeItem === 'object' && !Array.isArray(challengeItem)) {
+        const { account_name, account_type, challenge } = challengeItem;
+        
+        if (account_type && challenge) {
+          const fieldName = keyMapping[account_type] || account_type;
+          
+          console.log(`✅ Found challenge object: ${account_type} -> ${fieldName}`);
+          normalizedChallenges[fieldName] = {
+            code: challenge,
+            accountName: account_name || account_type
+          };
+          console.log(`✅ Added challenge to normalized list`);
+        } else {
+          console.log(`⚠️ Missing required fields in challenge object`);
+        }
+      }
+      // Handle nested array format: [[["email","QHX9WXY6"]],[["matrix","GV7P976N"]]]
+      else if (Array.isArray(challengeItem)) {
+        console.log(`🔍 Processing nested array format for item ${index}`);
+        challengeItem.forEach((challengeArray, arrayIndex) => {
+          console.log(`🔍 Processing challenge array ${index}.${arrayIndex}`);
+          
+          if (Array.isArray(challengeArray)) {
+            challengeArray.forEach((challengePair, pairIndex) => {
+              console.log(`🔍 Processing challenge pair ${index}.${arrayIndex}.${pairIndex}`);
+              
+              if (Array.isArray(challengePair) && challengePair.length === 2) {
+                const [account_type, challenge] = challengePair;
+                const fieldName = keyMapping[account_type] || account_type;
+                
+                console.log(`✅ Found challenge array: ${account_type} -> ${fieldName}`);
+                normalizedChallenges[fieldName] = {
+                  code: challenge,
+                  accountName: account_type
+                };
+                console.log(`✅ Added challenge to normalized list`);
+              }
+            });
+          }
+        });
+      } else {
+        console.log(`⚠️ Unknown challenge format at index ${index}`);
+      }
     });
+    
+    console.log('🔍 Final normalized challenges count:', Object.keys(normalizedChallenges).length);
     return normalizedChallenges;
   };
 
@@ -248,6 +310,12 @@ export const useChallengeWebSocket = (
     pendingChallenges: Record<string, {code: string, accountName: string}>,
     identityStatus: IdentityVerificationStatus
   ): ChallengeStore => {
+    console.log('🔧 processVerificationState called with:', {
+      verifyState,
+      pendingChallenges,
+      identityStatus
+    });
+
     const challenges: ChallengeStore = {};
 
     // Get all unique field names from both verifyState AND pendingChallenges
@@ -256,23 +324,33 @@ export const useChallengeWebSocket = (
       ...Object.keys(pendingChallenges || {})
     ]);
 
+    console.log('🔧 All field names:', Array.from(allFieldNames));
+
     allFieldNames.forEach((key) => {
       const boolValue = verifyState[key] || false; // Default to false if not in verifyState
       const hasPendingChallenge = !!pendingChallenges[key];
+      
+      console.log(`🔧 Processing field ${key}: verified=${boolValue}, hasPending=${hasPendingChallenge}`);
       
       // Include field if:
       // 1. It has a pending challenge (regardless of verification state), OR
       // 2. Identity is fully verified AND field is true in verification state
       if (hasPendingChallenge || (identityStatus === IdentityVerificationStatus.IdentityVerified && boolValue)) {
-        challenges[key as keyof ChallengeStore] = createChallenge(
+        const challenge = createChallenge(
           key,
           // Only mark as verified if identity is fully verified AND the field is true
           identityStatus === IdentityVerificationStatus.IdentityVerified && boolValue,
           identityStatus,
           pendingChallenges
         );
+        console.log(`✅ Adding challenge for ${key}`);
+        challenges[key as keyof ChallengeStore] = challenge;
+      } else {
+        console.log(`❌ Skipping field ${key} - no pending challenge and not verified`);
       }
     });
+    
+    console.log('🔧 Final processed challenges count:', Object.keys(challenges).length);
     return challenges;
   };
 
@@ -284,35 +362,53 @@ export const useChallengeWebSocket = (
   // Main challenge processing effect
   useEffect(() => {
     const dependencies = [challengeState, webSocketInstance.error, address, identityStatus, network];
-    console.log('Challenge dependencies changed:', { dependencies });
+    console.log('🔄 Challenge dependencies changed:', { 
+      challengeState: !!challengeState,
+      error: webSocketInstance.error,
+      address,
+      identityStatus,
+      network,
+      hasChallengeState: !!challengeState,
+      pendingChallengesLength: challengeState?.pending_challenges?.length
+    });
 
     // Early returns for invalid states
     if (webSocketInstance.error) {
-      console.error('WebSocket error:', webSocketInstance.error);
+      console.error('❌ WebSocket error:', webSocketInstance.error);
       return;
     }
 
     if (dependencies.some((value) => value === undefined)) {
-      console.log('Missing required dependencies');
+      console.log('⚠️ Missing required dependencies:', dependencies.map((v, i) => [`${i}: ${v}`]));
       return;
     }
 
     if (!challengeState || !identityStatus) {
-      console.log('Missing challenge state or identity status');
+      console.log('⚠️ Missing challenge state or identity status:', { challengeState: !!challengeState, identityStatus });
       return;
     }
 
     // Process challenge state
     const { pending_challenges, verification_state: { fields: verifyState } } = challengeState;
+    console.log('🔄 Processing challenge state:', {
+      pending_challenges,
+      verifyState,
+      identityStatus
+    });
     
     const pendingChallenges = normalizePendingChallenges(pending_challenges);
+    console.log('🔄 Normalized challenges count:', Object.keys(pendingChallenges).length);
+    
     const newChallenges = processVerificationState(verifyState, pendingChallenges, identityStatus);
+    console.log('🔄 Processed challenges count:', Object.keys(newChallenges).length);
 
     // Only update if there are actual changes
     if (!hasChanges(challenges, newChallenges)) {
+      console.log('🔄 No changes in challenges, skipping update');
       return;
     }
     
+    console.log('✅ Setting new challenges count:', Object.keys(newChallenges).length);
     setChallenges(newChallenges);
   }, [challengeState, webSocketInstance.error, address, identityStatus, network, challenges]);
 

@@ -315,15 +315,24 @@ export default function RegisterPage() {
   }, [])
 
   const submitTransaction = useCallback(async () => {
+    console.log("🔵 submitTransaction called");
+    console.log("🔵 txToConfirm:", txToConfirm);
+    console.log("🔵 currentDialogMode:", currentDialogMode);
+    console.log("🔵 walletAddress:", walletAddress);
+    console.log("🔵 typedApi:", !!typedApi);
+
     if (!txToConfirm) {
+      console.log("🔴 No transaction to submit");
       toast.error("No transaction to submit.")
       return
     }
     if (!walletAddress || !typedApi) {
+      console.log("🔴 No wallet connected");
       toast.error("No wallet connected.")
       return
     }
 
+    console.log("🔵 Setting submitting state to true");
     setIsSubmittingIdentity(true)
 
     try {
@@ -343,24 +352,69 @@ export default function RegisterPage() {
       } else if (currentDialogMode === "requestJudgement") {
         action = "Requesting judgement for"
         // Stay on same step to complete verification
+      } else if (currentDialogMode === "cancelRequest") {
+        console.log("🔵 Processing cancel request");
+        action = "Cancelling request for"
+        // Go back to identity setting step after cancellation
+        nextStep = STEP_NUMBERS.fillIdentityInfo
       }
 
-      await signSubmitAndWatch({
-        call: txToConfirm,
-        name: action.endsWith("(multi-step)") ? action : `${action} identity`,
-      })
+      console.log("🔵 Action determined:", action);
+      console.log("🔵 signSubmitAndWatch function exists:", typeof signSubmitAndWatch);
+      console.log("🔵 Transaction call:", txToConfirm);
+      console.log("🔵 Transaction name:", action.endsWith("(multi-step)") ? action : `${action} identity`);
+      console.log("🔵 Calling signSubmitAndWatch...");
+      console.log("🔵 Transaction call details:", {
+        method: txToConfirm?.method,
+        section: txToConfirm?.method?.section,
+        methodName: txToConfirm?.method?.method,
+        args: txToConfirm?.args,
+        isValid: typeof txToConfirm?.sign === 'function'
+      });
+
+      try {
+        // Try direct signing first to see if that works
+        console.log("🔵 Attempting direct transaction signing...");
+        
+        const result = await signSubmitAndWatch({
+          call: txToConfirm,
+          name: action.endsWith("(multi-step)") ? action : `${action} identity`,
+        });
+        
+        console.log("🔵 signSubmitAndWatch result:", result);
+      } catch (signError) {
+        console.error("🔴 Signing error:", signError);
+        throw signError;
+      }
+
+      console.log("🔵 signSubmitAndWatch completed successfully");
 
       // Auto-advance to next step if identity was submitted from step 5
       if (currentDialogMode === "setIdentity" && currentStep === STEP_NUMBERS.fillIdentityInfo) {
+        console.log("🔵 Advancing to reviewAndSubmit step");
+        console.log("🔵 Clearing old verification state after identity update...");
+        // Clear verification state when moving to step 6 with new identity
+        setInitialVerifications([]);
         setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
       }
 
+      // Go back to step 5 if request was cancelled from step 6
+      if (currentDialogMode === "cancelRequest" && currentStep === STEP_NUMBERS.reviewAndSubmit) {
+        console.log("🔵 Going back to fillIdentityInfo step after cancellation");
+        // Refresh identity state after cancellation
+        await fetchIdAndJudgement();
+        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
+        toast.success("Judgment request cancelled. You can now update your identity.")
+      }
+
+      console.log("🔵 Closing dialog");
       // Close the dialog
       closeTxDialog()
     } catch (error: any) {
-      console.error("Transaction submission error:", error)
+      console.error("🔴 Transaction submission error:", error)
       toast.error(`Failed to submit transaction: ${error.message}`)
     } finally {
+      console.log("🔵 Setting submitting state to false");
       setIsSubmittingIdentity(false)
     }
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
@@ -369,21 +423,32 @@ export default function RegisterPage() {
   const [txName, setTxName] = useState<string | null>(null)
 
   const onSetIdentity = async () => {
-    if (!walletAddress || !typedApi) return
+    console.log("🟢 Set Identity button clicked!");
+    console.log("🟢 Typed API:", !!typedApi);
+    
+    if (!walletAddress || !typedApi) {
+      console.log("🔴 Missing wallet or API");
+      toast.error("Wallet not connected or API not ready");
+      return;
+    }
 
     // Set submitting state early to prevent double-clicks
+    console.log("🟢 Setting submitting state to true");
     setIsSubmittingIdentity(true)
 
     try {
+      console.log("🟢 Starting to prepare identity transactions...");
       // Prepare all three transactions in sequence
       const transactions = await prepareIdentityTransactions()
+      console.log("🟢 Transactions prepared:", transactions.length);
       
       if (transactions.length === 0) {
         throw new Error("No transactions to execute")
       }
       
-      console.log(`Preparing ${transactions.length} transaction(s) for execution`)
+      console.log(`🟢 Preparing ${transactions.length} transaction(s) for execution`)
 
+      console.log("🟢 Estimating transaction costs...");
       // For multi-transaction, use the batch transaction for fee estimation
       // This is more accurate than summing individual fees
       const estimatedCosts = {
@@ -393,26 +458,30 @@ export default function RegisterPage() {
         deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
       }
       
-      console.log('Estimated costs for transaction:', estimatedCosts)
+      console.log('🟢 Estimated costs for transaction:', estimatedCosts)
 
+      console.log("🟢 Creating batch transaction...");
       // Create batch transaction if multiple operations needed
       const batchTx = transactions.length > 1 
         ? typedApi.tx.utility.batchAll(transactions)
         : transactions[0]
 
+      console.log("🟢 Setting dialog state...");
       // Set dialog state for transaction confirmation
       setEstimatedCosts(estimatedCosts)
       setTxToConfirm(batchTx)
       setCurrentDialogMode("setIdentity")
 
+      console.log("🟢 Opening transaction dialog...");
       // Open transaction dialog
       setOpenDialog("setIdentity")
       setTxName(transactions.length > 1 ? "Update Identity (Multi-step)" : "Set Identity")
       
       // Reset submitting state since we're now waiting for user confirmation in dialog
+      console.log("🟢 Resetting submitting state - waiting for user confirmation");
       setIsSubmittingIdentity(false)
     } catch (error: any) {
-      console.error("Transaction preparation error:", error)
+      console.error("🔴 Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
       setIsSubmittingIdentity(false) // Reset on error
     }
@@ -420,20 +489,28 @@ export default function RegisterPage() {
 
   // Helper function to prepare all identity-related transactions
   const prepareIdentityTransactions = async () => {
+    console.log("🟢 prepareIdentityTransactions started");
+    console.log("🟢 Current identity status:", identity?.status);
+    
     const transactions = []
 
     try {
       // Step 1: Cancel any pending registration request (if needed)
+      console.log("🟢 Step 1: Checking cancel request...");
       if (identity?.status === IdentityVerificationStatus.PendingJudgement) {
-        console.log("Adding cancel request transaction...")
+        console.log("🟢 Adding cancel request transaction...");
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
         ])
+        console.log("🟢 Registrar index for cancel:", registrarIndex);
         
         if (!isNaN(registrarIndex)) {
           const cancelTx = typedApi.tx.identity.cancelRequest(registrarIndex)
           transactions.push(cancelTx)
+          console.log("🟢 Cancel transaction added");
         }
+      } else {
+        console.log("🟢 No cancel needed, status is:", identity?.status);
       }
 
       // Step 2: Set identity (existing logic)
@@ -485,19 +562,34 @@ export default function RegisterPage() {
       transactions.push(setIdentityTx)
 
       // Step 3: Request judgement
-      console.log("Adding request judgement transaction...")
+      console.log("🟢 Step 3: Adding request judgement transaction...");
       const registrarIndex = Number(import.meta.env[
         `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
       ])
+      console.log("🟢 Registrar index for judgement:", registrarIndex);
+      console.log("🟢 Chain store relay ID:", chainStore.relay?.id);
       
       if (isNaN(registrarIndex)) {
         throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
       }
 
+      console.log("🟢 Querying registrars from chain... (this might take time)");
       const registrars = await typedApi.query.identity.registrars()
-      const registrarFee = BigInt(registrars[registrarIndex]?.value.fee)
+      console.log("🟢 Registrars query completed:", registrars?.length || 0, "registrars found");
+      
+      const registrarData = registrars[registrarIndex]
+      console.log("🟢 Registrar data at index", registrarIndex, ":", registrarData);
+      
+      if (!registrarData?.value?.fee) {
+        throw new Error(`Registrar at index ${registrarIndex} not found or has no fee`);
+      }
+      
+      const registrarFee = BigInt(registrarData.value.fee)
+      console.log("🟢 Registrar fee:", registrarFee.toString());
+      
       const requestJudgementTx = typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee)
       transactions.push(requestJudgementTx)
+      console.log("🟢 Request judgement transaction added");
 
       console.log(`✅ Prepared ${transactions.length} transactions:`, {
         steps: transactions.map((tx, index) => {
@@ -549,6 +641,67 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
+    }
+  }
+
+  const onCancelRequest = async () => {
+    console.log("🔴 Cancel Request button clicked!");
+    console.log("🔴 Typed API:", !!typedApi);
+    console.log("🔴 Chain store relay ID:", chainStore.relay?.id);
+    
+    if (!walletAddress || !typedApi) {
+      console.log("🔴 Missing wallet or API");
+      toast.error("Wallet not connected or API not ready");
+      return;
+    }
+
+    try {
+      // First check if we can cancel
+      console.log("🔴 Current identity status:", identity?.status);
+      console.log("🔴 Identity object:", identity);
+
+      // Create the cancel request transaction
+      const registrarIndex = Number(import.meta.env[
+        `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
+      ])
+      console.log("🔴 Registrar index:", registrarIndex);
+      console.log("🔴 Registrar env var:", import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`]);
+      
+      if (isNaN(registrarIndex)) {
+        throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
+      }
+
+      console.log("🔴 Creating cancel request transaction...");
+      console.log("🔴 TypedApi available:", !!typedApi);
+      console.log("🔴 Identity methods available:", Object.keys(typedApi?.tx?.identity || {}));
+      
+      const tx = typedApi.tx.identity.cancelRequest(registrarIndex)
+      console.log("🔴 Transaction created:", tx);
+      console.log("🔴 Transaction method:", tx?.method);
+      console.log("🔴 Transaction method section:", tx?.method?.section);
+      console.log("🔴 Transaction method name:", tx?.method?.method);
+      console.log("🔴 Transaction args:", tx?.args);
+      console.log("🔴 Transaction is callable:", typeof tx?.signAsync === 'function');
+
+      // Estimate costs
+      console.log("🔴 Estimating costs...");
+      const estimatedCosts = {
+        fees: await getTxFees(tx)(walletAddress),
+      }
+      console.log("🔴 Estimated costs:", estimatedCosts);
+
+      // Set dialog state for transaction confirmation
+      setEstimatedCosts(estimatedCosts)
+      setTxToConfirm(tx)
+      setCurrentDialogMode("cancelRequest")
+
+      // Open transaction dialog
+      setOpenDialog("cancelRequest")
+      setTxName("Cancel Request")
+      console.log("🔴 Dialog opened for cancel request");
+    } catch (error: any) {
+      console.error("🔴 Cancel request preparation error:", error)
+      toast.error(`Failed to prepare cancel request: ${error.message}`)
     }
   }
 
@@ -638,10 +791,15 @@ export default function RegisterPage() {
     }
 
     if (hasEnoughBalance === true) {
-      // If we have an identity set, go to verification, otherwise go to identity form
-      if (identity?.status === IdentityVerificationStatus.IdentitySet || identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid) {
+      // Go to completion step (7) if identity is fully verified
+      if (identity?.status === IdentityVerificationStatus.IdentityVerified) {
+        setCurrentStep(STEP_NUMBERS.complete)
+      }
+      // Go to verification step (6) if judgement has been requested and fee paid
+      else if (identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid || identity?.status === IdentityVerificationStatus.PendingJudgement) {
         setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
       } else {
+        // Stay in identity form step (5) for NoIdentity, IdentitySet, etc.
         setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
       }
     } else if (hasEnoughBalance === false) {
@@ -649,6 +807,37 @@ export default function RegisterPage() {
       return
     }
   }, [network, connectedWallets, accountStore.address, identity?.status, hasEnoughBalance])
+
+  // Auto-refresh identity status when waiting for judgment in step 6
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    // Only poll when in verification step and waiting for judgment
+    if (currentStep === STEP_NUMBERS.reviewAndSubmit && 
+        (identity?.status === IdentityVerificationStatus.PendingJudgement || 
+         identity?.status === IdentityVerificationStatus.FeePaid)) {
+      
+      console.log("🔄 Starting identity status polling - waiting for judgment...");
+      
+      // Poll every 10 seconds to check for status changes
+      pollInterval = setInterval(async () => {
+        console.log("🔄 Polling identity status...");
+        try {
+          await fetchIdAndJudgement();
+        } catch (error) {
+          console.error("❌ Error polling identity status:", error);
+        }
+      }, 10000); // Poll every 10 seconds
+    }
+
+    // Cleanup interval when component unmounts or conditions change
+    return () => {
+      if (pollInterval) {
+        console.log("🔄 Stopping identity status polling");
+        clearInterval(pollInterval);
+      }
+    };
+  }, [currentStep, identity?.status, fetchIdAndJudgement]);
 
   const getCanProceedOverall = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && !_network) return false
@@ -872,6 +1061,23 @@ export default function RegisterPage() {
                   canVerifyFields={identity?.status === IdentityVerificationStatus.FeePaid}
                 />
 
+                {/* Show waiting for judgment indicator */}
+                {(identity?.status === IdentityVerificationStatus.PendingJudgement) && (
+                  <Card className="bg-blue-900/20 border-blue-500/30 mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400"></div>
+                        <div>
+                          <p className="text-blue-300 font-medium">Waiting for Registrar Judgment</p>
+                          <p className="text-blue-400 text-sm">
+                            Your verification is under review. The page will automatically update when judgment is received.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="bg-gray-800/50 border-gray-700 mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center text-white text-xl">
@@ -909,23 +1115,40 @@ export default function RegisterPage() {
                           </div>
                         ))}
                     </div>
+                    {/* Only show verification completion button, no request judgement from step 6 */}
                     <Button
-                      onClick={identity?.status === IdentityVerificationStatus.IdentitySet ? onRequestJudgement : () => { }}
-                      disabled={
-                        (identity?.status === IdentityVerificationStatus.IdentitySet && false) || // Can request judgement
-                        (identity?.status !== IdentityVerificationStatus.IdentitySet && !canProceedFromVerificationStep) // Need verification
-                      }
+                      onClick={() => { }} 
+                      disabled={!canProceedFromVerificationStep}
                       className="w-full mt-6 py-3 text-base"
                     >
-                      {identity?.status === IdentityVerificationStatus.IdentitySet
-                        ? "Request Judgement & Pay Fee"
-                        : identity?.status === IdentityVerificationStatus.FeePaid
-                          ? "Complete All Verifications Above"
-                          : identity?.status === IdentityVerificationStatus.IdentityVerified
-                            ? "Identity Fully Verified!"
-                            : "Complete Verification Steps"
+                      {identity?.status === IdentityVerificationStatus.FeePaid
+                        ? "Complete All Verifications Above"
+                        : identity?.status === IdentityVerificationStatus.IdentityVerified
+                          ? "Identity Fully Verified!"
+                          : "Complete Verification Steps"
                       }
                     </Button>
+                    
+                    {/* Cancel Request Button - Only show if request is pending */}
+                    {(() => {
+                      const shouldShowCancelButton = (identity?.status === IdentityVerificationStatus.PendingJudgement || 
+                                                     identity?.status === IdentityVerificationStatus.FeePaid);
+                      console.log("🔴 Identity status:", identity?.status);
+                      console.log("🔴 Should show cancel button:", shouldShowCancelButton);
+                      console.log("🔴 PendingJudgement constant:", IdentityVerificationStatus.PendingJudgement);
+                      console.log("🔴 FeePaid constant:", IdentityVerificationStatus.FeePaid);
+                      
+                      return shouldShowCancelButton && (
+                        <Button
+                          onClick={onCancelRequest}
+                          disabled={isSubmittingIdentity}
+                          variant="outline"
+                          className="w-full mt-3 py-3 text-base border-red-500/70 text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-400"
+                        >
+                          {isSubmittingIdentity ? "Processing..." : "Cancel Request & Update Identity"}
+                        </Button>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </>
