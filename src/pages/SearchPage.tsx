@@ -33,12 +33,12 @@ export default function SearchPage() {
     searchJson = constructSearcObject(query);
   }
 
-  const fetchResults = async (searchQuery: string, limit: number = 20) => {
+  const fetchResults = async (searchQuery: any, limit: number = 20) => {
 
     setIsLoading(true);
     try {
       // Use the centralized search function from context
-      const searchResults = await search(JSON.stringify(searchQuery), limit);
+      const searchResults = await search(searchQuery, limit);
       setResults(searchResults);
     } catch (error) {
       console.error('Search failed:', error);
