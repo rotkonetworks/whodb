@@ -1,6 +1,7 @@
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { Separator } from "@/components/ui/separator"
 import { VerifiableFormField } from "@/components/verifiable-form-field"
+import { verificationConfig } from "@/config/verification-config"
 import { useVerification } from "@/contexts/verification-context"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
@@ -20,7 +21,7 @@ import {
   User,
 } from "lucide-react"
 import type React from "react"
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 interface IdentityVerificationFormProps {
   identityData: IdentityData
@@ -42,12 +43,29 @@ export function IdentityVerificationForm({
     setWebSocketParams,
   } = useVerification()
   useTriggerLog(challenges, "IdentityVerificationForm Challenges")
+  
+  // Track identity data hash to detect changes
+  const identityDataRef = useRef<string>('')
+  const identityDataHash = JSON.stringify(identityData)
 
   useEffect(() => {
+    const identityDataChanged = identityDataRef.current !== identityDataHash
+    
+    console.log("🔄 Identity verification form - setting WebSocket params:", {
+      address, network, identityStatus, identityDataChanged
+    });
+    
+    if (identityDataChanged) {
+      console.log("🔄 Identity data changed - forcing verification reset");
+      identityDataRef.current = identityDataHash
+    }
+    
+    // Force reset of verification state when identity status indicates a new judgment request
+    // This ensures old verification data doesn't persist
     setWebSocketParams({ address, network, identityStatus })
-  }, [address, network, identityStatus, setWebSocketParams])
+  }, [address, network, identityStatus, identityDataHash, setWebSocketParams])
 
-  // Determine which fields to show based on supportedFields and what's filled
+  // Determine which fields to show based on chain identity data AND WebSocket challenges
   const fieldsToShow = useMemo(() => {
     const supportedSet = supportedFields.length > 0 ? supportedFields : [
       'display',
@@ -62,113 +80,80 @@ export function IdentityVerificationForm({
       'legal'
     ]
 
-    // Only show fields that are actually filled
-    return supportedSet.filter(field => field && identityData[field]
-      && identityData[field].trim() !== ""
+    // Show fields that are either:
+    // 1. Filled in the identity data from chain, OR
+    // 2. Have challenges available from WebSocket (pending verification)
+    const fieldsWithData = supportedSet.filter(field => 
+      field && identityData[field] && identityData[field].trim() !== ""
     )
-  }, [supportedFields, identityData])
+    
+    const fieldsWithChallenges = Object.keys(challenges || {}).filter(field => {
+      const hasChallenge = challenges[field]?.code
+      const isSupported = supportedSet.includes(field)
+      console.log(`🔍 Field ${field}: hasChallenge=${hasChallenge}, isSupported=${isSupported}`)
+      return isSupported && hasChallenge
+    })
+    
+    // Combine and deduplicate
+    const allRelevantFields = [...new Set([...fieldsWithData, ...fieldsWithChallenges])]
+    
+    console.log('📋 Fields to show:', {
+      supportedSet,
+      fieldsWithData,
+      fieldsWithChallenges, 
+      allRelevantFields,
+      identityData: Object.entries(identityData).filter(([k,v]) => v?.trim()),
+      challenges: Object.entries(challenges || {}),
+      challengesWithCodes: Object.entries(challenges || {}).map(([k,v]) => ({ field: k, code: v?.code, status: v?.status, hasCode: !!v?.code }))
+    })
+    
+    return allRelevantFields
+  }, [supportedFields, identityData, challenges])
 
-  // Field configuration with verification instructions
-  const fieldConfig = useMemo(() => ({
-    email: {
-      label: "Email Address",
-      icon: <Mail className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "satoshi@example.com",
-      type: "email",
-      verificationInstructions: {
-        method: "code" as const,
-        contactAddress: import.meta.env.VITE_VERIFICATION_EMAIL || "verify@whodb.com",
-        details: `Send verification code via email. You'll receive a unique code to enter for verification.`
+  // Field configuration with verification instructions from config
+  const fieldConfig = useMemo(() => {
+    const getFieldIcon = (fieldId: string) => {
+      const iconMap: Record<string, React.ReactNode> = {
+        email: <Mail className="w-4 h-4 text-pink-400 mr-2" />,
+        web: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
+        twitter: <Twitter className="w-4 h-4 text-pink-400 mr-2" />,
+        github: <Github className="w-4 h-4 text-pink-400 mr-2" />,
+        matrix: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
+        pgp_fingerprint: <Key className="w-4 h-4 text-pink-400 mr-2" />,
+        discord: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
+        image: <User className="w-4 h-4 text-pink-400 mr-2" />,
+        legal: <User className="w-4 h-4 text-pink-400 mr-2" />,
       }
-    },
-    web: {
-      label: "Website",
-      icon: <Globe className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "https://bitcoin.org",
-      type: "url",
-      verificationInstructions: {
-        method: "dns-challenge" as const,
-        details: `Add a TXT record to your domain's DNS with the provided challenge string. Format: TXT record for _whodb-verification.yourdomain.com`
-      }
-    },
-    twitter: {
-      label: "Twitter / X Handle",
-      icon: <Twitter className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "@satoshi",
-      type: "text",
-      verificationInstructions: {
-        method: "code" as const,
-        contactAddress: import.meta.env.VITE_VERIFICATION_TWITTER || "@whodb_verify",
-        details: `Send the verification code as a direct message to ${import.meta.env.VITE_VERIFICATION_TWITTER || "@whodb_verify"} on Twitter/X.`
-      }
-    },
-    github: {
-      label: "GitHub Username",
-      icon: <Github className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "satoshi-nakamoto",
-      type: "text",
-      verificationInstructions: {
-        method: "challenge-url" as const,
-        details: `You'll receive a GitHub challenge URL from our API. Visit the URL and follow the OAuth authentication process to verify your GitHub account.`
-      }
-    },
-    matrix: {
-      label: "Matrix Handle",
-      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "@satoshi:matrix.org",
-      type: "text",
-      verificationInstructions: {
-        method: "code" as const,
-        contactAddress: import.meta.env.VITE_VERIFICATION_MATRIX || "@verify:whodb.org",
-        details: `Send the verification code as a message to ${import.meta.env.VITE_VERIFICATION_MATRIX || "@verify:whodb.org"} on Matrix.`
-      }
-    },
-    pgp_fingerprint: {
-      label: "PGP Fingerprint",
-      icon: <Key className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-      type: "text",
-      verificationInstructions: {
-        method: "gpg-challenge" as const,
-        details: `GPG Challenge Verification Steps:
-1. Copy the challenge text provided
-2. Sign it with your GPG key: gpg --clearsign --armor
-3. Paste the signed challenge (including -----BEGIN PGP SIGNED MESSAGE----- header)
-4. Ensure your public key is available on keyservers (keys.openpgp.org or pgp.mit.edu)`
-      }
-    },
-    discord: {
-      label: "Discord Handle",
-      icon: <MessageSquare className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "username#1234",
-      type: "text",
-      verificationInstructions: {
-        method: "code" as const,
-        contactAddress: import.meta.env.VITE_VERIFICATION_DISCORD || "@whodb_verify",
-        details: `Send the verification code as a direct message to ${import.meta.env.VITE_VERIFICATION_DISCORD || "@whodb_verify"} on Discord.`
-      }
-    },
-    image: {
-      label: "Avatar Image URL",
-      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "https://example.com/avatar.png",
-      type: "url",
-      verificationInstructions: {
-        method: "challenge" as const,
-        details: `Provide a publicly accessible URL to your avatar image.`
-      }
-    },
-    legal: {
-      label: "Legal Name",
-      icon: <User className="w-4 h-4 text-pink-400 mr-2" />,
-      placeholder: "John Doe",
-      type: "text",
-      verificationInstructions: {
-        method: "challenge" as const,
-        details: `Provide your full legal name for identity verification.`
-      }
+      return iconMap[fieldId] || <User className="w-4 h-4 text-pink-400 mr-2" />
     }
-  }), [])
+
+    const getFieldType = (fieldId: string) => {
+      const typeMap: Record<string, string> = {
+        email: "email",
+        web: "url",
+        image: "url",
+      }
+      return typeMap[fieldId] || "text"
+    }
+
+    const config: Record<string, any> = {}
+    
+    Object.entries(verificationConfig).forEach(([fieldId, fieldConfig]) => {
+      config[fieldId] = {
+        label: fieldConfig.label,
+        icon: getFieldIcon(fieldId),
+        placeholder: fieldConfig.placeholder,
+        type: getFieldType(fieldId),
+        verificationInstructions: {
+          method: fieldConfig.instructions.method,
+          contactAddress: fieldConfig.contactAddress,
+          details: fieldConfig.instructions.details
+        }
+      }
+    })
+
+    return config
+  }, [])
 
   // Create field components for verification
   const createVerificationComponent = useCallback((fieldKey: string) => {
@@ -293,9 +278,15 @@ export function IdentityVerificationForm({
           ) : (Object.keys(challenges).length > 0 ? (
             <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
               <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
-              <span>
-                Verification challenges are now available! Complete all field verifications below to proceed.
-              </span>
+              <div>
+                <span>Verification challenges are now available! Complete all field verifications below to proceed.</span>
+                <div className="mt-2 text-xs text-green-200">
+                  Available challenges for: {Object.entries(challenges)
+                    .filter(([key, challenge]) => challenge.code)
+                    .map(([key]) => key)
+                    .join(", ") || "none"}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex items-start p-3 text-sm text-gray-300 bg-gray-900/20 border border-gray-500/30 rounded-md">

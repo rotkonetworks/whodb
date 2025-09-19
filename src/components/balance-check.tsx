@@ -28,12 +28,33 @@ export function BalanceCheck({
   const [showTeleportDialog, setShowTeleportDialog] = useState(false) // State for teleport dialog
   const { address: walletAddress } = useWallet() // Get wallet address from context
 
-  const { chainStore, accountStore, isTxBusy, balance, identity } = usePolkadotApi()
+  const { chainStore, accountStore, isTxBusy, balance, identity, typedApi, isConnected, error, isConnecting } = usePolkadotApi()
 
   // Use passed balance or fall back to context balance
   const address = accountStore.encodedAddress
-  const isLoading = balance === undefined
+  const isLoading = (balance === null || balance === undefined || !typedApi || !address || !isConnected) && !error
+  const hasConnectionError = !!error
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
+
+  // Add debugging to understand balance state
+  useEffect(() => {
+    console.log('Balance Debug:', {
+      balance: balance?.toString(),
+      balanceType: typeof balance,
+      address,
+      typedApi: !!typedApi,
+      isConnected,
+      chainStoreId: chainStore.id,
+      tokenSymbol: chainStore.tokenSymbol,
+      tokenDecimals: chainStore.tokenDecimals,
+      accountName: accountStore.name
+    })
+    
+    // If we have all the required pieces but balance is still null/undefined, log a warning
+    if (address && typedApi && isConnected && !balance && !error) {
+      console.warn('Balance subscription may not be working. Address and API are available but balance is null/undefined.')
+    }
+  }, [balance, address, typedApi, isConnected, chainStore.id, chainStore.tokenSymbol, chainStore.tokenDecimals, accountStore.name, error])
 
   useEffect(() => {
     if (address && !hasChecked) {
@@ -54,7 +75,7 @@ export function BalanceCheck({
     tokenDecimals: chainStore.tokenDecimals || 12,
   })
 
-  const balanceFormatted = formatAmount(balance || 0)
+  const balanceFormatted = isLoading ? "---" : formatAmount(balance || 0)
   const requiredBalanceFormatted = formatAmount(requiredBalance || 0)
 
   const handleRequestTokens = async () => {
@@ -125,10 +146,17 @@ export function BalanceCheck({
           <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-600">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Current Balance:</span>
-              {isLoading ? (
+              {hasConnectionError ? (
+                <div className="flex items-center">
+                  <AlertCircle className="w-4 h-4 text-red-400 mr-2" />
+                  <span className="text-red-400 text-sm">Connection failed</span>
+                </div>
+              ) : isLoading ? (
                 <div className="flex items-center">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  <span className="text-gray-400">Checking...</span>
+                  <span className="text-gray-400">
+                    {isConnecting ? "Connecting to network..." : !typedApi ? "Initializing API..." : !address ? "Waiting for account..." : "Fetching balance..."}
+                  </span>
                 </div>
               ) : (
                 <span className="text-white font-mono text-sm">
@@ -146,6 +174,40 @@ export function BalanceCheck({
               </div>
             )}
           </div>
+
+          {/* Connection error message */}
+          {hasConnectionError && (
+            <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-md">
+              <div className="flex items-center mb-2">
+                <AlertCircle className="w-4 h-4 text-red-400 mr-2" />
+                <span className="text-red-400 text-sm font-medium">Network Connection Failed</span>
+              </div>
+              <p className="text-red-300 text-xs mb-3">
+                Unable to connect to the blockchain network. Error: {error}
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+                size="sm"
+                className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+              >
+                Retry Connection
+              </Button>
+            </div>
+          )}
+
+          {/* Debug info when balance is 0 but not loading */}
+          {!isLoading && !hasConnectionError && balance && balance.isEqualTo(0) && (
+            <div className="p-3 bg-blue-900/20 border border-blue-500/30 rounded-md">
+              <div className="flex items-center mb-2">
+                <AlertCircle className="w-4 h-4 text-blue-400 mr-2" />
+                <span className="text-blue-400 text-sm">Balance is 0</span>
+              </div>
+              <p className="text-blue-300 text-xs">
+                Your account balance is currently 0. You'll need tokens to proceed with identity registration.
+              </p>
+            </div>
+          )}
 
           {!isLoading && (
             <>

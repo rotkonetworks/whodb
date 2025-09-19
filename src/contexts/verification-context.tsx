@@ -144,6 +144,13 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   useTriggerLog(challengeWebSocket.sendPGPVerification, "sendPGPVerification")
 
   const setWebSocketParams = useCallback((params: ChallengeWebSocketParameters) => {
+    
+    // Reset all verification state when account/network changes
+    setVerifications(initialVerificationFields);
+    setVerifyingFields(new Set());
+    setChallenges({});
+    
+    // Update WebSocket parameters
     setWsParams(params);
   }, []);
 
@@ -173,142 +180,176 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     })
     setVerifications(updatedVerifications)
   }, [])
+  // Helper function to convert WebSocket challenges to field verifications
+  const convertChallengeToVerification = (key: string, challenge: Challenge): FieldVerification => ({
+    field: key as ChallengeType,
+    status: CHALLENGE_STATUSES_TO_STATES[challenge.status] || "unverified",
+    verificationMethod: CHALLENGE_TYPES[key as ChallengeType] || "code",
+    verificationPayload: challenge.code,
+  });
+
+  // Update verifications when WebSocket challenges change
   useEffect(() => {
-    const newChallenges: FieldVerification[] = Object.entries(challengeWebSocket.challenges)
-      .map(([key, challenge]: [string, Challenge]): FieldVerification => ({
-        field: key as ChallengeType,
-        status: CHALLENGE_STATUSES_TO_STATES[challenge.status] || "unverified",
-        verificationMethod: CHALLENGE_TYPES[key as ChallengeType] || "code",
-        verificationPayload: challenge.code,
-      }))
-    setVerifications(newChallenges)
-  }, [challengeWebSocket.challenges])
+    console.log('🔧 WebSocket challenges changed');
+    const newVerifications: FieldVerification[] = Object.entries(challengeWebSocket.challenges)
+      .map(([key, challenge]: [string, Challenge]) => {
+        const verification = convertChallengeToVerification(key, challenge);
+        console.log(`🔧 Converting challenge ${key} -> verification`);
+        return verification;
+      });
+    
+    console.log('🔧 Setting new verifications:', newVerifications);
+    setVerifications(newVerifications);
+  }, [challengeWebSocket.challenges]);
 
   const startVerification = async (
     field: string,
     _methodType: "code" | "oauth" | "dns-challenge" | "challenge" | "challenge-url" | "gpg-challenge",
     label: string,
   ): Promise<string | null> => {
-    setVerifyingFields((prev) => new Set(prev).add(field))
+    setFieldVerifying(field, true);
 
-    // Check if we have a real challenge from WebSocket API for this field
-    const websocketChallenge = challenges[field]
-    if (websocketChallenge && websocketChallenge.code) {
-      toast.info(`Using verification challenge for ${label}...`)
-
-      setVerifications((prev) =>
-        prev.map((v) =>
-          v.field === field
-            ? { ...v, status: "pending", verificationMethod: label, verificationPayload: websocketChallenge.code }
-            : v,
-        ),
-      )
-
-      setVerifyingFields((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(field)
-        return newSet
-      })
-
-      return websocketChallenge.code
+    // Check if we have a challenge from WebSocket for this field
+    const websocketChallenge = challenges[field];
+    
+    if (websocketChallenge?.code) {
+      toast.info(`Using verification challenge for ${label}...`);
+      
+      updateVerificationState(field, "pending");
+      setFieldVerifying(field, false);
+      
+      return websocketChallenge.code;
     }
 
+    // Set a timeout to show error if no challenge is found
     window.setTimeout(() => {
-      if (!challenges[field] || !challenges[field].code) {
-        toast.error(`No verification challenge available for ${label}. Please try again later.`)
-        setVerifyingFields((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(field)
-          return newSet
-        })
+      if (!challenges[field]?.code) {
+        toast.error(`No verification challenge available for ${label}. Please try again later.`);
+        setFieldVerifying(field, false);
       }
-    }, 10000)
-    return null
+    }, 10000);
+
+    return null;
+  }
+
+  // Helper function to handle PGP verification
+  const handlePGPVerification = async (
+    field: ChallengeType, 
+    extraConfirmationData: VerifyPGPKeyMessage
+  ): Promise<boolean> => {
+    if (!sendPGPVerification) {
+      toast.error("PGP verification service not available")
+      return false
+    }
+
+    try {
+      await sendPGPVerification(extraConfirmationData)
+      toast.success("PGP verification successful!")
+      return true
+    } catch (error) {
+      toast.error(`PGP verification failed: ${error}`)
+      return false
+    }
+  }
+
+  // Helper function to refresh WebSocket data
+  const refreshWebSocketData = async (): Promise<void> => {
+    challengeWebSocket.subscribe()
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+
+  // Helper function to check WebSocket verification status
+  const checkWebSocketVerificationStatus = (field: ChallengeType): {
+    isVerified: boolean
+    wsChallenge: Challenge | undefined
+  } => {
+    const wsChallenge = challengeWebSocket.challenges[field]
+    const isVerified = wsChallenge?.status === ChallengeStatus.Passed
+    
+    return { isVerified, wsChallenge }
+  }
+
+  // Helper function to update verification state
+  const updateVerificationState = (
+    field: ChallengeType, 
+    status: "verified" | "pending" | "failed"
+  ): void => {
+    setVerifications((prev) =>
+      prev.map((v) =>
+        v.field === field
+          ? {
+            ...v,
+            status,
+            lastVerified: status === "verified" ? new Date().toISOString() : undefined,
+            verificationPayload: status === "verified" ? undefined : v.verificationPayload,
+          }
+          : v,
+      ),
+    )
+  }
+
+  // Helper function to show verification result messages
+  const showVerificationResult = (
+    field: ChallengeType,
+    isVerified: boolean,
+    wsChallenge: Challenge | undefined
+  ): void => {
+    const fieldState = verifications.find((v) => v.field === field)
+    const verificationMethodLabel = fieldState?.verificationMethod || field
+
+    if (isVerified) {
+      toast.success(`${verificationMethodLabel} has been successfully verified!`)
+    } else if (wsChallenge) {
+      toast.info(`${verificationMethodLabel} verification is still pending. Please complete the challenge and try again.`)
+    } else {
+      toast.error(`No verification challenge found for ${verificationMethodLabel}. Please try again later.`)
+    }
+  }
+
+  // Helper function to manage verifying fields state
+  const setFieldVerifying = (field: ChallengeType, isVerifying: boolean): void => {
+    setVerifyingFields((prev) => {
+      const next = new Set(prev)
+      if (isVerifying) {
+        next.add(field)
+      } else {
+        next.delete(field)
+      }
+      return next
+    })
   }
 
   const confirmVerification = async (
     field: ChallengeType,
     extraConfirmationData: ExtraConfirmationData[ChallengeType]
   ): Promise<boolean> => {
-    setVerifyingFields((prev) => new Set(prev).add(field))
+    // Start verification process
+    setFieldVerifying(field, true)
     const fieldState = verifications.find((v) => v.field === field)
     toast.info(`Checking verification status for ${fieldState?.verificationMethod || field}...`)
 
-    if (field === "pgp_fingerprint" && extraConfirmationData.signed_challenge && sendPGPVerification) {
-      try {
-        // Use the real PGP verification function from the API
-        await sendPGPVerification({
-          pubkey: extraConfirmationData.pubkey,
-          signed_challenge: extraConfirmationData.signed_challenge,
-          network: extraConfirmationData.network,
-          account: extraConfirmationData.account,
-        })
-
-        return true
-
-        toast.success(`PGP verification successful!`)
-        return true
-
-      } catch (error) {
-        setVerifications((prev) =>
-          prev.map((v) =>
-            v.field === field
-              ? { ...v, status: "failed" }
-              : v,
-          ),
-        )
-
-        setVerifyingFields((prev) => {
-          const next = new Set(prev)
-          next.delete(field)
-          return next
-        })
-
-        toast.error(`PGP verification failed: ${error}`)
-        return false
+    try {
+      // Handle PGP verification separately
+      if (field === "pgp_fingerprint" && extraConfirmationData?.signed_challenge) {
+        const isVerified = await handlePGPVerification(field, extraConfirmationData as VerifyPGPKeyMessage)
+        updateVerificationState(field, isVerified ? "verified" : "failed")
+        return isVerified
       }
+
+      // For other verification types, check WebSocket state
+      await refreshWebSocketData()
+      const { isVerified, wsChallenge } = checkWebSocketVerificationStatus(field)
+
+      // Update state and show result
+      const status = isVerified ? "verified" : (wsChallenge ? "pending" : "failed")
+      updateVerificationState(field, status)
+      showVerificationResult(field, isVerified, wsChallenge)
+
+      return isVerified
+    } finally {
+      // Always stop the verifying state
+      setFieldVerifying(field, false)
     }
-
-    // For other verification types, use the existing simulation logic
-    if (field === "pgp_fingerprint" && extraConfirmationData && 'signed_challenge' in extraConfirmationData) {
-      console.log("PGP Verification Data:", {
-        fingerprint: "USER_FINGERPRINT_HERE", // This should be the actual fingerprint from form
-        originalChallenge: fieldState?.verificationPayload,
-        signedChallenge: extraConfirmationData.signed_challenge,
-      })
-      await new Promise((resolve) => setTimeout(resolve, 3500))
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 2500))
-    }
-
-    const success = Math.random() > 0.2 // Simulate success/failure
-
-    setVerifications((prev) =>
-      prev.map((v) =>
-        v.field === field
-          ? {
-            ...v,
-            status: success ? "verified" : "failed",
-            lastVerified: success ? new Date().toISOString() : undefined,
-            verificationPayload: success ? undefined : v.verificationPayload, // Clear payload on success
-          }
-          : v,
-      ),
-    )
-
-    setVerifyingFields((prev) => {
-      const next = new Set(prev)
-      next.delete(field)
-      return next
-    })
-    const verificationMethodLabel = fieldState?.verificationMethod || field
-    if (success) {
-      toast.success(`${verificationMethodLabel} has been successfully verified!`)
-    } else {
-      toast.error(`Verification for ${verificationMethodLabel} failed. Please try again.`)
-    }
-
-    return success
   }
 
   const getFieldStatus = useCallback((field: string) => {

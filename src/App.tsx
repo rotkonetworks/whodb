@@ -8,7 +8,6 @@ import { Toaster } from '@/components/ui/sonner'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
-// Import pages
 import HomePage from './pages/homepage'
 import RegisterPage from './pages/RegisterPage'
 import SearchPage from './pages/SearchPage'

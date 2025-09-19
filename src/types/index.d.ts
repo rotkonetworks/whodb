@@ -21,6 +21,7 @@ export type DialogMode =
   "teleport" |
   "help" |
   "requestJudgement" |
+  "cancelRequest" |
   "setIdentity" |
   "addSubaccount" |
   "editSubAccount" |

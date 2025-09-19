@@ -1,0 +1,56 @@
+commit eace1130356282d347cbd279bb1776ed6f42982f
+Author: yassinebenarbia <yassine.bna@proton.me>
+Date:   Thu Sep 11 23:25:19 2025 +0200
+
+    fix(#14): sanatize default search with fields
+
+diff --git a/src/lib/utils.ts b/src/lib/utils.ts
+index cedb435..56a0508 100644
+--- a/src/lib/utils.ts
++++ b/src/lib/utils.ts
+@@ -37,6 +37,8 @@ export function mapSearchKey(key: string): string | null {
+       return "PGPFingerprint"
+     case "github":
+       return "Github"
++    case "display_name":
++      return "Display"
+     default:
+       return null
+   }
+@@ -59,13 +61,19 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
+       const key = match[1].trim();
+       const value = match[2].trim();
+ 
+-      if (key && value !== undefined) {
+-        if (AllowedFields.includes(key.toLowerCase()) || key.toLowerCase() === "network" || key.toLowerCase() === "result_size") {
+-          result[key] = value;
+-        }
++      if (key && value !== undefined && AllowedFields.includes(key.toLowerCase())) {
++        result[key] = value;
+       }
+     }
+-
++    
++    // If no structured fields found and query is not empty, search across multiple fields
++    if (Object.keys(result).length === 0 && input.trim()) {
++      const searchableFields = ["display_name", "discord", "matrix", "twitter", "email", "web"];
++      searchableFields.forEach(field => {
++        result[field] = input.trim();
++      });
++    }
++    
+     return result;
+   }
+ 
+diff --git a/src/pages/SearchPage.tsx b/src/pages/SearchPage.tsx
+index 216cdde..f4beddc 100644
+--- a/src/pages/SearchPage.tsx
++++ b/src/pages/SearchPage.tsx
+@@ -187,7 +187,6 @@ export default function SearchPage() {
+                     type="button"
+                     className="btn-primary px-4 py-2 rounded-lg text-sm"
+                     onClick={() => {
+-                      const profileString = btoa(JSON.stringify(profile));
+                       navigate(`/profile/${profile.wallet_id}`);
+                     }}>
+                     View Profile
