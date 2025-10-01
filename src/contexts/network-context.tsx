@@ -2,8 +2,9 @@ import { useUrlParams } from "@/hooks/useUrlParams"
 import { CHAINS } from "@/polkadot-api/chain-config"
 import type React from "react"
 import type { ChainInfo } from "@/store/ChainStore"
+import { toast } from "sonner"
 
-import { createContext, useContext, useState, useEffect, Key } from "react"
+import { createContext, useContext, useState, useEffect, Key, useCallback } from "react"
 
 export type Network = keyof typeof CHAINS
 
@@ -21,25 +22,44 @@ const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
 export function NetworkProvider({ children }: { children: React.ReactNode, network?: Network }) {
   const { urlParams, setParam, deleteParam } = useUrlParams()
   const [_network, _setNetwork] = useState<Network | undefined>(urlParams.network as Network | undefined)
+  const networks = CHAINS
 
-  const setNetwork = (newNetwork: Network | undefined) => {
+  const setNetwork = useCallback((newNetwork: Network | undefined) => {
     if (!newNetwork) {
       deleteParam("network")
+      return
     }
+
+    // Validate network exists
+    if (!Object.keys(networks).includes(newNetwork)) {
+      toast.error(`Network ${newNetwork} is not supported`)
+      return
+    }
+
+    // Check if switching from a different network
+    if (_network && _network !== newNetwork) {
+      const fromNetwork = networks[_network]?.name || _network
+      const toNetwork = networks[newNetwork]?.name || newNetwork
+      toast.info(`Switching from ${fromNetwork} to ${toNetwork}...`)
+    }
+
     setParam("network", newNetwork)
     _setNetwork(newNetwork)
-  }
-  const networks = CHAINS
+  }, [_network, deleteParam, setParam, networks])
 
   useEffect(() => {
     const urlNetwork = urlParams.network as Network | undefined
-    if (urlNetwork && Object.keys(networks).includes(urlNetwork)) {
-      setNetwork(urlNetwork)
-    } else {
-      // TODO Maybe a toast notification here to notify the user?
-      setNetwork(undefined)
+    if (urlNetwork) {
+      if (Object.keys(networks).includes(urlNetwork)) {
+        if (_network !== urlNetwork) {
+          _setNetwork(urlNetwork)
+        }
+      } else {
+        toast.error(`Network ${urlNetwork} from URL is not supported`)
+        setNetwork(undefined)
+      }
     }
-  }, [urlParams.network])
+  }, [urlParams.network, _network, networks])
 
 
   const networkColor = networks[_network]?.primaryColor || "#000000" // Default to black if not defined

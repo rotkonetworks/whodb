@@ -5,12 +5,13 @@ import { constructSearcObject } from "@/lib/utils"
 import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe, Github, Fingerprint, AtSign } from "lucide-react"
 import { SOCIAL_ICONS } from "@/assets/icons"
 import VerificationTimeline from "@/components/verification-timeline"
-import { Link, useSearchParams } from "react-router-dom"
+import { Link, useSearchParams, useLocation } from "react-router-dom"
 import { useParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { FullDisplayedOutputs } from "@/types/search_fields";
 import * as Avatar from "@radix-ui/react-avatar"
 import RegistredAccounts from "@/components/registred-accounts"
+import { Badge } from "@/components/ui/badge"
 
 
 const getNetworkColor = (network: string) => {
@@ -28,9 +29,14 @@ const limit = 1;
 export default function ProfilePage() {
   const { search } = useSearchContext();
   const { id } = useParams();
+  const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const loadedIdRef = useRef<string | null>(null);
+
+  // Extract network from path (e.g., /polkadot/profile/... -> polkadot)
+  const networkFromPath = location.pathname.split('/')[1];
+  const isNetworkSpecific = ['polkadot', 'kusama', 'paseo'].includes(networkFromPath);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -38,7 +44,17 @@ export default function ProfilePage() {
         loadedIdRef.current = id;
         try {
           setLoading(true);
-          const searchObj = constructSearcObject("id: " + id, FullDisplayedOutputs);
+          // Include network in search if we're on a network-specific route
+          let searchQuery = `id: ${id}`;
+          if (isNetworkSpecific) {
+            // Map network name to chain ID format (e.g., polkadot -> polkadot_people)
+            const networkId = networkFromPath === 'polkadot' ? 'polkadot_people' :
+                            networkFromPath === 'kusama' ? 'ksmcc3_people' :
+                            networkFromPath === 'paseo' ? 'paseo_people' :
+                            networkFromPath;
+            searchQuery = `id: ${id} network: ${networkId}`;
+          }
+          const searchObj = constructSearcObject(searchQuery, FullDisplayedOutputs);
           const searchResults = await search(JSON.stringify(searchObj), limit).then((result) => result[0]);
           setProfile(searchResults);
         } catch (error) {
@@ -51,7 +67,7 @@ export default function ProfilePage() {
     };
 
     getProfile();
-  }, [id, search]);
+  }, [id, search, isNetworkSpecific, networkFromPath]);
 
   if (loading) {
     return <div>Loading...</div>

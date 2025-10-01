@@ -715,8 +715,9 @@ export default function RegisterPage() {
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
+  // Only show Paseo testnet for registration (we're not registrars on Polkadot/Kusama yet)
   const networks = Object.entries(CHAINS)
-    .filter(([key]) => key.endsWith("_people"))
+    .filter(([key]) => key.endsWith("_people") && key.includes("paseo"))
     .map(([key, networkInfo]) => ({
       id: key,
       name: networkInfo.name,
@@ -945,6 +946,12 @@ export default function RegisterPage() {
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 md:p-8 shadow-xl min-h-[300px]">
             {currentStep === STEP_NUMBERS.pickNetwork && (
               <>
+                <div className="mb-4 p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md flex items-start">
+                  <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
+                  <span>
+                    Registration is currently only available on Paseo testnet. We will be available as registrars on Polkadot and Kusama soon!
+                  </span>
+                </div>
                 <NetworkSelection
                   networks={networks}
                   selectedNetwork={_network}

@@ -177,17 +177,27 @@ export default function SearchPage() {
                       </div>
                     ) : null}
 
-                    <div className="flex items-center text-gray-300">
+                    <div className="flex items-center text-gray-300 mb-2">
                       <Wallet className="w-4 h-4 mr-2 text-pink-400" />
                       <span className="font-mono text-xs truncate">{profile.wallet_id}</span>
                     </div>
+
+                    {profile.network && (
+                      <Badge className="bg-gray-700 text-gray-300 text-xs">
+                        {profile.network.replace('_people', '').toUpperCase()}
+                      </Badge>
+                    )}
                   </div>
 
                   <button
                     type="button"
                     className="btn-primary px-4 py-2 rounded-lg text-sm"
                     onClick={() => {
-                      navigate(`/profile/${profile.wallet_id}`);
+                      // Use network-specific routing
+                      const networkPath = profile.network ?
+                        `/${profile.network.replace('_people', '')}/profile/${profile.wallet_id}` :
+                        `/profile/${profile.wallet_id}`;
+                      navigate(networkPath);
                     }}>
                     View Profile
                   </button>
