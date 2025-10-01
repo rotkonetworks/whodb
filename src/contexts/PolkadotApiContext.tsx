@@ -378,7 +378,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   const formatAmount = useFormatAmount({
     tokenDecimals: chainStore.tokenDecimals,
-    symbol: chainStore.tokenSymbol
+    symbol: chainStore.tokenSymbol,
+    decimals: 4
   });
 
   const [isTxBusy, setTxBusy] = useState(false)

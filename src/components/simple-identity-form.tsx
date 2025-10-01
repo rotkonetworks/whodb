@@ -13,7 +13,6 @@ import {
   Key,
   ShieldCheck,
   Info,
-  AlertTriangle,
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
@@ -227,20 +226,17 @@ export function SimpleIdentityForm({
       {/* Identity Status Info */}
       <IdentityStatusInfo status={identityStatus} />
 
-      <div className="flex items-start p-3 mb-6 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
-        <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
-        <span>
-          You must provide your Display Name AND at least one other field to set your identity.
-          {isEditMode && " After setting, you'll proceed to verification in the next step."}
-        </span>
-      </div>
-
-      <div className="flex items-start p-3 mb-6 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
-        <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
-        <span>
-          <strong>Important:</strong> Only fill fields you are comfortable publishing on-chain.
-          {isEditMode && " Changed fields will require verification in the next step."}
-        </span>
+      {/* Combined info box for requirements */}
+      <div className="flex items-start p-3 mb-6 text-sm text-gray-300 bg-gray-800/50 border border-gray-600/50 rounded-md">
+        <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400" />
+        <div>
+          <div className="mb-1">
+            You must provide your <strong className="text-white">Display Name</strong> AND at least <strong className="text-white">one other field</strong> to set your identity.
+          </div>
+          <div className="text-xs text-gray-400">
+            <strong>Important:</strong> Only fill fields you are comfortable publishing on-chain.
+          </div>
+        </div>
       </div>
 
       {formSections.map((section, sectionIndex) => (
@@ -254,22 +250,20 @@ export function SimpleIdentityForm({
         </div>
       ))}
 
-      {/* Validation summary */}
-      <div className="p-3 mt-6 text-sm bg-gray-800/50 border border-gray-600/50 rounded-md">
-        <div className="flex items-center space-x-2">
-          <span className={hasDisplayName ? "text-green-400" : "text-gray-400"}>
-            {hasDisplayName ? "✓" : "○"} Display Name provided
+      {/* Compact validation status */}
+      <div className="flex items-center justify-between p-2 mt-4 text-xs bg-gray-800/30 border border-gray-700/50 rounded">
+        <div className="flex items-center gap-4">
+          <span className={hasDisplayName ? "text-green-400" : "text-gray-500"}>
+            {hasDisplayName ? "✓" : "○"} Display Name
           </span>
-        </div>
-        <div className="flex items-center space-x-2 mt-1">
-          <span className={hasOtherFields ? "text-green-400" : "text-gray-400"}>
-            {hasOtherFields ? "✓" : "○"} At least one additional field provided
+          <span className={hasOtherFields ? "text-green-400" : "text-gray-500"}>
+            {hasOtherFields ? "✓" : "○"} Additional field
           </span>
         </div>
         {hasDisplayName && hasOtherFields && (
-          <div className="mt-2 text-green-400 text-xs">
-            Ready to set identity on-chain!
-          </div>
+          <span className="text-green-400">
+            Ready to submit!
+          </span>
         )}
       </div>
     </form>

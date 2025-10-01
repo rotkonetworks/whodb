@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle, Edit, Info, ListChecks, Loader2, UserCheck, WalletIcon, } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -219,15 +219,15 @@ export default function RegisterPage() {
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
-    if (identity.status === IdentityVerificationStatus.IdentityVerified) {
-      // If identity is already verified, we can proceed
-      return true
-    }
+    // Check if form has required data (display name + at least one other field)
+    const hasDisplayName = identityData.display && identityData.display.trim() !== ""
+    const hasOtherFields = Object.entries(identityData)
+      .filter(([key, value]) => key !== 'display' && value && value.trim() !== "")
+      .length > 0
 
-    // For the fillIdentityInfo step, identity must be submitted to chain to proceed
-    // This ensures identity data is on-chain before verification step
-    return identity.status >= IdentityVerificationStatus.IdentitySet
-  }, [identity.status])
+    // Can submit if form has required data
+    return hasDisplayName && hasOtherFields
+  }, [identityData])
 
   const canProceedFromVerificationStep = useMemo(() => {
     if (identity.status === IdentityVerificationStatus.IdentityVerified) {
@@ -1043,18 +1043,28 @@ export default function RegisterPage() {
                   supportedFields={supportedFields}
                   identityStatus={identity?.status || IdentityVerificationStatus.NoIdentity}
                 />
-                <Button
-                  onClick={onSetIdentity}
-                  disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
-                  className="w-full mt-6"
-                >
-                  {isSubmittingIdentity
-                    ? "Processing Identity Update..."
-                    : identity.status === IdentityVerificationStatus.NoIdentity
-                      ? "Submit Identity & Request Judgment"
-                      : "Update Identity & Request Judgment"
-                  }
-                </Button>
+                <div className="mt-6 space-y-3">
+                  <Button
+                    onClick={onSetIdentity}
+                    disabled={!canProceedFromIdentityStep || isSubmittingIdentity || isTxBusy}
+                    className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-gray-700 disabled:text-gray-400"
+                  >
+                    {isSubmittingIdentity || isTxBusy ? (
+                      <span className="flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing Transaction...
+                      </span>
+                    ) : (
+                      <>Submit Identity & Request Judgment</>
+                    )}
+                  </Button>
+                  {/* Show helpful hint if button is disabled */}
+                  {!canProceedFromIdentityStep && !isSubmittingIdentity && !isTxBusy && (
+                    <p className="text-xs text-center text-gray-500">
+                      Fill in Display Name and at least one other field to continue
+                    </p>
+                  )}
+                </div>
               </>
             )}
 
@@ -1068,73 +1078,69 @@ export default function RegisterPage() {
                   canVerifyFields={identity?.status === IdentityVerificationStatus.FeePaid}
                 />
 
-                {/* Show waiting for judgment indicator */}
-                {(identity?.status === IdentityVerificationStatus.PendingJudgement) && (
-                  <Card className="bg-blue-900/20 border-blue-500/30 mt-6">
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400"></div>
-                        <div>
-                          <p className="text-blue-300 font-medium">Waiting for Registrar Judgment</p>
-                          <p className="text-blue-400 text-sm">
-                            Your verification is under review. The page will automatically update when judgment is received.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
 
+                {/* Simplified summary card */}
                 <Card className="bg-gray-800/50 border-gray-700 mt-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-white text-xl">
-                      <ListChecks className="w-6 h-6 mr-3 text-pink-400" />
-                      Review & Submit
-                    </CardTitle>
-                    <CardDescription className="text-gray-400 text-sm">
-                      Verify all your information above, then submit to the {networkDisplayName} blockchain.
-                      {isNetworkEncrypted && " Data on this network will be signed for privacy."}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {/* TODO Display as profile design */}
-                    <div className="p-3 rounded-md bg-gray-700/30 border border-gray-600/50 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Network:</span>
-                        <span className="text-gray-300 text-sm font-mono">
-                          {chainStore.relay.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Wallet Address:</span>
-                        <span className="text-gray-300 text-sm font-mono break-all">
-                          {accountStore.encodedAddress}
-                        </span>
-                      </div>
-                      {Object.entries(identityData)
-                        .filter(([key, value]) => value && value.trim() !== "" && getFieldStatus(key)?.status === "verified")
-                        .map(([key, value]) => (
-                          <div key={key} className="flex items-center justify-between">
-                            <span className="text-gray-400 text-sm capitalize">
-                              {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}:
-                            </span>
-                            <span className="text-gray-300 text-sm font-mono break-all">{value}</span>
-                          </div>
-                        ))}
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-700/50">
+                      <span className="text-sm text-gray-400">Network</span>
+                      <span className="text-sm text-white font-medium">{chainStore.relay.name}</span>
                     </div>
-                    {/* Only show verification completion button, no request judgement from step 6 */}
-                    <Button
-                      onClick={() => { }} 
-                      disabled={!canProceedFromVerificationStep}
-                      className="w-full mt-6 py-3 text-base"
-                    >
-                      {identity?.status === IdentityVerificationStatus.FeePaid
-                        ? "Complete All Verifications Above"
-                        : identity?.status === IdentityVerificationStatus.IdentityVerified
-                          ? "Identity Fully Verified!"
-                          : "Complete Verification Steps"
-                      }
-                    </Button>
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-700/50">
+                      <span className="text-sm text-gray-400">Account</span>
+                      <span className="text-xs text-white font-mono">
+                        {accountStore.encodedAddress?.substring(0, 8)}...{accountStore.encodedAddress?.substring(accountStore.encodedAddress.length - 6)}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <span className="text-sm text-gray-400">Verified Fields</span>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(identityData)
+                          .filter(([key, value]) => value && value.trim() !== "" && getFieldStatus(key)?.status === "verified")
+                          .map(([key]) => (
+                            <span key={key} className="px-2 py-1 text-xs bg-green-900/30 text-green-400 rounded-full border border-green-700/50">
+                              {key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                          ))}
+                        {Object.entries(identityData)
+                          .filter(([key, value]) => value && value.trim() !== "" && getFieldStatus(key)?.status === "verified").length === 0 && (
+                            <span className="text-xs text-gray-500">None verified yet</span>
+                          )}
+                      </div>
+                    </div>
+                    {/* Action buttons based on verification state */}
+                    {identity?.status === IdentityVerificationStatus.IdentityVerified ? (
+                      <Button
+                        onClick={handleNextStep}
+                        className="w-full mt-6 py-3 text-base bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Identity Verified - Continue
+                      </Button>
+                    ) : canProceedFromVerificationStep ? (
+                      <Button
+                        onClick={handleNextStep}
+                        className="w-full mt-6 py-3 text-base"
+                      >
+                        Continue to Complete Registration
+                      </Button>
+                    ) : (
+                      <div className="w-full mt-6 py-3 text-base bg-gray-800/50 text-gray-400 rounded-md text-center border border-gray-700/50">
+                        {identity?.status === IdentityVerificationStatus.FeePaid ? (
+                          <span className="flex items-center justify-center">
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Complete Field Verifications Above
+                          </span>
+                        ) : identity?.status === IdentityVerificationStatus.PendingJudgement ? (
+                          <span className="flex items-center justify-center">
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Waiting for Registrar Judgment...
+                          </span>
+                        ) : (
+                          "Verification In Progress"
+                        )}
+                      </div>
+                    )}
                     
                     {/* Cancel Request Button - Only show if request is pending */}
                     {(() => {
@@ -1187,17 +1193,17 @@ export default function RegisterPage() {
           <div className="mt-8 flex justify-between items-center">
             <Button
               onClick={handlePreviousStep}
-              disabled={currentStep === 1 || isSubmittingIdentity}
+              disabled={currentStep === 1 || isSubmittingIdentity || isTxBusy}
               variant="ghost"
               className="text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-50 px-4 py-2 rounded-md"
             >
               Previous
             </Button>
-            {/* currentStep < TOTAL_STEPS && currentStep !== 3 && currentStep !== 5 && currentStep !== 6 && ( */}
-            {currentStep < TOTAL_STEPS && (
+            {/* Show Next button on applicable steps */}
+            {currentStep < TOTAL_STEPS && currentStep !== STEP_NUMBERS.fillIdentityInfo && currentStep !== STEP_NUMBERS.reviewAndSubmit && (
               <Button
                 onClick={handleNextStep}
-                disabled={!getCanProceedOverall() || isSubmittingIdentity}
+                disabled={!getCanProceedOverall() || isSubmittingIdentity || isTxBusy}
                 variant="ghost"
                 className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 disabled:opacity-50 px-4 py-2 rounded-md"
               >
