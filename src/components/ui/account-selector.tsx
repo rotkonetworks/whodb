@@ -71,8 +71,13 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                       {account.name || "Unnamed Account"}
                     </h3>
                     <p className="text-xs text-gray-400 font-mono truncate">
-                      {account.address}
+                      {account.encodedAddress || account.address}
                     </p>
+                    {chainStore?.name && (
+                      <p className="text-xs text-gray-500">
+                        {chainStore.name} (SS58: {chainStore.ss58Format})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
