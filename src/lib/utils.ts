@@ -54,7 +54,7 @@ export function cn(...classes: (string | undefined | boolean)[]) {
 export const constructSearcObject = (query: string, desierdOutputs: string[] = PossibleDisplayedOutputs): any => {
   const parseSearchString = (input: string): { structuredFields: Record<string, string>, genericTerms: string } => {
     const result: Record<string, string> = {};
-    const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
+    const regex = /(\w+):\s*(\S+)/g;
     let match;
     let lastIndex = 0;
     const genericTerms: string[] = [];
@@ -67,17 +67,17 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
           genericTerms.push(beforeMatch);
         }
       }
-      
+
       const key = match[1].trim();
       const value = match[2].trim();
 
       if (key && value !== undefined && AllowedFields.includes(key.toLowerCase())) {
         result[key] = value;
       }
-      
+
       lastIndex = regex.lastIndex;
     }
-    
+
     // Extract any remaining text after the last match as generic terms
     if (lastIndex < input.length) {
       const afterLastMatch = input.substring(lastIndex).trim();
@@ -85,15 +85,15 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
         genericTerms.push(afterLastMatch);
       }
     }
-    
-    // If no structured fields found, treat the entire input as generic
-    if (Object.keys(result).length === 0 && input.trim()) {
+
+    // If no structured fields found and no generic terms collected yet, treat the entire input as generic
+    if (Object.keys(result).length === 0 && genericTerms.length === 0 && input.trim()) {
       genericTerms.push(input.trim());
     }
-    
-    return { 
-      structuredFields: result, 
-      genericTerms: genericTerms.join(' ').trim() 
+
+    return {
+      structuredFields: result,
+      genericTerms: genericTerms.join(' ').trim()
     };
   }
 
@@ -106,7 +106,7 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
 
   // Build filters array starting with Generic field if we have generic terms
   const filtersFields = [];
-  
+
   // Add Generic field for uncategorized terms
   if (genericTerms) {
     filtersFields.push({
