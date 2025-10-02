@@ -52,51 +52,79 @@ export function cn(...classes: (string | undefined | boolean)[]) {
 }
 
 export const constructSearcObject = (query: string, desierdOutputs: string[] = PossibleDisplayedOutputs): any => {
-  const parseSearchString = (input: string): Record<string, string> => {
+  const parseSearchString = (input: string): { structuredFields: Record<string, string>, genericTerms: string } => {
     const result: Record<string, string> = {};
     const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
     let match;
+    let lastIndex = 0;
+    const genericTerms: string[] = [];
 
     while ((match = regex.exec(input)) !== null) {
+      // Extract any text before this match as generic terms
+      if (match.index > lastIndex) {
+        const beforeMatch = input.substring(lastIndex, match.index).trim();
+        if (beforeMatch) {
+          genericTerms.push(beforeMatch);
+        }
+      }
+      
       const key = match[1].trim();
       const value = match[2].trim();
 
       if (key && value !== undefined && AllowedFields.includes(key.toLowerCase())) {
         result[key] = value;
       }
+      
+      lastIndex = regex.lastIndex;
     }
     
-    // If no structured fields found and query is not empty, search across multiple fields
+    // Extract any remaining text after the last match as generic terms
+    if (lastIndex < input.length) {
+      const afterLastMatch = input.substring(lastIndex).trim();
+      if (afterLastMatch) {
+        genericTerms.push(afterLastMatch);
+      }
+    }
+    
+    // If no structured fields found, treat the entire input as generic
     if (Object.keys(result).length === 0 && input.trim()) {
-      const searchableFields = ["display_name", "discord", "matrix", "twitter", "email", "web"];
-      searchableFields.forEach(field => {
-        result[field] = input.trim();
-      });
+      genericTerms.push(input.trim());
     }
     
-    return result;
+    return { 
+      structuredFields: result, 
+      genericTerms: genericTerms.join(' ').trim() 
+    };
   }
 
-  const pairs = parseSearchString(query);
-  const result_size = pairs["result_size"] ? parseInt(pairs["result_size"]) : 8;
-  delete pairs.network;
-  delete pairs.result_size;
+  const { structuredFields, genericTerms } = parseSearchString(query);
+  const result_size = structuredFields["result_size"] ? parseInt(structuredFields["result_size"]) : 8;
+  const network = structuredFields["network"];
+  delete structuredFields.network;
+  delete structuredFields.result_size;
   const outputs: string[] = Array.from(desierdOutputs)
 
-
-  // TODO: handle wrong search keys
-  const filtersFields = Object.keys(pairs)
-    .map(key => {
-      if (mapSearchKey(key) != null) {
-        return {
-          // ?? is fine since we are guarenteed a string by the if guard
-          field: { [mapSearchKey(key) ?? ""]: pairs[key] },
-          strict: false, // Default for now
-        }
-      } else {
-        // TODO: handle wrong search keys
-      }
+  // Build filters array starting with Generic field if we have generic terms
+  const filtersFields = [];
+  
+  // Add Generic field for uncategorized terms
+  if (genericTerms) {
+    filtersFields.push({
+      field: { "Generic": genericTerms },
+      strict: false
     });
+  }
+
+  // Add structured field filters
+  Object.keys(structuredFields).forEach(key => {
+    if (mapSearchKey(key) != null) {
+      filtersFields.push({
+        field: { [mapSearchKey(key) ?? ""]: structuredFields[key] },
+        strict: false
+      });
+    }
+    // TODO: handle wrong search keys
+  });
 
   var search_obj = {
     version: "1.0",
@@ -110,7 +138,7 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
     }
   };
 
-  if (pairs["network"]) { search_obj["network"] = pairs["network"] }
+  if (network) { search_obj["network"] = network }
 
   return search_obj
 }
