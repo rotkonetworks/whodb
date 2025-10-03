@@ -39,7 +39,7 @@ export default function ProfilePage() {
         try {
           setLoading(true);
           const searchObj = constructSearcObject("id: " + id, FullDisplayedOutputs);
-          const searchResults = await search(JSON.stringify(searchObj), limit).then((result) => result[0]);
+          const searchResults = await search(searchObj, limit).then((result) => result[0]);
           setProfile(searchResults);
         } catch (error) {
           console.error('Failed to parse profile data:', error);
