@@ -8,7 +8,7 @@ import { IdentityVerificationStatus } from "@/types/Identity";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
+import { SponsorRequestModal } from "./sponsor-request-modal"; // Import sponsor request modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
 import { CopyButton } from "./ui/copy-button";
 import { CHAINS } from "@/polkadot-api/chain-config";
@@ -73,6 +73,7 @@ export function BalanceCheck({
   const formatAmount = useFormatAmount({
     symbol: chainStore.tokenSymbol || 'TOKEN',
     tokenDecimals: chainStore.tokenDecimals || 12,
+    decimals: 4,
   })
 
   const balanceFormatted = isLoading ? "---" : formatAmount(balance || 0)
@@ -129,10 +130,12 @@ export function BalanceCheck({
 
             <div className="flex items-center justify-between">
               <span className="text-gray-400 text-sm">Address:</span>
-              <span className="text-gray-300 text-sm font-mono">
-                {address ? `${address.substring(0, 10)}...${address.substring(address.length - 10)}` : null}
-                <CopyButton text={accountStore.encodedAddress} />
-              </span>
+              <div className="flex items-center">
+                <span className="text-gray-300 text-sm font-mono">
+                  {address ? `${address.substring(0, 10)}...${address.substring(address.length - 10)}` : null}
+                </span>
+                {address && <CopyButton text={accountStore.encodedAddress} />}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -159,7 +162,9 @@ export function BalanceCheck({
                   </span>
                 </div>
               ) : (
-                <span className="text-white font-mono text-sm">
+                <span className={`font-mono text-sm font-semibold ${
+                  hasSufficientBalance ? 'text-green-400' : 'text-yellow-400'
+                }`}>
                   {balanceFormatted}
                 </span>
               )}
@@ -168,7 +173,7 @@ export function BalanceCheck({
             {!isLoading && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-400 text-sm">Required for registration:</span>
-                <span className="text-gray-300 font-mono text-sm">
+                <span className="text-white font-mono text-sm font-medium">
                   {requiredBalanceFormatted}
                 </span>
               </div>
@@ -310,14 +315,25 @@ export function BalanceCheck({
                           Get Test Tokens
                         </Button>
                       )}
+                      {/* TODO: Request Sponsor Feature (Not Ready Yet)
+                          This will allow users to request existing friends/contacts to pay for their registration.
+                          The sponsor will receive a notification and can choose to fund the user's registration.
+                          Implementation planned:
+                          - Send request to friend's wallet address or social handle
+                          - Track pending sponsor requests
+                          - Notify when sponsor accepts/rejects
+                          - Automatically proceed with registration once funded
+                      */}
                       {canRequestChipIn && (
                         <Button
                           onClick={() => setShowChipInModal(true)}
                           className="w-full"
                           variant="outline"
+                          disabled={true}
+                          title="Feature coming soon: Request a friend to sponsor your registration"
                         >
                           <Users className="w-4 h-4 mr-2" />
-                          Request Chip-In
+                          Request Sponsor
                         </Button>
                       )}
                       <Button
@@ -337,8 +353,10 @@ export function BalanceCheck({
         </CardContent>
       </Card>
 
+      {/* TODO: Enable SponsorRequestModal when Request Sponsor feature is ready
+          Currently disabled as the sponsor functionality is not implemented yet.
       {canRequestChipIn && walletAddress && (
-        <ChipInRequestModal
+        <SponsorRequestModal
           isOpen={showChipInModal}
           onClose={() => setShowChipInModal(false)}
           currentUserAddress={walletAddress}
@@ -347,6 +365,7 @@ export function BalanceCheck({
           tokenSymbol={networkSymbol}
         />
       )}
+      */}
 
       <TeleporterDialog
         isTxBusy={isTxBusy}

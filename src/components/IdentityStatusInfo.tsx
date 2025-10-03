@@ -6,44 +6,58 @@ import { IdentityVerificationStatus } from "@/types/Identity";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 export const IdentityStatusInfo = ({ status }: { status: IdentityVerificationStatus }) => {
-  const verifiyStatusColor = useMemo(() => {
+  const statusInfo = useMemo(() => {
     switch (status) {
       case IdentityVerificationStatus.NoIdentity:
-        return "dark:text-red-300 text-red-700";
+        return {
+          color: "text-gray-400",
+          bgColor: "bg-gray-800/30 border-gray-700/50",
+          text: "No Identity",
+          icon: "⚪"
+        };
       case IdentityVerificationStatus.IdentitySet:
-        return "dark:text-orange-300 text-orange-700";
+        return {
+          color: "text-orange-400",
+          bgColor: "bg-orange-900/20 border-orange-700/30",
+          text: "Identity Set",
+          icon: "🟠"
+        };
       case IdentityVerificationStatus.IdentityVerified:
-        return "dark:text-green-300 text-green-700";
+        return {
+          color: "text-green-400",
+          bgColor: "bg-green-900/20 border-green-700/30",
+          text: "Verified",
+          icon: "✓"
+        };
       case IdentityVerificationStatus.JudgementRequested:
       case IdentityVerificationStatus.FeePaid:
-        return "dark:text-yellow-300 text-yellow-700";
+        return {
+          color: "text-yellow-400",
+          bgColor: "bg-yellow-900/20 border-yellow-700/30",
+          text: status === IdentityVerificationStatus.FeePaid ? "Fee Paid" : "Judgment Requested",
+          icon: "⏳"
+        };
+      case IdentityVerificationStatus.PendingJudgement:
+        return {
+          color: "text-blue-400",
+          bgColor: "bg-blue-900/20 border-blue-700/30",
+          text: "Pending Judgment",
+          icon: "⏳"
+        };
       default:
-        return "dark:text-gray-300 text-gray-700";
+        return {
+          color: "text-gray-400",
+          bgColor: "bg-gray-800/30 border-gray-700/50",
+          text: "Unknown",
+          icon: "?"
+        };
     }
   }, [status]);
 
-  return <>
-    <Alert variant="default"
-      className="dark:bg-[#393838] bg-[#ffffff] border-[#E6007A] dark:text-light text-dark"
-    >
-      <Info className="h-4 w-4" />
-      <AlertTitle>On-chain Identity Status
-        : <strong className={verifiyStatusColor}>
-          {IdentityVerificationStatus[status]?.match(/[A-Z][a-z]+/g).join(" ") || "Unknown"}
-        </strong>
-      </AlertTitle>
-      <AlertDescription>
-        {status === IdentityVerificationStatus.NoIdentity
-          && "Identity verification required. Set up your on-chain identity to proceed with verification."}
-        {status === IdentityVerificationStatus.IdentitySet
-          && "Identity information is now set. You can now proceed to request verification from registrar."}
-        {status === IdentityVerificationStatus.JudgementRequested
-          && "Verification request submitted."}
-        {status === IdentityVerificationStatus.FeePaid
-          && "Payment confirmed. Complete the verification challenges to secure your identity."}
-        {status === IdentityVerificationStatus.IdentityVerified
-          && "Identity verified successfully! Your account now has verified status."}
-      </AlertDescription>
-    </Alert>
-  </>;
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-full border ${statusInfo.bgColor} ${statusInfo.color}`}>
+      <span className="text-base">{statusInfo.icon}</span>
+      <span className="font-medium">On-chain Status: {statusInfo.text}</span>
+    </div>
+  );
 }

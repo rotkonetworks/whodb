@@ -15,6 +15,7 @@ import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
+import { u8aToHex } from "@polkadot/util";
 import { InvalidTxError, SS58String } from "polkadot-api";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
@@ -29,6 +30,7 @@ import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/chall
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import BigNumber from "bignumber.js";
 import { usePolkadotWallet } from "./PolkadotWalletContext";
+import { toast } from "sonner";
 
 // Define the missing type based on the usage in useXcmParameters
 type GetTeleportCallParams = {
@@ -233,6 +235,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         ? {
           address: urlParams.address,
           encodedAddress: encodeAddress(decodedAddress, chainStore.ss58Format),
+          publicKey: u8aToHex(decodedAddress),
         }
         : null
       )
@@ -375,7 +378,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   const formatAmount = useFormatAmount({
     tokenDecimals: chainStore.tokenDecimals,
-    symbol: chainStore.tokenSymbol
+    symbol: chainStore.tokenSymbol,
+    decimals: 4
   });
 
   const [isTxBusy, setTxBusy] = useState(false)
@@ -994,7 +998,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     } catch (err) {
       console.error("Connection error for chain", chainId, ":", err);
       console.error("Chain config:", CHAINS[chainId]);
-      setError(err instanceof Error ? err.message : 'Failed to connect');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect';
+      setError(errorMessage);
       setClient(null);
       setTypedApi(null);
       setCurrentChain(null);
@@ -1003,6 +1008,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       // Clean up refs on error
       currentProviderRef.current = null;
       currentApiRef.current = null;
+
+      // User-friendly error notification
+      const networkName = CHAINS[chainId]?.name || chainId;
+      toast.error(`Failed to connect to ${networkName}`, {
+        description: errorMessage.includes('WebSocket')
+          ? 'Network connection issue. Please try again.'
+          : 'Please check your internet connection and try again.'
+      });
     } finally {
       setIsConnecting(false);
     }
@@ -1063,7 +1076,11 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       console.log('Attempting to connect to network:', network);
       connect(network as keyof typeof CHAINS).catch(err => {
         console.error('Connection failed:', err);
-        setError(err.message || 'Connection failed');
+        const errorMsg = err.message || 'Connection failed';
+        setError(errorMsg);
+        toast.error('Network connection failed', {
+          description: `Unable to connect to ${CHAINS[network as keyof typeof CHAINS]?.name || network}. Please try again.`
+        });
       });
     }, 300); // 300ms debounce
 
