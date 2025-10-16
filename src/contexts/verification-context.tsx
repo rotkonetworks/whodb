@@ -190,15 +190,11 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
 
   // Update verifications when WebSocket challenges change
   useEffect(() => {
-    console.log('🔧 WebSocket challenges changed');
     const newVerifications: FieldVerification[] = Object.entries(challengeWebSocket.challenges)
       .map(([key, challenge]: [string, Challenge]) => {
-        const verification = convertChallengeToVerification(key, challenge);
-        console.log(`🔧 Converting challenge ${key} -> verification`);
-        return verification;
+        return convertChallengeToVerification(key, challenge);
       });
-    
-    console.log('🔧 Setting new verifications:', newVerifications);
+
     setVerifications(newVerifications);
   }, [challengeWebSocket.challenges]);
 

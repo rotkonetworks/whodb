@@ -3,23 +3,28 @@ import { Logo } from "@/components/logo"
 import { Footer } from "@/components/footer"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { User, UserPlus } from "lucide-react"
+import { UserPlus } from "lucide-react"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <header className="container mx-auto px-4 py-4">
-        <div className="flex justify-end space-x-2">
-          <Link to="/register">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3 md:py-1 text-xs md:text-sm rounded-md transition-colors"
-            >
-              <UserPlus className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Register</span>
-            </Button>
-          </Link>
+      <header className="border-b border-gray-700/50 bg-gray-900/95">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Link to="/">
+              <Logo />
+            </Link>
+            <Link to="/register">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 transition-colors"
+              >
+                <UserPlus className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Register</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

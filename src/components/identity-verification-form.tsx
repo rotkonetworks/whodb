@@ -50,16 +50,11 @@ export function IdentityVerificationForm({
 
   useEffect(() => {
     const identityDataChanged = identityDataRef.current !== identityDataHash
-    
-    console.log("🔄 Identity verification form - setting WebSocket params:", {
-      address, network, identityStatus, identityDataChanged
-    });
-    
+
     if (identityDataChanged) {
-      console.log("🔄 Identity data changed - forcing verification reset");
       identityDataRef.current = identityDataHash
     }
-    
+
     // Force reset of verification state when identity status indicates a new judgment request
     // This ensures old verification data doesn't persist
     setWebSocketParams({ address, network, identityStatus })
@@ -90,23 +85,12 @@ export function IdentityVerificationForm({
     const fieldsWithChallenges = Object.keys(challenges || {}).filter(field => {
       const hasChallenge = challenges[field]?.code
       const isSupported = supportedSet.includes(field)
-      console.log(`🔍 Field ${field}: hasChallenge=${hasChallenge}, isSupported=${isSupported}`)
       return isSupported && hasChallenge
     })
-    
+
     // Combine and deduplicate
     const allRelevantFields = [...new Set([...fieldsWithData, ...fieldsWithChallenges])]
-    
-    console.log('📋 Fields to show:', {
-      supportedSet,
-      fieldsWithData,
-      fieldsWithChallenges, 
-      allRelevantFields,
-      identityData: Object.entries(identityData).filter(([k,v]) => v?.trim()),
-      challenges: Object.entries(challenges || {}),
-      challengesWithCodes: Object.entries(challenges || {}).map(([k,v]) => ({ field: k, code: v?.code, status: v?.status, hasCode: !!v?.code }))
-    })
-    
+
     return allRelevantFields
   }, [supportedFields, identityData, challenges])
 
@@ -216,8 +200,6 @@ export function IdentityVerificationForm({
     return sections
   }, [fieldsToShow, createVerificationComponent])
 
-  console.debug({ identityData, identityStatus })
-
   const verifiedFields = getVerifiedFields().filter(f =>
     !["", "display"].includes(f.field) && identityData[f.field] && identityData[f.field].trim() !== ""
   )
@@ -225,23 +207,23 @@ export function IdentityVerificationForm({
   const allFieldsVerified = totalVerifiableFields > 0 && verifiedFields.length === totalVerifiableFields
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Identity Status Info */}
       <IdentityStatusInfo status={identityStatus} />
 
       {/* Identity Status Display */}
-      <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
+      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+        <h3 className="text-base font-semibold text-white mb-4 flex items-center">
           <User className="w-5 h-5 mr-2 text-pink-400" />
           Identity Verification Progress
         </h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-gray-300">Display Name:</span>
+            <span className="text-gray-400">Display Name:</span>
             <span className="text-white font-medium">{identityData.display}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-300">Verification Progress:</span>
+            <span className="text-gray-400">Verification Progress:</span>
             <span className="text-white font-medium">
               {verifiedFields.length} / {totalVerifiableFields} fields verified
             </span>
@@ -249,77 +231,68 @@ export function IdentityVerificationForm({
         </div>
       </div>
 
-      {/* Status-based instructions */}
-      {identityStatus < IdentityVerificationStatus.FeePaid
-        ? (
-          <div className="flex items-start p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
-            <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
-            <span>
-              You need to request judgement and pay the verification fee to proceed with identity verification.
-            </span>
-          </div>
-        )
-        : (challengeLoading
-          ? (
-            <div className="flex items-start p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
-              <Loader2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400 animate-spin" />
-              <span>
-                Connecting to verification service to enable challenges...
-              </span>
-            </div>
-          )
-          : challengeError ? (
-            <div className="flex items-start p-3 text-sm text-red-300 bg-red-900/20 border border-red-500/30 rounded-md">
-              <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-red-400" />
-              <span>
-                Error connecting to verification service: {String(challengeError)}
-              </span>
-            </div>
-          ) : (Object.keys(challenges).length > 0 ? (
-            <div className="flex items-start p-3 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-md">
-              <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-400" />
-              <div>
-                <span>Verification challenges are now available! Complete all field verifications below to proceed.</span>
-                <div className="mt-2 text-xs text-green-200">
-                  Available challenges for: {Object.entries(challenges)
-                    .filter(([key, challenge]) => challenge.code)
-                    .map(([key]) => key)
-                    .join(", ") || "none"}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start p-3 text-sm text-gray-300 bg-gray-900/20 border border-gray-500/30 rounded-md">
-              <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400" />
-              <span>
-                No verification challenges available yet. Please check back later.
-              </span>
-            </div>
-          )
-          )
-        )
-      }
-
-      {/* Verification Sections */}
-      {verificationSections.map((section, sectionIndex) => (
-        <div key={section.title}>
-          <div className="flex items-center mb-4">
-            {section.icon}
-            <h2 className="text-lg font-semibold text-white">{section.title}</h2>
-          </div>
-          <div className="space-y-4">{section.fields.map((fieldComponent) => fieldComponent)}</div>
-          {sectionIndex < verificationSections.length - 1 && <Separator className="my-8 bg-gray-700" />}
+      {/* Status-based instructions - unified styling */}
+      {identityStatus < IdentityVerificationStatus.FeePaid && (
+        <div className="flex items-start gap-3 p-4 text-sm text-gray-300 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-pink-400" />
+          <span>
+            You need to request judgement and pay the verification fee to proceed with identity verification.
+          </span>
         </div>
-      ))}
+      )}
+
+      {identityStatus >= IdentityVerificationStatus.FeePaid && challengeLoading && (
+        <div className="flex items-start gap-3 p-4 text-sm text-gray-300 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <Loader2 className="w-5 h-5 flex-shrink-0 text-pink-400 animate-spin" />
+          <span>
+            Connecting to verification service...
+          </span>
+        </div>
+      )}
+
+      {identityStatus >= IdentityVerificationStatus.FeePaid && !challengeLoading && challengeError && (
+        <div className="flex items-start gap-3 p-4 text-sm text-red-300 bg-gray-800/50 border border-red-500/50 rounded-lg">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+          <span>
+            Error connecting to verification service: {String(challengeError)}
+          </span>
+        </div>
+      )}
+
+      {identityStatus >= IdentityVerificationStatus.FeePaid && !challengeLoading && !challengeError && Object.keys(challenges).length > 0 && (
+        <div className="flex items-start gap-3 p-4 text-sm text-gray-300 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <CheckCircle className="w-5 h-5 flex-shrink-0 text-green-400" />
+          <div>
+            <div className="font-medium text-white mb-1">Verification challenges available</div>
+            <div>Complete all field verifications below to proceed.</div>
+          </div>
+        </div>
+      )}
+
+      {identityStatus >= IdentityVerificationStatus.FeePaid && !challengeLoading && !challengeError && Object.keys(challenges).length === 0 && (
+        <div className="flex items-start gap-3 p-4 text-sm text-gray-300 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <Info className="w-5 h-5 flex-shrink-0 text-gray-400" />
+          <span>
+            No verification challenges available yet. Please check back later.
+          </span>
+        </div>
+      )}
+
+      {/* Verification fields - clean single section */}
+      {verificationSections.length > 0 && (
+        <div className="space-y-4">
+          {verificationSections.flatMap(section => section.fields)}
+        </div>
+      )}
 
       {/* Verification Complete Status */}
       {allFieldsVerified && (
-        <div className="p-4 mt-6 text-sm bg-green-900/20 border border-green-500/30 rounded-md">
-          <div className="flex items-center space-x-2 text-green-400">
-            <CheckCircle className="w-5 h-5" />
-            <span className="font-semibold">All fields verified!</span>
+        <div className="p-4 mt-6 text-sm text-green-300 bg-gray-800/50 border border-green-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+            <span className="font-semibold text-white">All fields verified!</span>
           </div>
-          <p className="text-green-300 mt-1">
+          <p className="mt-2">
             Your identity verification is complete. You can now proceed to finalize your identity.
           </p>
         </div>

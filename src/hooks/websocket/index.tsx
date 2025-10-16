@@ -1,5 +1,6 @@
 import { wait } from '@/utils';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { logger } from '@/utils/logger';
 
 export interface WebSocketMessage {
   id?: number | string;
@@ -18,6 +19,11 @@ export interface WebSocketConfig {
   requestTimeout?: number;
 }
 
+export interface MessageSubscription {
+  handler: (message: any) => void;
+  messageTypes?: string[]; // Filter by message types
+}
+
 export interface WebSocketHookReturn {
   isConnected: boolean;
   error: string | null;
@@ -25,7 +31,7 @@ export interface WebSocketHookReturn {
   connect: () => void;
   disconnect: () => void;
   sendMessage: <T = any>(message: WebSocketMessage) => Promise<T>;
-  subscribe: (messageHandler: (message: any) => void) => () => void;
+  subscribe: (messageHandler: (message: any) => void, messageTypes?: string[]) => () => void;
 }
 
 interface PendingRequest {
@@ -36,6 +42,7 @@ interface PendingRequest {
 
 // TODO Bundle all constants into single file
 const WS_MAX_TIMEOUT = 30000;
+const MAX_MESSAGE_SIZE = 1024 * 1024; // 1MB max message size
 
 // TODO: clear this mess, we don't need request id
 /**
@@ -66,9 +73,13 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
 
   // Request/Response handling
   const pendingRequests = useRef<Map<string, PendingRequest>>(new Map());
-  const messageHandlers = useRef<Set<(message: any) => void>>(new Set());
+  const messageSubscriptions = useRef<Set<MessageSubscription>>(new Set());
 
-  const generateRequestId = () => Math.random().toString(36).substring(7);
+  const generateRequestId = () => {
+    const buffer = new Uint8Array(16);
+    crypto.getRandomValues(buffer);
+    return Array.from(buffer, b => b.toString(16).padStart(2, '0')).join('');
+  };
 
   const cleanupPendingRequests = useCallback(() => {
     for (const [, { reject, timeout }] of pendingRequests.current.entries()) {
@@ -112,8 +123,13 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
 
       try {
         const messageString = JSON.stringify(message);
+
+        // Check message size
+        if (messageString.length > MAX_MESSAGE_SIZE) {
+          throw new Error(`Message too large: ${messageString.length} bytes (max ${MAX_MESSAGE_SIZE})`);
+        }
+
         ws.current.send(messageString);
-        console.log('WebSocket message sent:', messageString);
       } catch (err) {
         clearTimeout(timeout);
         pendingRequests.current.delete(requestId);
@@ -123,13 +139,25 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
   }, [requestTimeout]);
 
   /**
-   * Subscribe to WebSocket messages. Returns unsubscribe function.
+   * Subscribe to WebSocket messages with optional type filtering.
+   * SolidJS-style fine-grained subscriptions - only receive messages you care about.
+   * @param messageHandler - Handler function to call when matching message arrives
+   * @param messageTypes - Optional array of message types to filter (undefined = all messages)
+   * @returns Unsubscribe function
    */
-  const subscribe = useCallback((messageHandler: (message: any) => void): (() => void) => {
-    messageHandlers.current.add(messageHandler);
+  const subscribe = useCallback((
+    messageHandler: (message: any) => void,
+    messageTypes?: string[]
+  ): (() => void) => {
+    const subscription: MessageSubscription = {
+      handler: messageHandler,
+      messageTypes
+    };
+
+    messageSubscriptions.current.add(subscription);
 
     return () => {
-      messageHandlers.current.delete(messageHandler);
+      messageSubscriptions.current.delete(subscription);
     };
   }, []);
 
@@ -139,46 +167,51 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
       const message = JSON.parse(event.data);
-      console.log('WebSocket message received:', message);
+      logger.log('WebSocket message received:', message);
 
-      // Check if this is a response to a pending request
+      // Validate message structure
+      if (typeof message !== 'object' || message === null) {
+        logger.error('Invalid message: not an object');
+        return;
+      }
+
       const requestId = message.requestId;
-      if (requestId && pendingRequests.current.has(requestId)) {
+
+      // If message has requestId, it's a response to a specific request
+      if (requestId) {
         const request = pendingRequests.current.get(requestId);
         if (request) {
           clearTimeout(request.timeout);
           request.resolve(message);
           pendingRequests.current.delete(requestId);
           return; // Don't notify subscribers for request/response messages
+        } else {
+          // Received response for unknown/expired request - possible attack
+          logger.warn('Received response for unknown request ID', { requestId });
+          return;
         }
       }
 
-      // Resolve all pending messages, if responses don't have a requestId
-      for (const [requestId, { resolve, timeout }] of pendingRequests.current.entries()) {
-        clearTimeout(timeout);
-        resolve(message);
-        pendingRequests.current.delete(requestId);
-      }
+      // No requestId - this is a push notification/broadcast
+      // Only notify subscribers, never resolve pending requests
+      for (const { handler, messageTypes } of messageSubscriptions.current) {
+        // Skip if subscriber has type filter and message type doesn't match
+        if (messageTypes && messageTypes.length > 0) {
+          if (!message.type || !messageTypes.includes(message.type)) {
+            continue; // Don't call handler for unmatched types
+          }
+        }
 
-      // Notify all subscribers
-      for (const handler of messageHandlers.current) {
         try {
           handler(message);
         } catch (err) {
-          console.error('Error in message handler:', err);
+          logger.error('Error in message handler:', err);
         }
       }
     } catch (err) {
-      console.error('Failed to parse WebSocket message:', err);
+      logger.error('Failed to parse WebSocket message:', err);
       setError(err instanceof Error ? err.message : 'Failed to parse message');
-      // Handle all rejected promises, if responses don't have a requestId
-      for (const [requestId, { reject, timeout }] of pendingRequests.current.entries()) {
-        clearTimeout(timeout);
-        reject(err instanceof Error ? err : new Error('Failed to parse message'));
-        pendingRequests.current.delete(requestId);
-      }
     }
-
   }, []);
 
   const disconnect = useCallback(() => {
@@ -192,7 +225,7 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
     lastConnectionAttempt.current = 0;
 
     cleanupPendingRequests();
-    messageHandlers.current.clear();
+    messageSubscriptions.current.clear();
 
     if (ws.current) {
       if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
@@ -221,12 +254,10 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
 
     // Throttle connection attempts
     if (timeSinceLastAttempt < 1000) {
-      console.log('Connection attempt throttled, too soon since last attempt');
       return;
     }
 
     if (isReconnecting.current || (ws.current && ws.current.readyState === WebSocket.CONNECTING)) {
-      console.log('Connection attempt prevented - already connecting');
       return;
     }
 
@@ -240,7 +271,6 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
     );
 
     if (connectionAttempts.current > 1 && timeSinceLastAttempt < backoffDelay) {
-      console.log(`Connection backoff: waiting ${backoffDelay}ms before attempt ${connectionAttempts.current}`);
       reconnectTimeout.current = window.setTimeout(() => {
         connect();
       }, backoffDelay - timeSinceLastAttempt);
@@ -251,8 +281,6 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = null;
     }
-
-    console.log(`Attempting WebSocket connection #${connectionAttempts.current} to ${url}`);
     setLoading(true);
     setIsConnected(false);
     setError(null);

@@ -1,16 +1,87 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo, useMemo, useCallback } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import SearchForm from "@/components/search-form"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search } from "lucide-react"
+import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
 import { FullProfile } from "@/types/profile"
 import * as Avatar from "@radix-ui/react-avatar"
 import { constructSearcObject } from "@/lib/utils"
+import { CHAINS } from "@/polkadot-api/chain-config"
+import { encodeAddress, decodeAddress } from "@polkadot/util-crypto"
+
+const SearchResultItem = memo<{
+  profile: FullProfile;
+  onViewProfile: (network: string, address: string) => void;
+}>(({ profile, onViewProfile }) => {
+  const isVerified = useMemo(
+    () => profile.timeline?.some((event) => event.event === "verified"),
+    [profile.timeline]
+  );
+
+  const formattedAddress = useMemo(() => {
+    try {
+      const chainConfig = CHAINS[profile.network]
+      if (chainConfig?.ss58Format !== undefined) {
+        const publicKey = decodeAddress(profile.wallet_id)
+        return encodeAddress(publicKey, chainConfig.ss58Format)
+      }
+      return profile.wallet_id
+    } catch {
+      return profile.wallet_id
+    }
+  }, [profile.wallet_id, profile.network])
+
+  const networkDisplayName = useMemo(() => {
+    const chainConfig = CHAINS[profile.network]
+    return chainConfig?.name?.replace(' People', '') || profile.network
+  }, [profile.network])
+
+  return (
+    <div
+      className="bg-gray-800/20 p-6 border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
+      onClick={() => onViewProfile(profile.network, profile.wallet_id)}
+    >
+      <div className="flex items-start gap-5">
+        <Avatar.Root className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+          <Avatar.Image
+            src={profile.image}
+            alt={profile.display}
+            className="w-full h-full object-cover"
+          />
+          <Avatar.Fallback className="w-full h-full bg-gray-700 flex items-center justify-center text-base font-medium text-gray-300">
+            {profile.display?.charAt(0)?.toUpperCase() || "?"}
+          </Avatar.Fallback>
+        </Avatar.Root>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-base font-medium text-white truncate">{profile.display}</h3>
+            {isVerified && (
+              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+            )}
+            <span className="text-xs text-gray-500 uppercase tracking-wide">{networkDisplayName}</span>
+          </div>
+          <div className="space-y-1.5 text-sm text-gray-400">
+            {profile.email && (
+              <div className="truncate">{profile.email}</div>
+            )}
+            <div className="font-mono text-xs truncate">{formattedAddress}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.profile.wallet_id === nextProps.profile.wallet_id &&
+         prevProps.profile.verified === nextProps.profile.verified &&
+         prevProps.profile.display === nextProps.profile.display &&
+         prevProps.profile.network === nextProps.profile.network;
+});
+SearchResultItem.displayName = "SearchResultItem";
 
 // TODO: fix loading animation
 // TODO: fix navigation (forward and backward page)
@@ -70,7 +141,7 @@ export default function SearchPage() {
     }
   }, [query])
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     if (!searchQuery.trim()) {
       navigate('/search')
@@ -78,18 +149,29 @@ export default function SearchPage() {
     }
     // Use Base64 encoding for safer URL handling
     navigate(`/search?query=${searchQuery}`);
-  }
+  }, [searchQuery, navigate]);
+
+  const handleViewProfile = useCallback((network: string, address: string) => {
+    navigate(`/profile/${network}/${address}`);
+  }, [navigate]);
 
   const resultsLength = results?.length || 0
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <PageHeader backTo="/"
+      <PageHeader
+        backTo="/"
+        showWallet={false}
+        showNetwork={false}
         rightActions={
           <Link to="/register">
-            <Button className="bg-pink-500 hover:bg-pink-600 text-white p-2 md:px-4 md:py-2">
-              <User className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Register Identity</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 transition-colors"
+            >
+              <UserPlus className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Register</span>
             </Button>
           </Link>
         }
@@ -131,68 +213,30 @@ export default function SearchPage() {
         )}
 
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="bg-gray-800/20 border border-gray-700/50 rounded-lg overflow-hidden">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-card p-6 rounded-lg border border-border/30 animate-pulse">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-600 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-600 rounded w-1/4 mb-2"></div>
-                    <div className="h-3 bg-gray-600 rounded w-1/2"></div>
+              <div key={i} className="p-6 border-b border-gray-700/50 animate-pulse">
+                <div className="flex items-start gap-5">
+                  <div className="w-12 h-12 bg-gray-700 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 bg-gray-700 rounded w-32 mb-3"></div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-700 rounded w-48"></div>
+                      <div className="h-3 bg-gray-700 rounded w-56"></div>
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : results.length > 0 ? (
-          <div className="space-y-4">
+          <div className="bg-gray-800/20 border border-gray-700/50 rounded-lg overflow-hidden">
             {results.map((profile) => (
-              <div key={profile.id} className="bg-gray-800 p-6 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                <div className="flex items-start space-x-4">
-                  <Avatar.Root className="w-16 h-16 rounded-full overflow-hidden">
-                    <Avatar.Image
-                      src={profile.image}
-                      alt={profile.display}
-                      className="w-full h-full object-cover"
-                    />
-                    <Avatar.Fallback className="w-full h-full bg-gray-600 flex items-center justify-center text-lg font-semibold text-white">
-                      {profile.display?.charAt(0)?.toUpperCase() || "?"}
-                    </Avatar.Fallback>
-                  </Avatar.Root>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="text-xl font-semibold text-white">{profile.display}</h3>
-                      {profile.timeline?.some(event => event.event === 'verified') && (
-                        <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    {profile.email ? (
-                      <div className="flex items-center text-gray-300 mb-2">
-                        <Mail className="w-4 h-4 mr-2 text-pink-400" />
-                        <span className="truncate">{profile.email}</span>
-                      </div>
-                    ) : null}
-
-                    <div className="flex items-center text-gray-300">
-                      <Wallet className="w-4 h-4 mr-2 text-pink-400" />
-                      <span className="font-mono text-xs truncate">{profile.wallet_id}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn-primary px-4 py-2 rounded-lg text-sm"
-                    onClick={() => {
-                      navigate(`/profile/${profile.wallet_id}`);
-                    }}>
-                    View Profile
-                  </button>
-                </div>
-              </div>
+              <SearchResultItem
+                key={profile.wallet_id}
+                profile={profile}
+                onViewProfile={handleViewProfile}
+              />
             ))}
           </div>
         ) : (

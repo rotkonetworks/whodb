@@ -86,7 +86,6 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   const handleTeleport = React.useCallback(async () => {
     const tokenDecimals = chainStore.tokenDecimals
     const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
-    console.log({ amount, newAmount })
     const tx = getTeleportCall({
       amount: newAmount,
     })

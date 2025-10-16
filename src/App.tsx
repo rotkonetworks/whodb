@@ -9,10 +9,10 @@ import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 
 import HomePage from './pages/homepage'
-import RegisterPage from './pages/RegisterPage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
+import RegisterRedirect from './pages/RegisterRedirect'
 import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
 import { AccountProvider } from './contexts/wallet-context'
 import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
@@ -27,7 +27,7 @@ export default function App() {
     <div className="bg-gray-900 text-white antialiased">
       <ThemeProvider>
         <NetworkProvider>
-          <PolkadotWalletProvider appName="Whodb Registrar">
+          <PolkadotWalletProvider appName="whodb">
             <AccountProvider>
               <BalanceProvider>
                 <UserProvider>
@@ -37,13 +37,10 @@ export default function App() {
                         <VerificationProvider>
                           <Routes>
                             <Route path="/" element={<HomePage />} />
-                            <Route path="/register" element={
-                              <OptimizedPolkadotRoute>
-                                <RegisterPage />
-                              </OptimizedPolkadotRoute>
-                            } />
+                            <Route path="/register" element={<RegisterRedirect />} />
                             <Route path="/search" element={<SearchPage />} />
-                            <Route path="/profile/:id" element={<ProfilePage />} />
+                            <Route path="/profile/:network/:address" element={<ProfilePage />} />
+                            <Route path="/profile/:address" element={<ProfilePage />} />
                             <Route path="/settings" element={<SettingsPage />} />
                             <Route path="*" element={<div>Page not found</div>} />
                           </Routes>

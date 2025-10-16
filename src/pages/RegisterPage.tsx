@@ -2,13 +2,16 @@ import { AlertCircle, ArrowLeft, Edit, Info, ListChecks, Loader2, UserCheck, Wal
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { logger } from "@/utils/logger"
 
 import { BalanceCheck } from "@/components/balance-check"
 import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
 import { IdentityVerificationForm } from "@/components/identity-verification-form"; // New verification form
 import { Logo } from "@/components/logo"
 import { NetworkSelection } from "@/components/network-selection-register"
+import { NetworkSelectorButton } from "@/components/network-selector-button"
 import { SimpleIdentityForm } from "@/components/simple-identity-form"; // New simple form
+import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { useTheme } from "@/components/theme-provider-simple"
 import { AccountSelector } from "@/components/ui/account-selector"
 import { Alert } from "@/components/ui/alert"
@@ -31,6 +34,7 @@ import { SS58String } from "polkadot-api"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { getTxFees } from "@/utils/transactions"
 import { fromHexString } from "@/utils/binary"
+import { decodeAddress, encodeAddress } from "@polkadot/util-crypto"
 
 export const STEP_NUMBERS = {
   pickNetwork: 1,
@@ -53,7 +57,15 @@ export default function RegisterPage() {
     networkColor,
     isEncrypted: isNetworkEncrypted,
   } = useNetwork()
-  const [_network, _setNetwork] = useState<AppNetwork | null>(network)
+  const [_network, _setNetwork] = useState<AppNetwork | null>(network || 'paseo')
+
+  // Set default network to paseo if not set
+  useEffect(() => {
+    if (!network) {
+      setNetwork('paseo')
+      _setNetwork('paseo')
+    }
+  }, [network, setNetwork])
 
   const polkadotApiContext = usePolkadotApi()
   const {
@@ -116,7 +128,7 @@ export default function RegisterPage() {
     setInitialVerifications(verifications)
   }, [challenges, setInitialVerifications])
 
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(STEP_NUMBERS.fillIdentityInfo)
   useTriggerLog(currentStep, "currentStep") // TODO Tracking why it becomes null
   useEffect(() => {
     if (!currentStep || !Object.values(STEP_NUMBERS).includes(currentStep)) {
@@ -157,11 +169,34 @@ export default function RegisterPage() {
   const parentIdParam = urlParams["parentId"]
   const isEditingCurrentUserFromParams = urlParams["edit"] === "true"
 
+  // Skip directly to identity form step
+  const SIMPLIFIED_START_STEP = STEP_NUMBERS.fillIdentityInfo
+
   const {
-    accounts,
+    accounts: rawAccounts,
     extensions,
     isLoading: isLoadingAccounts,
   } = usePolkadotWallet()
+
+  // Re-encode wallet addresses to chain-specific format
+  const accounts = useMemo(() => {
+    if (!chainStore.ss58Format) return rawAccounts;
+
+    return rawAccounts.map(account => {
+      try {
+        const publicKey = decodeAddress(account.address);
+        const chainAddress = encodeAddress(publicKey, chainStore.ss58Format);
+        return {
+          ...account,
+          address: chainAddress
+        };
+      } catch (error) {
+        logger.error("Failed to re-encode account address:", error);
+        return account;
+      }
+    });
+  }, [rawAccounts, chainStore.ss58Format]);
+
   const isWalletConnecting = useMemo(() => isLoadingAccounts, [isLoadingAccounts])
   const isWalletConnected = useMemo(() => accounts.length > 0, [accounts])
   const connectedWallets = extensions;
@@ -175,7 +210,7 @@ export default function RegisterPage() {
     accountStore.address = address // Update the accountStore with the selected account
     // Set address as search parameter to persist selection
     setParam("address", address)
-    console.debug("Selected account:", address)
+    logger.debug("Selected account:", address)
   }
 
   useEffect(() => {
@@ -185,40 +220,64 @@ export default function RegisterPage() {
       accountStore.address = searchAddress as SS58String // Update the accountStore with the selected account
       // Set address as search parameter to persist selection
       setParam("address", searchAddress)
-      console.debug("Selected account from search params:", searchAddress)
+      logger.debug("Selected account from search params:", searchAddress)
     }
   }, [accounts])
 
-  // Fetch on-chain identity when account is selected
+  // Handle network parameter from URL (for edit flow)
   useEffect(() => {
-    if (accountStore.address) {
-      fetchIdAndJudgement().then((fetchedIdentity) => {
-        if (fetchedIdentity && fetchedIdentity.info && !isEditMode) {
-          // Only populate form with fetched identity data if not in edit mode
-          // This allows users to update their existing identity
-          const fetchedData: IdentityData = {
-            display: fetchedIdentity.info.display || "",
-            email: fetchedIdentity.info.email || "",
-            matrix: fetchedIdentity.info.matrix || "",
-            twitter: fetchedIdentity.info.twitter || "",
-            web: fetchedIdentity.info.web || "",
-            github: fetchedIdentity.info.github || "",
-            pgp_fingerprint: fetchedIdentity.info.pgp_fingerprint || "",
-            discord: fetchedIdentity.info.discord || "",
-            image: fetchedIdentity.info.image || "",
-            legal: fetchedIdentity.info.legal || "",
-          }
-          setIdentityData(fetchedData)
-        }
-      })
+    const networkParam = urlParams["network"]
+    const addressParam = urlParams["address"]
+    if (networkParam && !_network) {
+      // If the network param doesn't have _people suffix, add it
+      // This supports both formats: ?network=kusama and ?network=kusama_people
+      const peopleChainId = networkParam.includes('_people')
+        ? networkParam
+        : `${networkParam}_people`
+
+      _setNetwork(peopleChainId as AppNetwork)
+      setNetwork(peopleChainId as AppNetwork)
+      logger.debug("Selected network from URL params:", peopleChainId)
+
+      // If both network and address are provided (edit flow), skip to identity form step
+      if (addressParam && currentStep === STEP_NUMBERS.pickNetwork) {
+        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
+        logger.debug("Edit flow detected - skipping to identity form")
+      }
     }
-  }, [accountStore.address, isEditMode, fetchIdAndJudgement])
+  }, [urlParams, _network, setNetwork, currentStep])
+
+  // Watch identity changes and populate form with on-chain data
+  useEffect(() => {
+    if (identity && identity.info) {
+      // Populate form with existing identity data for editing
+      const fetchedData: IdentityData = {
+        display: identity.info.display || "",
+        email: identity.info.email || "",
+        matrix: identity.info.matrix || "",
+        twitter: identity.info.twitter || "",
+        web: identity.info.web || "",
+        github: identity.info.github || "",
+        pgp_fingerprint: identity.info.pgpFingerprint || "",
+        discord: identity.info.discord || "",
+        image: identity.info.image || "",
+        legal: identity.info.legal || "",
+      }
+      setIdentityData(fetchedData)
+      // Enable edit mode if identity exists
+      if (identity.status !== IdentityVerificationStatus.NoIdentity) {
+        setIsEditMode(true)
+      }
+    }
+  }, [identity])
 
   const handleIdentityDataFormChange = useCallback((newData: IdentityData) => {
     setIdentityData(newData)
   }, [])
 
   const canProceedFromIdentityStep = useMemo(() => {
+    if (!identity) return false;
+
     if (identity.status === IdentityVerificationStatus.IdentityVerified) {
       // If identity is already verified, we can proceed
       return true
@@ -227,9 +286,11 @@ export default function RegisterPage() {
     // For the fillIdentityInfo step, identity must be submitted to chain to proceed
     // This ensures identity data is on-chain before verification step
     return identity.status >= IdentityVerificationStatus.IdentitySet
-  }, [identity.status])
+  }, [identity])
 
   const canProceedFromVerificationStep = useMemo(() => {
+    if (!identity) return false;
+
     if (identity.status === IdentityVerificationStatus.IdentityVerified) {
       // If identity is already verified, we can proceed
       return true
@@ -252,7 +313,7 @@ export default function RegisterPage() {
       }
     }
     return true
-  }, [identityData, getAllFilledFields, getFieldStatus])
+  }, [identity, identityData, getAllFilledFields, getFieldStatus])
 
   const handleNextStep = () => {
     if (currentStep === STEP_NUMBERS.pickNetwork && _network) {
@@ -260,13 +321,11 @@ export default function RegisterPage() {
     }
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) {
       // For fillIdentityInfo step, identity must be submitted to chain first
-      if (identity.status < IdentityVerificationStatus.IdentitySet) {
-        // Check if form has required data before prompting to submit
-        if (identityData.display.trim() === "") {
-          toast.error("Please provide a Display Name before submitting.")
-          return
-        } else if (getAllFilledFields(identityData).filter((f) => f !== "display").length === 0) {
-          toast.error("Please fill at least one other field besides Display Name before submitting.")
+      if (!identity || identity.status < IdentityVerificationStatus.IdentitySet) {
+        // Check if form has at least one field filled
+        const hasAnyField = Object.values(identityData).some(value => value && value.trim() !== "")
+        if (!hasAnyField) {
+          toast.error("Please fill in at least one field before submitting.")
           return
         } else {
           toast.error("Please submit your identity data to the blockchain before proceeding to verification.")
@@ -315,24 +374,24 @@ export default function RegisterPage() {
   }, [])
 
   const submitTransaction = useCallback(async () => {
-    console.log("🔵 submitTransaction called");
-    console.log("🔵 txToConfirm:", txToConfirm);
-    console.log("🔵 currentDialogMode:", currentDialogMode);
-    console.log("🔵 walletAddress:", walletAddress);
-    console.log("🔵 typedApi:", !!typedApi);
+    logger.log("🔵 submitTransaction called");
+    logger.log("🔵 txToConfirm:", txToConfirm);
+    logger.log("🔵 currentDialogMode:", currentDialogMode);
+    logger.log("🔵 walletAddress:", walletAddress);
+    logger.log("🔵 typedApi:", !!typedApi);
 
     if (!txToConfirm) {
-      console.log("🔴 No transaction to submit");
+      logger.log("🔴 No transaction to submit");
       toast.error("No transaction to submit.")
       return
     }
     if (!walletAddress || !typedApi) {
-      console.log("🔴 No wallet connected");
+      logger.log("🔴 No wallet connected");
       toast.error("No wallet connected.")
       return
     }
 
-    console.log("🔵 Setting submitting state to true");
+    logger.log("🔵 Setting submitting state to true");
     setIsSubmittingIdentity(true)
 
     try {
@@ -353,18 +412,18 @@ export default function RegisterPage() {
         action = "Requesting judgement for"
         // Stay on same step to complete verification
       } else if (currentDialogMode === "cancelRequest") {
-        console.log("🔵 Processing cancel request");
+        logger.log("🔵 Processing cancel request");
         action = "Cancelling request for"
         // Go back to identity setting step after cancellation
         nextStep = STEP_NUMBERS.fillIdentityInfo
       }
 
-      console.log("🔵 Action determined:", action);
-      console.log("🔵 signSubmitAndWatch function exists:", typeof signSubmitAndWatch);
-      console.log("🔵 Transaction call:", txToConfirm);
-      console.log("🔵 Transaction name:", action.endsWith("(multi-step)") ? action : `${action} identity`);
-      console.log("🔵 Calling signSubmitAndWatch...");
-      console.log("🔵 Transaction call details:", {
+      logger.log("🔵 Action determined:", action);
+      logger.log("🔵 signSubmitAndWatch function exists:", typeof signSubmitAndWatch);
+      logger.log("🔵 Transaction call:", txToConfirm);
+      logger.log("🔵 Transaction name:", action.endsWith("(multi-step)") ? action : `${action} identity`);
+      logger.log("🔵 Calling signSubmitAndWatch...");
+      logger.log("🔵 Transaction call details:", {
         method: txToConfirm?.method,
         section: txToConfirm?.method?.section,
         methodName: txToConfirm?.method?.method,
@@ -374,25 +433,25 @@ export default function RegisterPage() {
 
       try {
         // Try direct signing first to see if that works
-        console.log("🔵 Attempting direct transaction signing...");
-        
+        logger.log("🔵 Attempting direct transaction signing...");
+
         const result = await signSubmitAndWatch({
           call: txToConfirm,
           name: action.endsWith("(multi-step)") ? action : `${action} identity`,
         });
-        
-        console.log("🔵 signSubmitAndWatch result:", result);
+
+        logger.log("🔵 signSubmitAndWatch result:", result);
       } catch (signError) {
-        console.error("🔴 Signing error:", signError);
+        logger.error("🔴 Signing error:", signError);
         throw signError;
       }
 
-      console.log("🔵 signSubmitAndWatch completed successfully");
+      logger.log("🔵 signSubmitAndWatch completed successfully");
 
       // Auto-advance to next step if identity was submitted from step 5
       if (currentDialogMode === "setIdentity" && currentStep === STEP_NUMBERS.fillIdentityInfo) {
-        console.log("🔵 Advancing to reviewAndSubmit step");
-        console.log("🔵 Clearing old verification state after identity update...");
+        logger.log("🔵 Advancing to reviewAndSubmit step");
+        logger.log("🔵 Clearing old verification state after identity update...");
         // Clear verification state when moving to step 6 with new identity
         setInitialVerifications([]);
         setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
@@ -400,21 +459,23 @@ export default function RegisterPage() {
 
       // Go back to step 5 if request was cancelled from step 6
       if (currentDialogMode === "cancelRequest" && currentStep === STEP_NUMBERS.reviewAndSubmit) {
-        console.log("🔵 Going back to fillIdentityInfo step after cancellation");
+        logger.log("🔵 Going back to fillIdentityInfo step after cancellation");
         // Refresh identity state after cancellation
-        await fetchIdAndJudgement();
+        if (fetchIdAndJudgement && typeof fetchIdAndJudgement === 'function') {
+          await fetchIdAndJudgement();
+        }
         setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
         toast.success("Judgment request cancelled. You can now update your identity.")
       }
 
-      console.log("🔵 Closing dialog");
+      logger.log("🔵 Closing dialog");
       // Close the dialog
       closeTxDialog()
     } catch (error: any) {
-      console.error("🔴 Transaction submission error:", error)
+      logger.error("🔴 Transaction submission error:", error)
       toast.error(`Failed to submit transaction: ${error.message}`)
     } finally {
-      console.log("🔵 Setting submitting state to false");
+      logger.log("🔵 Setting submitting state to false");
       setIsSubmittingIdentity(false)
     }
   }, [txToConfirm, walletAddress, currentDialogMode, isEditMode, networkDisplayName, isNetworkEncrypted, closeTxDialog, currentStep, fetchIdAndJudgement])
@@ -423,32 +484,32 @@ export default function RegisterPage() {
   const [txName, setTxName] = useState<string | null>(null)
 
   const onSetIdentity = async () => {
-    console.log("🟢 Set Identity button clicked!");
-    console.log("🟢 Typed API:", !!typedApi);
-    
+    logger.log("🟢 Set Identity button clicked!");
+    logger.log("🟢 Typed API:", !!typedApi);
+
     if (!walletAddress || !typedApi) {
-      console.log("🔴 Missing wallet or API");
+      logger.log("🔴 Missing wallet or API");
       toast.error("Wallet not connected or API not ready");
       return;
     }
 
     // Set submitting state early to prevent double-clicks
-    console.log("🟢 Setting submitting state to true");
+    logger.log("🟢 Setting submitting state to true");
     setIsSubmittingIdentity(true)
 
     try {
-      console.log("🟢 Starting to prepare identity transactions...");
+      logger.log("🟢 Starting to prepare identity transactions...");
       // Prepare all three transactions in sequence
       const transactions = await prepareIdentityTransactions()
-      console.log("🟢 Transactions prepared:", transactions.length);
+      logger.log("🟢 Transactions prepared:", transactions.length);
       
       if (transactions.length === 0) {
         throw new Error("No transactions to execute")
       }
-      
-      console.log(`🟢 Preparing ${transactions.length} transaction(s) for execution`)
 
-      console.log("🟢 Estimating transaction costs...");
+      logger.log(`🟢 Preparing ${transactions.length} transaction(s) for execution`)
+
+      logger.log("🟢 Estimating transaction costs...");
       // For multi-transaction, use the batch transaction for fee estimation
       // This is more accurate than summing individual fees
       const estimatedCosts = {
@@ -457,31 +518,31 @@ export default function RegisterPage() {
           : await getTxFees(transactions[0])(walletAddress),
         deposits: chainConstants?.basicDeposit ? BigNumber(chainConstants.basicDeposit.toString()) : null,
       }
-      
-      console.log('🟢 Estimated costs for transaction:', estimatedCosts)
 
-      console.log("🟢 Creating batch transaction...");
+      logger.log('🟢 Estimated costs for transaction:', estimatedCosts)
+
+      logger.log("🟢 Creating batch transaction...");
       // Create batch transaction if multiple operations needed
       const batchTx = transactions.length > 1 
         ? typedApi.tx.utility.batchAll(transactions)
         : transactions[0]
 
-      console.log("🟢 Setting dialog state...");
+      logger.log("🟢 Setting dialog state...");
       // Set dialog state for transaction confirmation
       setEstimatedCosts(estimatedCosts)
       setTxToConfirm(batchTx)
       setCurrentDialogMode("setIdentity")
 
-      console.log("🟢 Opening transaction dialog...");
+      logger.log("🟢 Opening transaction dialog...");
       // Open transaction dialog
       setOpenDialog("setIdentity")
       setTxName(transactions.length > 1 ? "Update Identity (Multi-step)" : "Set Identity")
-      
+
       // Reset submitting state since we're now waiting for user confirmation in dialog
-      console.log("🟢 Resetting submitting state - waiting for user confirmation");
+      logger.log("🟢 Resetting submitting state - waiting for user confirmation");
       setIsSubmittingIdentity(false)
     } catch (error: any) {
-      console.error("🔴 Transaction preparation error:", error)
+      logger.error("🔴 Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
       setIsSubmittingIdentity(false) // Reset on error
     }
@@ -489,32 +550,32 @@ export default function RegisterPage() {
 
   // Helper function to prepare all identity-related transactions
   const prepareIdentityTransactions = async () => {
-    console.log("🟢 prepareIdentityTransactions started");
-    console.log("🟢 Current identity status:", identity?.status);
+    logger.log("🟢 prepareIdentityTransactions started");
+    logger.log("🟢 Current identity status:", identity?.status);
     
     const transactions = []
 
     try {
       // Step 1: Cancel any pending registration request (if needed)
-      console.log("🟢 Step 1: Checking cancel request...");
+      logger.log("🟢 Step 1: Checking cancel request...");
       if (identity?.status === IdentityVerificationStatus.PendingJudgement) {
-        console.log("🟢 Adding cancel request transaction...");
+        logger.log("🟢 Adding cancel request transaction...");
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
         ])
-        console.log("🟢 Registrar index for cancel:", registrarIndex);
+        logger.log("🟢 Registrar index for cancel:", registrarIndex);
         
         if (!isNaN(registrarIndex)) {
           const cancelTx = typedApi.tx.identity.cancelRequest(registrarIndex)
           transactions.push(cancelTx)
-          console.log("🟢 Cancel transaction added");
+          logger.log("🟢 Cancel transaction added");
         }
       } else {
-        console.log("🟢 No cancel needed, status is:", identity?.status);
+        logger.log("🟢 No cancel needed, status is:", identity?.status);
       }
 
       // Step 2: Set identity (existing logic)
-      console.log("Adding set identity transaction...")
+      logger.log("Adding set identity transaction...")
       const dataToSubmit = identityData
 
       // Transform the data to the format expected by the blockchain
@@ -562,36 +623,36 @@ export default function RegisterPage() {
       transactions.push(setIdentityTx)
 
       // Step 3: Request judgement
-      console.log("🟢 Step 3: Adding request judgement transaction...");
+      logger.log("🟢 Step 3: Adding request judgement transaction...");
       const registrarIndex = Number(import.meta.env[
         `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
       ])
-      console.log("🟢 Registrar index for judgement:", registrarIndex);
-      console.log("🟢 Chain store relay ID:", chainStore.relay?.id);
+      logger.log("🟢 Registrar index for judgement:", registrarIndex);
+      logger.log("🟢 Chain store relay ID:", chainStore.relay?.id);
       
       if (isNaN(registrarIndex)) {
         throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
       }
 
-      console.log("🟢 Querying registrars from chain... (this might take time)");
+      logger.log("🟢 Querying registrars from chain... (this might take time)");
       const registrars = await typedApi.query.identity.registrars()
-      console.log("🟢 Registrars query completed:", registrars?.length || 0, "registrars found");
-      
+      logger.log("🟢 Registrars query completed:", registrars?.length || 0, "registrars found");
+
       const registrarData = registrars[registrarIndex]
-      console.log("🟢 Registrar data at index", registrarIndex, ":", registrarData);
+      logger.log("🟢 Registrar data at index", registrarIndex, ":", registrarData);
       
       if (!registrarData?.value?.fee) {
         throw new Error(`Registrar at index ${registrarIndex} not found or has no fee`);
       }
-      
+
       const registrarFee = BigInt(registrarData.value.fee)
-      console.log("🟢 Registrar fee:", registrarFee.toString());
-      
+      logger.log("🟢 Registrar fee:", registrarFee.toString());
+
       const requestJudgementTx = typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee)
       transactions.push(requestJudgementTx)
-      console.log("🟢 Request judgement transaction added");
+      logger.log("🟢 Request judgement transaction added");
 
-      console.log(`✅ Prepared ${transactions.length} transactions:`, {
+      logger.log(`✅ Prepared ${transactions.length} transactions:`, {
         steps: transactions.map((tx, index) => {
           if (tx.method.method === "cancelRequest") return `${index + 1}. Cancel pending request`
           if (tx.method.method === "setIdentity") return `${index + 1}. Set identity`  
@@ -604,7 +665,7 @@ export default function RegisterPage() {
       return transactions
 
     } catch (error) {
-      console.error("Error preparing identity transactions:", error)
+      logger.error("Error preparing identity transactions:", error)
       throw error
     }
   }
@@ -639,56 +700,56 @@ export default function RegisterPage() {
       setOpenDialog("requestJudgement")
       setTxName("Request Judgement")
     } catch (error: any) {
-      console.error("Transaction preparation error:", error)
+      logger.error("Transaction preparation error:", error)
       toast.error(`Failed to prepare transaction: ${error.message}`)
     }
   }
 
   const onCancelRequest = async () => {
-    console.log("🔴 Cancel Request button clicked!");
-    console.log("🔴 Typed API:", !!typedApi);
-    console.log("🔴 Chain store relay ID:", chainStore.relay?.id);
-    
+    logger.log("🔴 Cancel Request button clicked!");
+    logger.log("🔴 Typed API:", !!typedApi);
+    logger.log("🔴 Chain store relay ID:", chainStore.relay?.id);
+
     if (!walletAddress || !typedApi) {
-      console.log("🔴 Missing wallet or API");
+      logger.log("🔴 Missing wallet or API");
       toast.error("Wallet not connected or API not ready");
       return;
     }
 
     try {
       // First check if we can cancel
-      console.log("🔴 Current identity status:", identity?.status);
-      console.log("🔴 Identity object:", identity);
+      logger.log("🔴 Current identity status:", identity?.status);
+      logger.log("🔴 Identity object:", identity);
 
       // Create the cancel request transaction
       const registrarIndex = Number(import.meta.env[
         `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
       ])
-      console.log("🔴 Registrar index:", registrarIndex);
-      console.log("🔴 Registrar env var:", import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`]);
+      logger.log("🔴 Registrar index:", registrarIndex);
+      logger.log("🔴 Registrar env var:", import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`]);
       
       if (isNaN(registrarIndex)) {
         throw new Error(`Registrar index for ${chainStore.relay?.id} is not defined.`)
       }
 
-      console.log("🔴 Creating cancel request transaction...");
-      console.log("🔴 TypedApi available:", !!typedApi);
-      console.log("🔴 Identity methods available:", Object.keys(typedApi?.tx?.identity || {}));
-      
+      logger.log("🔴 Creating cancel request transaction...");
+      logger.log("🔴 TypedApi available:", !!typedApi);
+      logger.log("🔴 Identity methods available:", Object.keys(typedApi?.tx?.identity || {}));
+
       const tx = typedApi.tx.identity.cancelRequest(registrarIndex)
-      console.log("🔴 Transaction created:", tx);
-      console.log("🔴 Transaction method:", tx?.method);
-      console.log("🔴 Transaction method section:", tx?.method?.section);
-      console.log("🔴 Transaction method name:", tx?.method?.method);
-      console.log("🔴 Transaction args:", tx?.args);
-      console.log("🔴 Transaction is callable:", typeof tx?.signAsync === 'function');
+      logger.log("🔴 Transaction created:", tx);
+      logger.log("🔴 Transaction method:", tx?.method);
+      logger.log("🔴 Transaction method section:", tx?.method?.section);
+      logger.log("🔴 Transaction method name:", tx?.method?.method);
+      logger.log("🔴 Transaction args:", tx?.args);
+      logger.log("🔴 Transaction is callable:", typeof tx?.signAsync === 'function');
 
       // Estimate costs
-      console.log("🔴 Estimating costs...");
+      logger.log("🔴 Estimating costs...");
       const estimatedCosts = {
         fees: await getTxFees(tx)(walletAddress),
       }
-      console.log("🔴 Estimated costs:", estimatedCosts);
+      logger.log("🔴 Estimated costs:", estimatedCosts);
 
       // Set dialog state for transaction confirmation
       setEstimatedCosts(estimatedCosts)
@@ -698,9 +759,9 @@ export default function RegisterPage() {
       // Open transaction dialog
       setOpenDialog("cancelRequest")
       setTxName("Cancel Request")
-      console.log("🔴 Dialog opened for cancel request");
+      logger.log("🔴 Dialog opened for cancel request");
     } catch (error: any) {
-      console.error("🔴 Cancel request preparation error:", error)
+      logger.error("🔴 Cancel request preparation error:", error)
       toast.error(`Failed to prepare cancel request: ${error.message}`)
     }
   }
@@ -710,13 +771,13 @@ export default function RegisterPage() {
     "Connect Wallets",
     "Select Account",
     "Check Balance",
-    isEditMode ? "Update & Verify Identity Info" : "Provide & Verify Identity Info",
+    isEditMode ? "Update Profile Information" : "Create Verified Profile",
     isEditMode ? "Review & Submit Update" : "Review & Submit",
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
   const networks = Object.entries(CHAINS)
-    .filter(([key]) => key.endsWith("_people"))
+    .filter(([key]) => key.endsWith("_people") && key === "paseo_people")
     .map(([key, networkInfo]) => ({
       id: key,
       name: networkInfo.name,
@@ -753,7 +814,7 @@ export default function RegisterPage() {
     if (!network && !_network) {
       // Set default network to paseo_people (testnet with free tokens)
       const defaultNetwork = "paseo_people" as AppNetwork;
-      console.log('Setting default network:', defaultNetwork);
+      logger.log('Setting default network:', defaultNetwork);
       setNetwork(defaultNetwork);
       _setNetwork(defaultNetwork);
       chainStore.id = defaultNetwork;
@@ -761,7 +822,7 @@ export default function RegisterPage() {
   }, [network, _network, setNetwork, chainStore]);
 
   useEffect(() => {// Set steps based on whether required information is available
-    console.log('RegisterPage step determination:', {
+    logger.log('RegisterPage step determination:', {
       network,
       connectedWallets: connectedWallets.length,
       accounts: accounts.length,
@@ -814,18 +875,20 @@ export default function RegisterPage() {
 
     // Only poll when in verification step and waiting for judgment
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && 
-        (identity?.status === IdentityVerificationStatus.PendingJudgement || 
+        (identity?.status === IdentityVerificationStatus.PendingJudgement ||
          identity?.status === IdentityVerificationStatus.FeePaid)) {
-      
-      console.log("🔄 Starting identity status polling - waiting for judgment...");
-      
+
+      logger.log("🔄 Starting identity status polling - waiting for judgment...");
+
       // Poll every 10 seconds to check for status changes
       pollInterval = setInterval(async () => {
-        console.log("🔄 Polling identity status...");
+        logger.log("🔄 Polling identity status...");
         try {
-          await fetchIdAndJudgement();
+          if (fetchIdAndJudgement && typeof fetchIdAndJudgement === 'function') {
+            await fetchIdAndJudgement();
+          }
         } catch (error) {
-          console.error("❌ Error polling identity status:", error);
+          logger.error("❌ Error polling identity status:", error);
         }
       }, 10000); // Poll every 10 seconds
     }
@@ -833,7 +896,7 @@ export default function RegisterPage() {
     // Cleanup interval when component unmounts or conditions change
     return () => {
       if (pollInterval) {
-        console.log("🔄 Stopping identity status polling");
+        logger.log("🔄 Stopping identity status polling");
         clearInterval(pollInterval);
       }
     };
@@ -844,7 +907,7 @@ export default function RegisterPage() {
     if (currentStep === STEP_NUMBERS.connectWallet && (connectedWallets.length < 1 || accounts.length < 1)) return false
     if (currentStep === STEP_NUMBERS.pickAccount && !selectedAccount) return false
     if (currentStep === STEP_NUMBERS.checkBalance
-      && !hasEnoughBalance && identity.status < IdentityVerificationStatus.IdentitySet
+      && !hasEnoughBalance && (!identity || identity.status < IdentityVerificationStatus.IdentitySet)
     ) return false
     if (currentStep === STEP_NUMBERS.fillIdentityInfo && !canProceedFromIdentityStep) return false
     if (currentStep === STEP_NUMBERS.reviewAndSubmit && !canProceedFromVerificationStep) return false
@@ -899,7 +962,7 @@ export default function RegisterPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 md:space-x-4">
-              <Link to={isEditMode && editingProfileId ? `/profile/${editingProfileId}` : "/"}>
+              <Link to={isEditMode && editingProfileId ? `/profile/${network}/${editingProfileId}` : "/"}>
                 <Button
                   variant="ghost"
                   className="text-gray-400 hover:bg-white/10 hover:text-white p-2 md:px-3 md:py-2"
@@ -910,39 +973,41 @@ export default function RegisterPage() {
               </Link>
               <Logo />
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               {isEditMode && (
                 <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
                   <Edit className="w-3 h-3 mr-1" />
                   Editing Mode
                 </Badge>
               )}
-              {network && (
-                <Badge className={`${networkColor} bg-opacity-20 text-opacity-100 hidden sm:inline-flex`}>
-                  {networkDisplayName}
-                  {/* TODO Maybe display if testnet. */}
-                  {/* {isNetworkEncrypted && "(Private Mode)"} */}
-                </Badge>
-              )}
-              <Badge className="bg-gray-700 text-white text-xs">
-                <span className="hidden sm:inline">Step </span>
-                {currentStep}/{TOTAL_STEPS}
-              </Badge>
+              <NetworkSelectorButton />
+              <WalletConnectButton />
             </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-8">
+      <main className="flex-grow container mx-auto px-4 py-12">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-center text-white">{stepTitles[currentStep - 1]}</h1>
-          <p className="text-gray-400 text-center mb-8">
-            {isEditMode
-              ? "Update your decentralized identity information."
-              : "Follow the steps to register your decentralized identity."}
+          <h1 className="text-2xl font-medium mb-2 text-white">
+            {isEditMode ? "Update Identity" : "Create Identity"}
+          </h1>
+          <p className="text-gray-500 text-sm mb-12">
+            {isEditMode ? "Update your on-chain identity information" : "Set your on-chain identity information"}
           </p>
 
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 md:p-8 shadow-xl min-h-[300px]">
+          {/* Show wallet connection prompt if not connected */}
+          {!accountStore.address && (
+            <div className="py-12 text-center">
+              <WalletIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">Connect Your Wallet</h3>
+              <p className="text-gray-400 text-sm">
+                Please connect your wallet from the header to continue
+              </p>
+            </div>
+          )}
+
+          {accountStore.address && <div>
             {currentStep === STEP_NUMBERS.pickNetwork && (
               <>
                 <NetworkSelection
@@ -953,12 +1018,10 @@ export default function RegisterPage() {
                   setHoveredNetwork={setHoveredNetwork}
                 />
                 {_network === "kusama" && (
-                  <div className="mt-4 p-3 text-sm text-cyan-300 bg-cyan-900/20 border border-cyan-500/30 rounded-md flex items-start">
-                    <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-cyan-400" />
-                    <span>
-                      On Kusama, your identity data is signed for privacy. It won&apos;t be publicly readable on-chain
-                      but can still be verified by authorized registrars.
-                    </span>
+                  <div className="mt-6 pt-6 border-t border-gray-700/50 text-sm text-gray-400">
+                    <Info className="w-4 h-4 inline mr-2 text-gray-500" />
+                    On Kusama, your identity data is signed for privacy. It won&apos;t be publicly readable on-chain
+                    but can still be verified by authorized registrars.
                   </div>
                 )}
               </>
@@ -1043,7 +1106,7 @@ export default function RegisterPage() {
                 >
                   {isSubmittingIdentity
                     ? "Processing Identity Update..."
-                    : identity.status === IdentityVerificationStatus.NoIdentity
+                    : (!identity || identity.status === IdentityVerificationStatus.NoIdentity)
                       ? "Submit Identity & Request Judgment"
                       : "Update Identity & Request Judgment"
                   }
@@ -1131,12 +1194,12 @@ export default function RegisterPage() {
                     
                     {/* Cancel Request Button - Only show if request is pending */}
                     {(() => {
-                      const shouldShowCancelButton = (identity?.status === IdentityVerificationStatus.PendingJudgement || 
+                      const shouldShowCancelButton = (identity?.status === IdentityVerificationStatus.PendingJudgement ||
                                                      identity?.status === IdentityVerificationStatus.FeePaid);
-                      console.log("🔴 Identity status:", identity?.status);
-                      console.log("🔴 Should show cancel button:", shouldShowCancelButton);
-                      console.log("🔴 PendingJudgement constant:", IdentityVerificationStatus.PendingJudgement);
-                      console.log("🔴 FeePaid constant:", IdentityVerificationStatus.FeePaid);
+                      logger.log("🔴 Identity status:", identity?.status);
+                      logger.log("🔴 Should show cancel button:", shouldShowCancelButton);
+                      logger.log("🔴 PendingJudgement constant:", IdentityVerificationStatus.PendingJudgement);
+                      logger.log("🔴 FeePaid constant:", IdentityVerificationStatus.FeePaid);
                       
                       return shouldShowCancelButton && (
                         <Button
@@ -1170,34 +1233,12 @@ export default function RegisterPage() {
                     {walletAddress?.substring(0, 10)}...{walletAddress?.substring(walletAddress.length - 10)}
                   </span>
                 </p>
-                <Link to={`/profile/${editingProfileId || walletAddress || "me"}`}>
+                <Link to={`/profile/${network}/${editingProfileId || walletAddress || "me"}`}>
                   View Your Profile
                 </Link>
               </div>
             )}
-          </div>
-
-          <div className="mt-8 flex justify-between items-center">
-            <Button
-              onClick={handlePreviousStep}
-              disabled={currentStep === 1 || isSubmittingIdentity}
-              variant="ghost"
-              className="text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-50 px-4 py-2 rounded-md"
-            >
-              Previous
-            </Button>
-            {/* currentStep < TOTAL_STEPS && currentStep !== 3 && currentStep !== 5 && currentStep !== 6 && ( */}
-            {currentStep < TOTAL_STEPS && (
-              <Button
-                onClick={handleNextStep}
-                disabled={!getCanProceedOverall() || isSubmittingIdentity}
-                variant="ghost"
-                className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 disabled:opacity-50 px-4 py-2 rounded-md"
-              >
-                Next
-              </Button>
-            )}
-          </div>
+          </div>}
         </div>
       </main>
     </div>

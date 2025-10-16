@@ -89,7 +89,6 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
         setIsLoading(false);
         return;
       }
-      console.log("Extensions enabled:", ext);
       setExtensions(ext as InjectedExtension[]);
     }).catch((err) => {
       const errorMsg = `Failed to enable extensions: ${err.message}`;
@@ -103,8 +102,6 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
   useEffect(() => {
     if (extensions.length > 0) {
       web3AccountsSubscribe((injectedAccounts) => {
-        console.log("Accounts updated: count =", injectedAccounts.length);
-
         // Transform InjectedAccountWithMeta to ExtendedAccountData
         const transformedAccounts: ExtendedAccountData[] = injectedAccounts
           .filter(account => {

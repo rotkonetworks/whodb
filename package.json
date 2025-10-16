@@ -10,7 +10,7 @@
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
     "setup": "bash scripts/setup.sh",
-    "generate-metadata": "bunx polkadot-api@latest update",
+    "generate-metadata": "bunx polkadot-api@latest --whitelist whitelist.ts",
     "predev": "bun run generate-metadata",
     "prebuild": "bun run generate-metadata",
     "vercel-build": "bun run generate-metadata"
@@ -64,6 +64,7 @@
     "input-otp": "1.4.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.454.0",
+    "openpgp": "^5.11.2",
     "polkadot-api": "^1.15.0",
     "react": "^19",
     "react-day-picker": "8.10.1",

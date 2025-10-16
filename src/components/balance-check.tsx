@@ -36,25 +36,6 @@ export function BalanceCheck({
   const hasConnectionError = !!error
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
 
-  // Add debugging to understand balance state
-  useEffect(() => {
-    console.log('Balance Debug:', {
-      balance: balance?.toString(),
-      balanceType: typeof balance,
-      address,
-      typedApi: !!typedApi,
-      isConnected,
-      chainStoreId: chainStore.id,
-      tokenSymbol: chainStore.tokenSymbol,
-      tokenDecimals: chainStore.tokenDecimals,
-      accountName: accountStore.name
-    })
-    
-    // If we have all the required pieces but balance is still null/undefined, log a warning
-    if (address && typedApi && isConnected && !balance && !error) {
-      console.warn('Balance subscription may not be working. Address and API are available but balance is null/undefined.')
-    }
-  }, [balance, address, typedApi, isConnected, chainStore.id, chainStore.tokenSymbol, chainStore.tokenDecimals, accountStore.name, error])
 
   useEffect(() => {
     if (address && !hasChecked) {

@@ -3,6 +3,7 @@ import { WebSocketHookReturn } from '.';
 import { TimelineEventRecord } from '@/types/timeline';
 import { FullProfile } from '@/types/profile';
 import { CHAINS } from '@/polkadot-api/chain-config';
+import { logger } from '@/utils/logger';
 
 interface SearchRecord {
   wallet_id: string;
@@ -92,7 +93,7 @@ export const useSearchWebSocket = (
   }
 
   const constructSearchParameters = (query: string, limit?: number) => {
-    console.debug('Constructing search parameters for query:', query);
+    logger.debug('Constructing search parameters for query:', query);
     const parseSearchString = (input: string): Record<string, string> => {
       const result: Partial<SearchFilterCriteria> = {};
       const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
@@ -103,7 +104,7 @@ export const useSearchWebSocket = (
         const value = match[2].trim();
 
         if (Object.keys(SEARCH_FILTER_CRITERIA_KEYS).includes(key) && value !== undefined) {
-          console.debug("Matched query parameter:", key, value);
+          logger.debug("Matched query parameter:", key, value);
           result[key] = value;
         }
       }
@@ -118,7 +119,7 @@ export const useSearchWebSocket = (
     if (Object.keys(pairs).length === 0) {
       throw new Error("No valid search parameters found in query.");
     }
-    console.debug('Parsed search parameters:', pairs);
+    logger.debug('Parsed search parameters:', pairs);
 
     return {
       network: pairs["network"],
@@ -150,7 +151,7 @@ export const useSearchWebSocket = (
 
       if ((response as ErrorResponse).type === 'error') {
         const errorResponse = response as ErrorResponse;
-        console.error('Search error:', errorResponse.message);
+        logger.error('Search error:', errorResponse.message);
         throw new Error(errorResponse.message);
       }
 
@@ -174,7 +175,7 @@ export const useSearchWebSocket = (
 
       throw new Error('Invalid search response format');
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', error);
 
       throw error;
     }

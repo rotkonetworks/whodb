@@ -31,11 +31,9 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={`space-y-2 ${className}`}>
-      <Label htmlFor={id} className="flex items-center text-white">
-        {icon}
+      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-gray-500 font-normal flex items-center gap-2">
         {label}
-        {!required && <span className="text-gray-500 text-xs ml-2">(optional)</span>}
-        {required && <span className="text-red-400 text-xs ml-2">*</span>}
+        {!required && <span className="text-gray-600 normal-case">(optional)</span>}
       </Label>
       <Input
         id={id}
@@ -43,11 +41,11 @@ export function FormField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="bg-gray-800/80 border-pink-500/30 text-white placeholder:text-gray-400/60 placeholder:italic placeholder:font-light focus:border-pink-500 transition-colors"
+        className="bg-transparent border-0 border-b border-gray-700 rounded-none text-white placeholder:text-gray-600 focus:border-gray-500 focus:ring-0 transition-colors px-0"
         required={required}
         disabled={disabled}
       />
-      {description && <p className="text-gray-500 text-xs">{description}</p>}
+      {description && <p className="text-gray-600 text-xs mt-1">{description}</p>}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import type React from "react"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { FormField } from "@/components/form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
+import { PgpKeyManager } from "@/components/pgp-key-manager"
 import { IdentityVerificationStatus, IdentityData } from "@/types/Identity"
 import {
   User,
@@ -14,8 +15,11 @@ import {
   ShieldCheck,
   Info,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { useAccount } from "@/contexts/wallet-context"
+import { useNetwork } from "@/contexts/network-context"
 
 interface SimpleIdentityFormProps {
   initialData: IdentityData
@@ -35,6 +39,8 @@ export function SimpleIdentityForm({
   identityStatus = IdentityVerificationStatus.NoIdentity,
 }: SimpleIdentityFormProps) {
   const [formData, setFormData] = useState(initialData)
+  const { address } = useAccount()
+  const { network } = useNetwork()
 
   // When initialData changes, update formData
   useEffect(() => {
@@ -46,6 +52,12 @@ export function SimpleIdentityForm({
     setFormData(newFormData)
     onDataChange(newFormData)
   }, [formData, onDataChange])
+
+  const handlePgpKeyUploaded = useCallback(() => {
+    // Callback when PGP key is uploaded successfully
+    // The fingerprint should already be in formData.pgp_fingerprint
+    // This is just for refreshing UI or showing success
+  }, [])
 
   // Determine which fields to show based on supportedFields
   const fieldsToShow = useMemo(() => supportedFields.length > 0 ? supportedFields : [
@@ -145,6 +157,34 @@ export function SimpleIdentityForm({
       )
     }
 
+    // Special handling for PGP fingerprint - show key manager
+    if (formFieldKey === 'pgp_fingerprint') {
+      return (
+        <div key="pgp_fingerprint" className="space-y-4">
+          <FormField
+            id="pgp_fingerprint"
+            label="PGP Fingerprint"
+            icon={<Key className="w-4 h-4 text-pink-400 mr-2" />}
+            value={formData.pgp_fingerprint}
+            onChange={(value) => handleChange("pgp_fingerprint", value)}
+            placeholder="0x1234567890ABCDEF1234567890ABCDEF12345678"
+            type="text"
+            description="40-character PGP key fingerprint for encrypted communication"
+            className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+          />
+
+          {address && network && (
+            <PgpKeyManager
+              address={address}
+              network={network}
+              currentFingerprint={formData.pgp_fingerprint || null}
+              onKeyUploaded={handlePgpKeyUploaded}
+            />
+          )}
+        </div>
+      )
+    }
+
     const config = fieldConfig[formFieldKey as keyof typeof fieldConfig]
     if (!config) return null
 
@@ -161,7 +201,7 @@ export function SimpleIdentityForm({
         className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
       />
     )
-  }, [fieldMapping, formData, handleChange, fieldConfig])
+  }, [fieldMapping, formData, handleChange, fieldConfig, address, network, handlePgpKeyUploaded])
 
   // Group fields into sections
   const formSections = useMemo(() => {
@@ -211,10 +251,9 @@ export function SimpleIdentityForm({
     return sections
   }, [fieldsToShow, createFieldComponent])
 
-  const hasDisplayName = useMemo(() => formData.display.trim() !== "", [formData.display])
-  const hasOtherFields = useMemo(() => {
-    const { display, ...otherFields } = formData
-    return Object.values(otherFields).some(value => value && value.trim() !== "")
+  // Check if at least one field is filled (any field, including display)
+  const hasAnyField = useMemo(() => {
+    return Object.values(formData).some(value => value && value.trim() !== "")
   }, [formData])
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -224,54 +263,36 @@ export function SimpleIdentityForm({
 
   return (
     <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Identity Status Info */}
-      <IdentityStatusInfo status={identityStatus} />
+      {/* Identity Status Info - only show in create mode or if there's a specific status to display */}
+      {!isEditMode && <IdentityStatusInfo status={identityStatus} />}
 
-      <div className="flex items-start p-3 mb-6 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md">
-        <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
-        <span>
-          You must provide your Display Name AND at least one other field to set your identity.
-          {isEditMode && " After setting, you'll proceed to verification in the next step."}
-        </span>
-      </div>
-
-      <div className="flex items-start p-3 mb-6 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
-        <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
-        <span>
-          <strong>Important:</strong> Only fill fields you are comfortable publishing on-chain.
-          {isEditMode && " Changed fields will require verification in the next step."}
-        </span>
-      </div>
-
-      {formSections.map((section, sectionIndex) => (
-        <div key={section.title}>
-          <div className="flex items-center mb-4">
-            {section.icon}
-            <h2 className="text-lg font-semibold text-white">{section.title}</h2>
+      {isEditMode && (
+        <div className="py-4 border-b border-gray-700/50">
+          <div className="flex items-start gap-3">
+            <Info className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium mb-1 text-gray-300">
+                Editing Identity
+              </div>
+              <div className="text-sm text-gray-400">
+                Update your identity information below. Changes will be submitted to the blockchain.
+              </div>
+            </div>
           </div>
-          <div className="space-y-4">{section.fields.map((fieldComponent) => fieldComponent)}</div>
-          {sectionIndex < formSections.length - 1 && <Separator className="my-8 bg-gray-700" />}
         </div>
-      ))}
+      )}
+
+      {/* All fields in a single clean section */}
+      <div className="space-y-4">
+        {formSections.flatMap(section => section.fields)}
+      </div>
 
       {/* Validation summary */}
-      <div className="p-3 mt-6 text-sm bg-gray-800/50 border border-gray-600/50 rounded-md">
-        <div className="flex items-center space-x-2">
-          <span className={hasDisplayName ? "text-green-400" : "text-gray-400"}>
-            {hasDisplayName ? "✓" : "○"} Display Name provided
-          </span>
+      {!hasAnyField && (
+        <div className="mt-8 pt-6 border-t border-gray-700/50 text-sm text-gray-500">
+          Fill in at least one field to set your identity.
         </div>
-        <div className="flex items-center space-x-2 mt-1">
-          <span className={hasOtherFields ? "text-green-400" : "text-gray-400"}>
-            {hasOtherFields ? "✓" : "○"} At least one additional field provided
-          </span>
-        </div>
-        {hasDisplayName && hasOtherFields && (
-          <div className="mt-2 text-green-400 text-xs">
-            Ready to set identity on-chain!
-          </div>
-        )}
-      </div>
+      )}
     </form>
   )
 }

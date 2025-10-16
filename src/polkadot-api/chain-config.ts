@@ -68,7 +68,7 @@ export const CHAINS = {
   paseo: {
     name: "Paseo",
     symbol: "PAS",
-    ss58Format: 42,
+    ss58Format: 0,
     decimals: 12,
     endpoint: import.meta.env.VITE_APP_PASEO_WS_URL,
   },
@@ -78,7 +78,7 @@ export const CHAINS = {
     endpoint: import.meta.env.VITE_APP_PASEO_PEOPLE_WS_URL,
     name: "Paseo People",
     symbol: "PAS",
-    ss58Format: 42,
+    ss58Format: 0,
     decimals: 12,
     description: "Testnet for development, free tokens available.",
     iconStyle: "border-pink-500/70 hover:bg-pink-500/10",

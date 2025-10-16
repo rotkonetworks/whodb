@@ -10,10 +10,8 @@ export const AccountBalanceBadge = ({ address, chainId }: { address: SS58String;
   const balance = useSystemAccountData(address, typedApi).balance;
 
   return (
-    <Badge className="bg-gray-700/50 text-gray-300 text-xs px-1.5 py-0.5">
-      <span className="text-xs text-gray-400">
-        {formatAmount(balance)}
-      </span>
+    <Badge className="bg-pink-500/20 text-pink-300 border border-pink-500/30 text-xs px-2 py-1 font-medium">
+      {formatAmount(balance)}
     </Badge>
   );
 };
