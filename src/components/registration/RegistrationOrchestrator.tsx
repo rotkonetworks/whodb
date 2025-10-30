@@ -448,6 +448,9 @@ export function RegistrationOrchestrator({
       // Reset retry counter on success
       setRetryCount(0)
 
+      // Note: verifications are cleared when fields are edited (see updateDraftField)
+      // Hash is computed from field values, so it changes on edit, not submission
+
       // Refresh identity (this will trigger currentPhase to update via useMemo)
       if (fetchIdAndJudgement) {
         try {

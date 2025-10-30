@@ -128,23 +128,48 @@ export const initializeDraft = (existingIdentity: IdentityData) => {
 
 /**
  * Update a field in the draft
+ * Clears ALL verifications since identity hash changes
+ *
+ * Note: Identity hash = blake2_256(all_fields), so changing ANY field
+ * changes the entire hash, invalidating ALL field verifications.
+ * Backend will generate fresh challenges when new identity is detected on-chain.
  */
 export const updateDraftField = (field: keyof IdentityData, value: string) => {
+  const oldValue = identityDraftStore.draft[field];
   identityDraftStore.draft[field] = value;
   identityDraftStore.editedFields.add(field);
   identityDraftStore.isDirty = true;
+
+  // Only clear verifications if value actually changed
+  // (identity hash only changes if field values change)
+  if (oldValue !== value && Object.keys(identityDraftStore.verifications).length > 0) {
+    // Clear ALL verifications since identity hash is computed from all fields
+    identityDraftStore.verifications = {};
+  }
 };
 
 /**
  * Update multiple fields at once
+ * Clears ALL verifications since identity hash changes
  */
 export const updateDraft = (updates: Partial<IdentityData>) => {
+  let hasChanges = false;
+
   Object.entries(updates).forEach(([key, value]) => {
     const field = key as keyof IdentityData;
+    if (identityDraftStore.draft[field] !== value) {
+      hasChanges = true;
+    }
     identityDraftStore.draft[field] = value;
     identityDraftStore.editedFields.add(field);
   });
+
   identityDraftStore.isDirty = true;
+
+  // Clear ALL verifications if any field changed
+  if (hasChanges && Object.keys(identityDraftStore.verifications).length > 0) {
+    identityDraftStore.verifications = {};
+  }
 };
 
 /**
