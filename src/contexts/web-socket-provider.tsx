@@ -7,11 +7,12 @@ import { FullProfile } from "@/types/profile";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
-export const WebSocketProvider = ({ children, url }: {
+export const WebSocketProvider = ({ children, url, autoConnect = false }: {
   children: React.ReactNode;
   url: string;
+  autoConnect?: boolean;
 }) => {
-  const webSocket = useWebSocket({ url, autoConnect: true, });
+  const webSocket = useWebSocket({ url, autoConnect });
 
   return (
     <WebSocketContext.Provider value={webSocket}>

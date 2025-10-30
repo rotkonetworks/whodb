@@ -187,7 +187,11 @@ export default function SearchPage() {
                     type="button"
                     className="btn-primary px-4 py-2 rounded-lg text-sm"
                     onClick={() => {
-                      navigate(`/profile/${profile.wallet_id}`);
+                      // Use network-specific routing
+                      const networkPath = profile.network ?
+                        `/${profile.network.replace('_people', '')}/profile/${profile.wallet_id}` :
+                        `/profile/${profile.wallet_id}`;
+                      navigate(networkPath);
                     }}>
                     View Profile
                   </button>

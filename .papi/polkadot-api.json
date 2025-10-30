@@ -6,7 +6,7 @@
       "chain": "polkadot",
       "metadata": ".papi/metadata/polkadot.scale",
       "genesis": "0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
-      "codeHash": "0x0627ae9ae2a8d0de99a7dad056136f855f32f82391c48bf8a531506fe231a42b"
+      "codeHash": "0xa4d527cb0db4146686eeffb216b562fe68440185d5067e6177d1681ff7bb3043"
     },
     "paseo": {
       "chain": "paseo",
@@ -24,31 +24,31 @@
       "chain": "ksmcc3_people",
       "metadata": ".papi/metadata/ksmcc3_people.scale",
       "genesis": "0xc1af4cb4eb3918e5db15086c0cc5ec17fb334f728b7c65dd44bfe1e174ff8b3f",
-      "codeHash": "0xa38a46dd18803fa0288e07220033dabaf4286ce776608b8e546dc08fb312568e"
+      "codeHash": "0x6ccaa6118bf08e6abe366aa99e27adc5d66a0e90e58e13e98eb336419d77bd60"
     },
     "ksmcc3": {
       "chain": "ksmcc3",
       "metadata": ".papi/metadata/ksmcc3.scale",
       "genesis": "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
-      "codeHash": "0x4c843d1c1b5ce542fcc0e9cc1439ad3384e5753da24d2747c4aa24162a202449"
+      "codeHash": "0x1e0c7ef66f67073483ec5ad670c6b226fbd9a26e2e7d9b61afb65f2b82f95854"
     },
     "paseo_people": {
       "chain": "paseo_people",
       "metadata": ".papi/metadata/paseo_people.scale",
       "genesis": "0xe6c30d6e148f250b887105237bcaa5cb9f16dd203bf7b5b9d4f1da7387cb86ec",
-      "codeHash": "0x0017531581194074d5f805d1eca8ac41387a32dcfea421b381341ee5fbb063e0"
+      "codeHash": "0x6a5671cc82ccd413539811eda2edf6def0a1890716c1ddbe9fdbe0fa60c2d5de"
     },
     "polkadot_asset_hub": {
       "chain": "polkadot_asset_hub",
       "metadata": ".papi/metadata/polkadot_asset_hub.scale",
       "genesis": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
-      "codeHash": "0x8cada8f706ffc7c9bd0c31985ec4f34520914778edefaa94b624bc6adea48a1c"
+      "codeHash": "0xd863e58d979f0f36f78c2779fa8f99f2ecde98744151e11500655058dae37378"
     },
     "ksmcc3_asset_hub": {
       "chain": "ksmcc3_asset_hub",
       "metadata": ".papi/metadata/ksmcc3_asset_hub.scale",
       "genesis": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-      "codeHash": "0xc614bece9b065c25a8a4939343bf4171104d348a82caa987f1ce5829dd9f997e"
+      "codeHash": "0xc1db15b71ce88e1e74f4f4075837204788e40ace9fca23290002f8f52d639dd4"
     },
     "paseo_asset_hub": {
       "chain": "paseo_asset_hub",

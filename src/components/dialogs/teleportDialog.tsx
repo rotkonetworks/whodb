@@ -34,9 +34,9 @@ export const TeleporterDialog = ({
   const [onTeleportClick, setOnTeleportClick] = useState<() => void>(() => () => { });
 
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogContent className="dark:bg-gray-900/50 bg-gray-100/50 backdrop-blur-sm">
+    <DialogContent className="bg-gray-900 border-gray-700">
       <DialogHeader>
-        <DialogTitle>Teleport</DialogTitle>
+        <DialogTitle className="text-white">Teleport Tokens</DialogTitle>
       </DialogHeader>
       <div className="overflow-y-auto max-h-[80vh]">
         <Teleporter
@@ -45,10 +45,11 @@ export const TeleporterDialog = ({
           setOnTeleportClick={setOnTeleportClick}
         />
       </div>
-      <DialogFooter>
+      <DialogFooter className="gap-2">
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={() => setOpen(false)}
+          className="border-gray-600 text-gray-300 hover:bg-gray-800"
         >
           Cancel
         </Button>
@@ -56,8 +57,9 @@ export const TeleporterDialog = ({
           variant="default"
           disabled={teleportAmount.isZero() || isTxBusy}
           onClick={onTeleportClick}
+          className="bg-pink-600 hover:bg-pink-700 text-white"
         >
-          Confirm
+          Confirm Teleport
         </Button>
       </DialogFooter>
     </DialogContent>

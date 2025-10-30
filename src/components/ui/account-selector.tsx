@@ -26,10 +26,26 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
   const { accounts: availableAccounts, chainStore } = usePolkadotApi();
   const accounts = providedAccounts ?? availableAccounts;
 
+  // Debug logging
+  if (accounts.length === 0) {
+    console.log("[AccountSelector] No accounts available. providedAccounts:", providedAccounts, "availableAccounts:", availableAccounts);
+  } else {
+    console.log(`[AccountSelector] ${accounts.length} accounts available`);
+  }
+
   return (
     <div className="space-y-3">
-      <div className="grid gap-3">
-        {accounts.map((account) => (
+      {accounts.length === 0 ? (
+        <div className="text-center py-8">
+          <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">No accounts available</p>
+          <p className="text-gray-500 text-xs mt-2">
+            Please connect your wallet or check that you have accounts in your wallet extension
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {accounts.map((account) => (
           <Card
             key={account.address}
             className={`cursor-pointer transition-all duration-200 bg-gray-800/50 ${
@@ -71,8 +87,13 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                       {account.name || "Unnamed Account"}
                     </h3>
                     <p className="text-xs text-gray-400 font-mono truncate">
-                      {account.address}
+                      {account.encodedAddress || account.address}
                     </p>
+                    {chainStore?.name && (
+                      <p className="text-xs text-gray-500">
+                        {chainStore.name} (SS58: {chainStore.ss58Format})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
@@ -92,8 +113,9 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
