@@ -25,7 +25,7 @@ import {
   sanitizeForLogging
 } from "@/utils/transaction-security"
 import { useSnapshot } from "valtio"
-import { identityDraftStore, initializeDraft } from "@/store/IdentityDraftStore"
+import { identityDraftStore, initializeDraft, setCurrentIdentityHash } from "@/store/IdentityDraftStore"
 
 export enum RegistrationPhase {
   Setup = "setup",
@@ -152,6 +152,13 @@ export function RegistrationOrchestrator({
       toast.success("Balance updated! You can now submit your identity.")
     }
   }, [hasEnoughBalance, userTriedToSubmit])
+
+  // Update current identity hash when on-chain identity changes (trustless)
+  useEffect(() => {
+    if (identity?.info) {
+      setCurrentIdentityHash(identity.info)
+    }
+  }, [identity])
 
   // Initialize draft store from existing identity (only when not dirty)
   useEffect(() => {

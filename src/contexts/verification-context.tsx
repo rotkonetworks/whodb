@@ -197,12 +197,9 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
 
     setVerifications(newVerifications);
 
-    // Update current identity hash in draft store when received from backend
-    if (challengeWebSocket.challengeState?.hashed_info) {
-      import('@/store/IdentityDraftStore').then(({ setCurrentIdentityHash }) => {
-        setCurrentIdentityHash(challengeWebSocket.challengeState!.hashed_info);
-      });
-    }
+    // Note: We compute identity hash from on-chain data, not from backend
+    // See setCurrentIdentityHash() in RegistrationOrchestrator/ProfilePage
+    // where we compute hash after fetching from chain (trustless)
   }, [challengeWebSocket.challenges, challengeWebSocket.challengeState]);
 
   const startVerification = async (

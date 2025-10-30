@@ -1,5 +1,6 @@
 import { proxy, subscribe } from "valtio";
 import { IdentityData } from "@/types/Identity";
+import { blake2AsHex } from '@polkadot/util-crypto';
 
 export interface FieldVerificationState {
   isVerified: boolean;
@@ -223,11 +224,43 @@ export const clearDraft = () => {
 };
 
 /**
- * Update current identity hash from backend (via WebSocket)
- * This is the hash of the on-chain identity
+ * Compute identity hash from identity data (trustless, local computation)
+ * Matches backend's blake2_256(format!("{:?}", info))
+ *
+ * NOTE: We compute this locally from on-chain data to minimize trust in backend.
+ * Only the on-chain state is the source of truth.
  */
-export const setCurrentIdentityHash = (hash: string | null) => {
-  identityDraftStore.currentIdentityHash = hash;
+export const computeIdentityHash = (identity: Partial<IdentityData>): string => {
+  // Serialize in Rust Debug format order (matches backend)
+  // Backend does: format!("{:?}", IdentityInfo { ... })
+  const debugRepr = [
+    identity.display || "None",
+    identity.legal || "None",
+    identity.web || "None",
+    identity.matrix || "None",
+    identity.email || "None",
+    identity.pgp_fingerprint || "None",
+    identity.image || "None",
+    identity.twitter || "None",
+    identity.github || "None",
+    identity.discord || "None",
+  ].join(",");
+
+  return blake2AsHex(debugRepr);
+};
+
+/**
+ * Update current identity hash from ON-CHAIN identity (trustless)
+ * Call this after fetching identity from chain via PAPI
+ */
+export const setCurrentIdentityHash = (identity: Partial<IdentityData> | null) => {
+  if (!identity) {
+    identityDraftStore.currentIdentityHash = null;
+    return;
+  }
+
+  // Compute hash locally - never trust backend!
+  identityDraftStore.currentIdentityHash = computeIdentityHash(identity);
 };
 
 /**
