@@ -8,6 +8,7 @@ export type ChainConfig = {
   decimals?: number;
   paraId?: number;
   registrarIndex?: number;
+  maxRegistrarFee?: number; // Maximum fee to pay for registrar judgement (in planck)
   endpoint: string; // Endpoint URL for the chain
   // UI properties
   description?: string;
@@ -27,13 +28,42 @@ export const CHAINS = {
     decimals: 10,
     endpoint: import.meta.env.VITE_APP_POLKADOT_WS_URL,
   },
+  polkadot_assethub: {
+    paraId: 1000,
+    name: "Polkadot Asset Hub",
+    symbol: "DOT",
+    ss58Format: 0,
+    decimals: 10,
+    endpoint: import.meta.env.VITE_APP_POLKADOT_ASSETHUB_WS_URL || "wss://polkadot-asset-hub-rpc.polkadot.io",
+    description: "Asset management parachain.",
+    iconStyle: "border-blue-500/70 hover:bg-blue-500/10",
+    primaryColor: "text-blue-500",
+    badge: "Assets",
+    badgeColor: "bg-blue-500/20 text-blue-400",
+    features: ["Asset Management", "NFTs", "Transfers"],
+  },
+  polkadot_hydration: {
+    paraId: 2034,
+    name: "Polkadot Hydration",
+    symbol: "DOT",
+    ss58Format: 0,
+    decimals: 10,
+    endpoint: import.meta.env.VITE_APP_POLKADOT_HYDRATION_WS_URL || "wss://hydration.dotters.network",
+    description: "DeFi hub with liquidity pools and DEX.",
+    iconStyle: "border-blue-400/70 hover:bg-blue-400/10",
+    primaryColor: "text-blue-400",
+    badge: "DeFi",
+    badgeColor: "bg-blue-400/20 text-blue-300",
+    features: ["Liquidity Pools", "DEX", "Trading"],
+  },
   polkadot_people: {
     paraId: 1004,
     name: "Polkadot People",
     symbol: "DOT",
     ss58Format: 0,
     decimals: 10,
-    registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT,
+    registrarIndex: Number(import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_POLKADOT),
+    maxRegistrarFee: Number(import.meta.env.VITE_APP_REGISTRAR_MAX_FEE__PEOPLE_POLKADOT),
     endpoint: import.meta.env.VITE_APP_POLKADOT_PEOPLE_WS_URL,
     // UI properties
     description: "A community-driven network for people.",
@@ -50,13 +80,28 @@ export const CHAINS = {
     decimals: 12,
     endpoint: import.meta.env.VITE_APP_KUSAMA_WS_URL,
   },
+  ksmcc3_assethub: {
+    paraId: 1000,
+    name: "Kusama Asset Hub",
+    symbol: "KSM",
+    ss58Format: 2,
+    decimals: 12,
+    endpoint: import.meta.env.VITE_APP_KUSAMA_ASSETHUB_WS_URL || "wss://kusama-asset-hub-rpc.polkadot.io",
+    description: "Asset management parachain.",
+    iconStyle: "border-blue-500/70 hover:bg-blue-500/10",
+    primaryColor: "text-blue-500",
+    badge: "Assets",
+    badgeColor: "bg-blue-500/20 text-blue-400",
+    features: ["Asset Management", "NFTs", "Transfers"],
+  },
   ksmcc3_people: {
     paraId: 1004,
     name: "Kusama People",
     symbol: "KSM",
     ss58Format: 2,
     decimals: 12,
-    registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA,
+    registrarIndex: Number(import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_KUSAMA),
+    maxRegistrarFee: Number(import.meta.env.VITE_APP_REGISTRAR_MAX_FEE__PEOPLE_KUSAMA),
     endpoint: import.meta.env.VITE_APP_KUSAMA_PEOPLE_WS_URL,
     description: "A privacy-focused network for radical innovation.",
     iconStyle: "border-cyan-500/70 hover:bg-cyan-500/10",
@@ -69,17 +114,32 @@ export const CHAINS = {
     name: "Paseo",
     symbol: "PAS",
     ss58Format: 0,
-    decimals: 12,
+    decimals: 10, // Paseo uses 10 decimals
     endpoint: import.meta.env.VITE_APP_PASEO_WS_URL,
+  },
+  paseo_assethub: {
+    paraId: 1000,
+    name: "Paseo Asset Hub",
+    symbol: "PAS",
+    ss58Format: 0,
+    decimals: 10, // Paseo uses 10 decimals
+    endpoint: import.meta.env.VITE_APP_PASEO_ASSETHUB_WS_URL || "wss://paseo-asset-hub-rpc.polkadot.io",
+    description: "Asset management parachain for testnet.",
+    iconStyle: "border-blue-500/70 hover:bg-blue-500/10",
+    primaryColor: "text-blue-500",
+    badge: "Assets",
+    badgeColor: "bg-blue-500/20 text-blue-400",
+    features: ["Asset Management", "NFTs", "Transfers"],
   },
   paseo_people: {
     paraId: 1004,
-    registrarIndex: import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO,
+    registrarIndex: Number(import.meta.env.VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO) || 1, // Default to registrar #1
+    maxRegistrarFee: Number(import.meta.env.VITE_APP_REGISTRAR_MAX_FEE__PEOPLE_PASEO),
     endpoint: import.meta.env.VITE_APP_PASEO_PEOPLE_WS_URL,
     name: "Paseo People",
     symbol: "PAS",
     ss58Format: 0,
-    decimals: 12,
+    decimals: 10, // Paseo uses 10 decimals
     description: "Testnet for development, free tokens available.",
     iconStyle: "border-pink-500/70 hover:bg-pink-500/10",
     primaryColor: "text-pink-500",
@@ -158,4 +218,51 @@ export async function getTypedApi(chainId: keyof typeof CHAINS, provider?: WsPro
   connectionCache.set(chainId, { provider: client, api });
 
   return api;
+}
+
+/**
+ * Get network priority for sorting (lower = higher priority)
+ * Polkadot networks first, then Kusama, then others
+ */
+export function getNetworkPriority(network?: string): number {
+  if (!network) return 999;
+  if (network.startsWith('polkadot')) return 0;
+  if (network.startsWith('ksmcc3')) return 1;
+  if (network.startsWith('paseo')) return 2;
+  return 3;
+}
+
+/**
+ * Sort profiles by network priority
+ */
+export function sortByNetworkPriority<T extends { network?: string }>(profiles: T[]): T[] {
+  return profiles.sort((a, b) => {
+    return getNetworkPriority(a.network) - getNetworkPriority(b.network);
+  });
+}
+
+/**
+ * Map parachain to its relay chain ecosystem for URL routing
+ */
+export function getEcosystemName(chainId: string): string {
+  if (chainId.startsWith('polkadot')) return 'polkadot';
+  if (chainId.startsWith('ksmcc3')) return 'kusama';
+  if (chainId.startsWith('paseo')) return 'paseo';
+  return chainId;
+}
+
+/**
+ * Get the people chain for a given ecosystem
+ */
+export function getPeopleChain(ecosystem: string): keyof typeof CHAINS | null {
+  switch (ecosystem) {
+    case 'polkadot':
+      return 'polkadot_people';
+    case 'kusama':
+      return 'ksmcc3_people';
+    case 'paseo':
+      return 'paseo_people';
+    default:
+      return null;
+  }
 }

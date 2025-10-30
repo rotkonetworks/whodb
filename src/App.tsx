@@ -11,9 +11,8 @@ import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
 import HomePage from './pages/homepage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
-import SettingsPage from './pages/SettingsPage'
-import RegisterRedirect from './pages/RegisterRedirect'
 import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
+import { EthereumWalletProvider } from './contexts/EthereumWalletContext'
 import { AccountProvider } from './contexts/wallet-context'
 import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -28,30 +27,31 @@ export default function App() {
       <ThemeProvider>
         <NetworkProvider>
           <PolkadotWalletProvider appName="whodb">
-            <AccountProvider>
-              <BalanceProvider>
-                <UserProvider>
-                  <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}>
-                    <SearchProvider>
-                      <QueryClientProvider client={queryClient}>
-                        <VerificationProvider>
-                          <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="/register" element={<RegisterRedirect />} />
-                            <Route path="/search" element={<SearchPage />} />
-                            <Route path="/profile/:network/:address" element={<ProfilePage />} />
-                            <Route path="/profile/:address" element={<ProfilePage />} />
-                            <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="*" element={<div>Page not found</div>} />
-                          </Routes>
-                        </VerificationProvider>
-                      </QueryClientProvider>
-                    </SearchProvider>
-                  </WebSocketProvider>
-                  <Toaster />
-                </UserProvider>
-              </BalanceProvider>
-            </AccountProvider>
+            <EthereumWalletProvider>
+              <AccountProvider>
+                <BalanceProvider>
+                  <UserProvider>
+                    <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}>
+                      <SearchProvider>
+                        <QueryClientProvider client={queryClient}>
+                          <VerificationProvider>
+                            <Routes>
+                              <Route path="/" element={<HomePage />} />
+                              <Route path="/search" element={<SearchPage />} />
+                              <Route path="/profile" element={<ProfilePage />} />
+                              <Route path="/profile/:network/:address" element={<ProfilePage />} />
+                              <Route path="/profile/:address" element={<ProfilePage />} />
+                              <Route path="*" element={<div>Page not found</div>} />
+                            </Routes>
+                          </VerificationProvider>
+                        </QueryClientProvider>
+                      </SearchProvider>
+                    </WebSocketProvider>
+                    <Toaster />
+                  </UserProvider>
+                </BalanceProvider>
+              </AccountProvider>
+            </EthereumWalletProvider>
           </PolkadotWalletProvider>
         </NetworkProvider>
       </ThemeProvider>

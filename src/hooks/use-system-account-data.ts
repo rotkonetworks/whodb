@@ -29,29 +29,79 @@ import BigNumber from "bignumber.js";
 export const useSystemAccountData = (address?: SS58String, typedApi?: ApiPromise) => {
   const [nonce, setNonce] = useState<number | null>(null);
   const [balance, setBalance] = useState<BigNumber | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const subscription = useRef(null)
+  const subscription = useRef<any>(null)
+
   useEffect(() => {
-    if (typedApi && address) {
-      (async () => {
+    console.log("🔍 useSystemAccountData effect:", {
+      hasApi: !!typedApi,
+      address,
+      apiReady: typedApi?.isReady,
+      apiType: typedApi?.constructor?.name
+    });
+
+    // Reset state when dependencies change
+    setIsLoading(true);
+    setBalance(null);
+    setNonce(null);
+
+    if (!typedApi || !address) {
+      console.log("⚠️ Missing typedApi or address, skipping balance subscription");
+      setIsLoading(false);
+      return;
+    }
+
+    console.log("✅ Setting up balance subscription for:", address);
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        // Wait for API to be ready
+        await typedApi.isReady;
+
+        if (!mounted) return;
+
         subscription.current = await typedApi.query.system.account(address, (result) => {
-          const availableBalance = BigNumber(result.data.free)
-            .minus(BigNumber(result.data.frozen))
-            .minus(BigNumber(result.data.reserved));
+          if (!mounted) return;
+
+          const free = BigNumber(result.data.free.toString());
+          const frozen = BigNumber(result.data.frozen.toString());
+          const reserved = BigNumber(result.data.reserved.toString());
+
+          // Available = free - max(frozen, reserved)
+          // This matches Polkadot.js Apps calculation
+          const availableBalance = free.minus(BigNumber.max(frozen, reserved));
+
           setBalance(availableBalance);
           const nonce = result.nonce.toNumber();
           setNonce(nonce);
-          console.debug("AccountData for ", address, " balance:", availableBalance.toString(), " nonce:", nonce);
+          setIsLoading(false);
+
+          console.log("💰 Balance update for", address, ":", {
+            free: free.toString(),
+            frozen: frozen.toString(),
+            reserved: reserved.toString(),
+            available: availableBalance.toString(),
+            nonce
+          });
         });
-      })();
-    }
+      } catch (error) {
+        console.error("❌ Failed to set up balance subscription:", error);
+        setIsLoading(false);
+      }
+    })();
 
     return () => {
+      mounted = false;
       if (subscription.current) {
+        console.log("🧹 Cleaning up balance subscription for:", address);
         subscription.current();
+        subscription.current = null;
       }
     };
   }, [typedApi, address]);
 
-  return { nonce, balance, };
+  return { nonce, balance, isLoading };
 };

@@ -11,7 +11,11 @@ export const WebSocketProvider = ({ children, url }: {
   children: React.ReactNode;
   url: string;
 }) => {
-  const webSocket = useWebSocket({ url, autoConnect: true, });
+  const webSocket = useWebSocket({
+    url,
+    autoConnect: true,
+    maxReconnectAttempts: 3, // Limit reconnection attempts
+  });
 
   return (
     <WebSocketContext.Provider value={webSocket}>

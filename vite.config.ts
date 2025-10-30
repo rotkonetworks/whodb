@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      'import.meta.env.VITE_WS_URL': JSON.stringify(env.VITE_WS_URL)
+      'import.meta.env.VITE_WS_URL': JSON.stringify(env.VITE_WS_URL),
+      'global': 'globalThis',
     },
     plugins: [
       react(),
@@ -21,6 +22,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
+        'buffer': 'buffer/',
       }
     },
     build: {

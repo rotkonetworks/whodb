@@ -127,18 +127,18 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
   });
 
   var search_obj = {
-    version: "1.0",
+    version: "1.1",
     type: "SearchRegistration",
     payload: {
+      network: network || null,
       outputs: outputs,
       filters: {
         fields: filtersFields,
         result_size: result_size,
+        time: null
       }
     }
   };
-
-  if (network) { search_obj["network"] = network }
 
   return search_obj
 }

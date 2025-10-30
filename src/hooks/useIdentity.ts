@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { SS58String } from "polkadot-api";
+import { SS58String, Binary } from "polkadot-api";
 import { logger } from "@/utils/logger";
 
 export interface OnChainIdentity {
@@ -35,7 +35,10 @@ export const useIdentity = (
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[useIdentity] Hook called with:', { address, chainId });
+
     if (!address || !chainId) {
+      console.log('[useIdentity] ❌ Missing address or chainId, skipping fetch');
       setIdentity(null);
       setError(null);
       setIsLoading(false);
@@ -46,14 +49,23 @@ export const useIdentity = (
     setIsLoading(true);
     setError(null);
 
+    console.log('[useIdentity] 🔄 Starting fetch for', address, 'on', chainId);
+
     const fetchOnChainIdentity = async () => {
       try {
         const { getPapiClient } = await import("@/lib/papi-client");
-        const client = await getPapiClient(chainId, false);
-
         const descriptors = await import("@polkadot-api/descriptors");
-        const typedApi = client.getTypedApi(descriptors[chainId]);
 
+        const client = await getPapiClient(chainId, false);
+        const descriptor = descriptors[chainId];
+
+        if (!descriptor) {
+          throw new Error(`No descriptor for chain: ${chainId}`);
+        }
+
+        const typedApi = client.getTypedApi(descriptor);
+
+        // Use .getValue() method like in papi-console
         const identityData = await typedApi.query.Identity.IdentityOf.getValue(address);
 
         if (isCancelled) return;
@@ -64,20 +76,24 @@ export const useIdentity = (
           return;
         }
 
-        // Debug: log raw data
-        console.log('Raw identity data from chain:', identityData);
-        console.log('Display field:', identityData.info.display);
+        const readData = (field: any): string | null => {
+          if (!field || field.type === "None" || field.type === "Raw0") return null;
+          if (field.type === "Raw1") {
+            return Binary.fromBytes(new Uint8Array(field.value)).asText();
+          }
+          return field.value?.asText() || null;
+        };
 
         const decoded: OnChainIdentity = {
-          display: decodeIdentityField(identityData.info.display),
-          legal: decodeIdentityField(identityData.info.legal),
-          web: decodeIdentityField(identityData.info.web),
-          matrix: decodeIdentityField(identityData.info.matrix),
-          email: decodeIdentityField(identityData.info.email),
-          twitter: decodeIdentityField(identityData.info.twitter),
-          github: decodeIdentityField(identityData.info.github),
-          discord: decodeIdentityField(identityData.info.discord),
-          image: decodeIdentityField(identityData.info.image),
+          display: readData(identityData.info.display),
+          legal: readData(identityData.info.legal),
+          web: readData(identityData.info.web),
+          matrix: readData(identityData.info.matrix),
+          email: readData(identityData.info.email),
+          twitter: readData(identityData.info.twitter),
+          github: readData(identityData.info.github),
+          discord: readData(identityData.info.discord),
+          image: readData(identityData.info.image),
           pgpFingerprint: identityData.info.pgp_fingerprint
             ? Array.from(identityData.info.pgp_fingerprint).map(b => b.toString(16).padStart(2, '0')).join('')
             : null,
@@ -87,7 +103,13 @@ export const useIdentity = (
           })),
         };
 
-        console.log('Decoded identity:', decoded);
+        console.log('[useIdentity] Decoded identity:', decoded);
+
+        // Validate that we actually have some data
+        if (!decoded.display && !decoded.email && !decoded.twitter && !decoded.legal) {
+          console.warn('[useIdentity] Identity exists but all fields are null/empty');
+        }
+
         setIdentity(decoded);
         setIsLoading(false);
       } catch (err) {
@@ -126,51 +148,18 @@ export const useIdentity = (
 };
 
 export const decodeIdentityField = (field: any): string | null => {
-  if (!field || field.type === "None") return null;
+  if (!field) return null;
+
+  // Polkadot.js JSON format: { raw: "0x..." }
+  if (typeof field === 'object' && field.raw) {
+    const hex = field.raw.startsWith('0x') ? field.raw.slice(2) : field.raw;
+    try {
+      return new TextDecoder().decode(Buffer.from(hex, 'hex'));
+    } catch {
+      return null;
+    }
+  }
 
   if (typeof field === "string") return field;
-
-  const rawMatch = field.type?.match(/^Raw(\d+)$/);
-  if (rawMatch) {
-    const bytes = field.value;
-
-    // Handle FixedSizeBinary objects from PAPI
-    if (bytes && typeof bytes === 'object' && 'asBytes' in bytes) {
-      return new TextDecoder().decode(bytes.asBytes());
-    }
-
-    // Handle regular Uint8Array
-    if (bytes instanceof Uint8Array) {
-      return new TextDecoder().decode(bytes);
-    }
-
-    // Try to convert to bytes if it's an array-like object
-    if (bytes && typeof bytes[Symbol.iterator] === 'function') {
-      try {
-        const byteArray = new Uint8Array(Array.from(bytes));
-        return new TextDecoder().decode(byteArray);
-      } catch (e) {
-        console.error('Failed to decode field:', e);
-      }
-    }
-
-    return null;
-  }
-
-  if (field.type === "BlakeTwo256" || field.type === "Sha256" ||
-      field.type === "Keccak256" || field.type === "ShaThree256") {
-    const bytes = field.value;
-
-    // Handle FixedSizeBinary
-    if (bytes && typeof bytes === 'object' && 'asBytes' in bytes) {
-      const byteArray = bytes.asBytes();
-      return "0x" + Array.from(byteArray).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    if (bytes instanceof Uint8Array) {
-      return "0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-  }
-
   return null;
 };

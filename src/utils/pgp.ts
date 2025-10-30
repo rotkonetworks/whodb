@@ -3,7 +3,6 @@
  * Uses openpgp.js for browser-based encryption
  */
 
-import * as openpgp from 'openpgp'
 import { logger } from './logger'
 
 export interface EncryptionResult {
@@ -21,8 +20,11 @@ export interface EncryptionResult {
 export async function encryptMessage(
   message: string,
   publicKeyArmored: string
-): Promise<EncryptionResult> {
+): Promise<string> {
   try {
+    // Dynamic import to avoid SSR issues
+    const openpgp = await import('openpgp')
+
     // Read the public key
     const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored })
 
@@ -32,18 +34,11 @@ export async function encryptMessage(
       encryptionKeys: publicKey,
     })
 
-    return {
-      encrypted: encrypted as string,
-      success: true,
-    }
+    return encrypted as string
   } catch (err) {
     // Don't log the full error - it might contain plaintext message
     logger.error('PGP encryption failed')
-    return {
-      encrypted: '',
-      success: false,
-      error: err instanceof Error ? err.message : 'Encryption failed',
-    }
+    throw err
   }
 }
 

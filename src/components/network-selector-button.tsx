@@ -1,6 +1,7 @@
 import { Globe, ChevronDown, CheckCircle } from "lucide-react"
-import { useNetwork, type Network } from "@/contexts/network-context"
+import { useNetwork } from "@/contexts/network-context"
 import { Button } from "@/components/ui/button"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,15 +18,27 @@ const NETWORKS = [
 ] as const
 
 export function NetworkSelectorButton() {
-  const { network, setNetwork, networkDisplayName } = useNetwork()
+  const { network, networkDisplayName } = useNetwork()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   // Get the base network name (remove _people suffix) for comparison
   const baseNetwork = network?.replace('_people', '')
 
   const handleNetworkSelect = (baseNetworkId: string) => {
-    // Always append _people to the network ID for identity operations
-    const peopleChainId = `${baseNetworkId}_people` as Network
-    setNetwork(peopleChainId)
+    // If on profile page, update the network in the URL path
+    const match = location.pathname.match(/^\/profile\/([^\/]+)\/(.+)$/);
+    if (match) {
+      const [, currentNetwork, address] = match;
+      navigate(`/profile/${baseNetworkId}/${address}`);
+    } else if (location.pathname.startsWith('/search')) {
+      // On search page, update query param
+      navigate(`/search?network=${baseNetworkId}`);
+    } else {
+      // Otherwise stay on current page - network doesn't matter on landing
+      // The network will be used when navigating to profile/search pages
+      return;
+    }
   }
 
   return (

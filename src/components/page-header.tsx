@@ -35,7 +35,7 @@ export function PageHeader({
                 </Button>
               </Link>
             )}
-            <Link to="/">
+            <Link to="/" className="hover:opacity-80 transition-opacity">
               <Logo />
             </Link>
             {title && (

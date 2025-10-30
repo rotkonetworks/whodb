@@ -3,11 +3,12 @@ import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchWebSocket } from "@/hooks/websocket/search"
 import { FullProfile } from "@/types/profile"
-import { Circle, Search, User, Loader2 } from "lucide-react"
+import { Circle, Search, User, Loader2, Sparkles } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState, useDeferredValue, useMemo, useCallback, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { constructSearcObject } from "@/lib/utils"
+import { getEcosystemName } from "@/polkadot-api/chain-config"
 
 const SuggestionItem = memo<{
   profile: FullProfile;
@@ -15,40 +16,32 @@ const SuggestionItem = memo<{
   isSelected: boolean;
   onClick: (profile: FullProfile) => void;
 }>(({ profile, index, isSelected, onClick }) => {
-  const info = profile.identity.info;
-
   return (
     <button
       onClick={() => onClick(profile)}
       className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${isSelected ? "bg-gray-700" : ""} ${index === 0 ? "rounded-t-lg" : ""} border-b border-gray-700`}
     >
       <img
-        src={info.image || "/placeholder.svg"}
-        alt={info.display}
+        src={profile.image || "/placeholder.svg"}
+        alt={profile.display || "User"}
         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
         draggable="false"
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center">
           <p className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-white"}`}>
-            {info.display}
+            {profile.display || "Anonymous"}
           </p>
-          {info.display && (
-            <div className={`ml-2 flex items-center text-xs flex-shrink-0 ${isSelected ? "text-pink-300" : "text-pink-400"}`}>
-              <Circle className={`w-3 h-3 mr-1 ${isSelected ? "fill-pink-300" : "fill-pink-400"}`} />
-              <span className="truncate max-w-20">{info.display}</span>.alt
-            </div>
-          )}
         </div>
         <p className={`text-xs truncate ${isSelected ? "text-gray-300" : "text-gray-400"}`}>
-          {info.email}
+          {profile.email || profile.wallet_id.slice(0, 8) + "..."}
         </p>
       </div>
       <User className={`w-4 h-4 flex-shrink-0 ${isSelected ? "text-gray-300" : "text-gray-400"}`} />
     </button>
   );
 }, (prev, next) => {
-  return prev.profile.address === next.profile.address &&
+  return prev.profile.wallet_id === next.profile.wallet_id &&
          prev.isSelected === next.isSelected;
 });
 SuggestionItem.displayName = "SuggestionItem";
@@ -65,6 +58,10 @@ export default function SearchForm() {
   useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [enablePredictive, setEnablePredictive] = useState(() => {
+    const saved = localStorage.getItem('enablePredictiveSearch')
+    return saved !== null ? saved === 'true' : true
+  })
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
@@ -76,10 +73,22 @@ export default function SearchForm() {
     }
   }, [urlParams])
 
+  // Save preference to localStorage when it changes
   useEffect(() => {
-    if (deferredQuery.length >= 2) {
+    localStorage.setItem('enablePredictiveSearch', String(enablePredictive))
+  }, [enablePredictive])
+
+  useEffect(() => {
+    if (!enablePredictive) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      setIsSearching(false)
+      return
+    }
+
+    if (deferredQuery.length >= 3) {
       setIsSearching(true)
-      const searchObj = constructSearcObject(deferredQuery, ["id", "display", "email", "twitter"])
+      const searchObj = constructSearcObject(deferredQuery, ["WalletID", "Display", "Email", "Twitter", "Network"])
       search(searchObj, 5).then((results) => {
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
@@ -94,7 +103,7 @@ export default function SearchForm() {
       setShowSuggestions(false)
       setIsSearching(false)
     }
-  }, [deferredQuery, search])
+  }, [deferredQuery, search, enablePredictive])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -107,7 +116,8 @@ export default function SearchForm() {
 
   const handleSuggestionClick = useCallback((profile: FullProfile) => {
     setShowSuggestions(false)
-    navigate(`/profile/${profile.network}/${profile.address}`)
+    const ecosystem = profile.network ? getEcosystemName(profile.network) : 'paseo'
+    navigate(`/profile/${ecosystem}/${profile.wallet_id}`)
   }, [navigate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -154,9 +164,9 @@ export default function SearchForm() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            onFocus={() => query.length >= 3 && setShowSuggestions(true)}
+            onFocus={() => enablePredictive && query.length >= 3 && setShowSuggestions(true)}
             placeholder="Search identities..."
-            className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-16 md:pr-20 rounded-full bg-gray-800 border border-gray-700 focus:border-pink-500 focus:outline-none text-white placeholder-gray-400 transition-colors text-sm md:text-base"
+            className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-20 md:pr-28 rounded-full bg-gray-800 border border-gray-700 focus:border-pink-500 focus:outline-none text-white placeholder-gray-400 transition-colors text-sm md:text-base"
             aria-label="Search query"
             disabled={isSubmitting}
             autoComplete="off"
@@ -167,15 +177,31 @@ export default function SearchForm() {
             <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
           )}
 
-          <button
-            type="submit"
-            disabled={!query.trim() || isSubmitting}
-            className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="Submit search"
-          >
-            <span className="md:hidden">Go</span>
-            <span className="hidden md:inline">Search</span>
-          </button>
+          <div className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setEnablePredictive(!enablePredictive)}
+              className={`p-1 rounded-full transition-colors ${
+                enablePredictive
+                  ? 'text-pink-400 hover:bg-pink-500/10'
+                  : 'text-gray-500 hover:bg-gray-700'
+              }`}
+              aria-label="Toggle predictive search"
+              title={enablePredictive ? "Disable predictive search" : "Enable predictive search"}
+            >
+              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
+
+            <button
+              type="submit"
+              disabled={!query.trim() || isSubmitting}
+              className="bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Submit search"
+            >
+              <span className="md:hidden">Go</span>
+              <span className="hidden md:inline">Search</span>
+            </button>
+          </div>
         </div>
       </form>
 
@@ -187,7 +213,7 @@ export default function SearchForm() {
         >
           {suggestions.map((profile, index) => (
             <SuggestionItem
-              key={`${profile.network}-${profile.address}`}
+              key={`${profile.network || 'unknown'}-${profile.wallet_id}`}
               profile={profile}
               index={index}
               isSelected={index === selectedIndex}

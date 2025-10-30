@@ -11,6 +11,8 @@ import { sendRemailerFeeTransaction, getRemailerFee, formatTokenAmount } from "@
 import { useAccount } from "@/contexts/wallet-context"
 import { SS58String } from "polkadot-api"
 import { logger } from "@/utils/logger"
+import { usePGPWebSocket } from "@/hooks/websocket/pgp"
+import { useWebSocket } from "@/hooks/websocket"
 
 interface RemailerDialogProps {
   open: boolean
@@ -46,6 +48,11 @@ export function RemailerDialog({
   const [verificationError, setVerificationError] = useState<string | null>(null)
   const { address: senderAddress, signMessage } = useAccount()
   const [senderIdentity, setSenderIdentity] = useState<any>(null)
+
+  // WebSocket for PGP key fetching
+  const wsUrl = typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` : ''
+  const webSocket = useWebSocket({ url: wsUrl })
+  const pgpWs = usePGPWebSocket(webSocket)
 
   const {
     messages: remailerMessages,
@@ -95,7 +102,21 @@ export function RemailerDialog({
         const descriptors = await import('@polkadot-api/descriptors')
         const typedApi = client.getTypedApi(descriptors[network])
 
-        const identityData = await typedApi.query.Identity.IdentityOf.getValue(senderAddress as SS58String)
+        // Check if this network has Identity pallet (relay chains) or People pallet (people chains)
+        let identityData = null
+
+        try {
+          // Try People pallet first (for people chains like paseo_people)
+          if ('PeopleIdentity' in typedApi.query) {
+            identityData = await typedApi.query.PeopleIdentity.IdentityOf.getValue(senderAddress as SS58String)
+          } else if ('Identity' in typedApi.query) {
+            // Fall back to Identity pallet for relay chains
+            identityData = await typedApi.query.Identity.IdentityOf.getValue(senderAddress as SS58String)
+          }
+        } catch (err) {
+          // Network doesn't support identity queries, skip silently
+          return
+        }
 
         if (identityData) {
           const { decodeIdentityField } = await import('@/hooks/useIdentity')
@@ -108,7 +129,10 @@ export function RemailerDialog({
           })
         }
       } catch (err) {
-        logger.error('Failed to fetch sender identity:', err)
+        // Only log unexpected errors, not missing pallet errors
+        if (err instanceof Error && !err.message.includes('Runtime entry Storage')) {
+          logger.error('Failed to fetch sender identity:', err)
+        }
       }
     }
 
@@ -160,9 +184,27 @@ export function RemailerDialog({
         messageToSend = `${message}\n\n---\nFrom: ${senderName}`
       }
 
-      // Step 2: PGP encryption (currently disabled - requires key fetching implementation)
+      // Step 2: PGP encryption if recipient has verified PGP key
       let encryptedContent: string | undefined
-      // TODO: Implement proper PGP encryption with key fetching
+
+      if (recipientPgpFingerprint && recipientIsVerified) {
+        try {
+          logger.log('Fetching recipient PGP key for encryption:', recipientPgpFingerprint)
+
+          const keyData = await pgpWs.fetchKey({ fingerprint: recipientPgpFingerprint })
+
+          if (keyData.armored_key) {
+            logger.log('Encrypting message with recipient PGP key')
+            encryptedContent = await encryptMessage(messageToSend, keyData.armored_key)
+            logger.log('Message encrypted successfully')
+          } else {
+            logger.warn('No PGP key found for recipient, sending unencrypted')
+          }
+        } catch (err) {
+          logger.error('Failed to encrypt message:', err)
+          // Continue without encryption if fetching fails
+        }
+      }
 
       // Step 3: Send payment transaction
       // TODO: CRITICAL - Transaction signing not implemented
@@ -291,12 +333,20 @@ export function RemailerDialog({
             </div>
           </ScrollArea>
 
-          {/* PGP Notice - Currently Disabled */}
-          {hasPgp && (
+          {/* PGP Notice */}
+          {hasPgp && recipientIsVerified && (
+            <Alert className="bg-green-400/10 border-green-400/50 text-green-400 flex-shrink-0">
+              <Lock className="w-4 h-4" />
+              <AlertDescription className="text-xs">
+                PGP encryption enabled. Your message will be encrypted end-to-end.
+              </AlertDescription>
+            </Alert>
+          )}
+          {hasPgp && !recipientIsVerified && (
             <Alert className="bg-yellow-400/10 border-yellow-400/50 text-yellow-400 flex-shrink-0">
               <AlertCircle className="w-4 h-4" />
               <AlertDescription className="text-xs">
-                PGP encryption available but not yet implemented. Messages sent unencrypted.
+                Recipient has PGP key but it's not verified. Message will be sent unencrypted.
               </AlertDescription>
             </Alert>
           )}

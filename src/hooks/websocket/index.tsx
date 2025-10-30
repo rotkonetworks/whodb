@@ -170,8 +170,39 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       logger.log('WebSocket message received:', message);
 
       // Validate message structure
-      if (typeof message !== 'object' || message === null) {
-        logger.error('Invalid message: not an object');
+      if (message === null || message === undefined) {
+        logger.error('Invalid message: null or undefined');
+        return;
+      }
+
+      // Handle array responses (search results) - resolve the oldest pending request
+      if (Array.isArray(message)) {
+        const oldestRequest = pendingRequests.current.values().next().value;
+        if (oldestRequest) {
+          clearTimeout(oldestRequest.timeout);
+          oldestRequest.resolve(message);
+          // Find and delete the requestId
+          for (const [id, req] of pendingRequests.current.entries()) {
+            if (req === oldestRequest) {
+              pendingRequests.current.delete(id);
+              break;
+            }
+          }
+          return;
+        }
+        // If no pending requests, notify subscribers
+        for (const { handler } of messageSubscriptions.current) {
+          try {
+            handler(message);
+          } catch (err) {
+            logger.error('Error in message handler:', err);
+          }
+        }
+        return;
+      }
+
+      if (typeof message !== 'object') {
+        logger.error('Invalid message: not an object or array');
         return;
       }
 

@@ -4,20 +4,23 @@ import SearchForm from "@/components/search-form"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus } from "lucide-react"
+import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
 import { FullProfile } from "@/types/profile"
 import * as Avatar from "@radix-ui/react-avatar"
 import { constructSearcObject } from "@/lib/utils"
-import { CHAINS } from "@/polkadot-api/chain-config"
+import { CHAINS, getEcosystemName } from "@/polkadot-api/chain-config"
 import { encodeAddress, decodeAddress } from "@polkadot/util-crypto"
+import { useAccount } from "@/contexts/wallet-context"
 
 const SearchResultItem = memo<{
   profile: FullProfile;
   onViewProfile: (network: string, address: string) => void;
 }>(({ profile, onViewProfile }) => {
+  const [copied, setCopied] = useState<string | null>(null);
+
   const isVerified = useMemo(
     () => profile.timeline?.some((event) => event.event === "verified"),
     [profile.timeline]
@@ -41,6 +44,13 @@ const SearchResultItem = memo<{
     return chainConfig?.name?.replace(' People', '') || profile.network
   }, [profile.network])
 
+  const handleCopy = useCallback((e: React.MouseEvent, text: string, label: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  }, []);
+
   return (
     <div
       className="bg-gray-800/20 p-6 border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
@@ -58,18 +68,32 @@ const SearchResultItem = memo<{
           </Avatar.Fallback>
         </Avatar.Root>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1">
             <h3 className="text-base font-medium text-white truncate">{profile.display}</h3>
             {isVerified && (
               <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
             )}
             <span className="text-xs text-gray-500 uppercase tracking-wide">{networkDisplayName}</span>
           </div>
-          <div className="space-y-1.5 text-sm text-gray-400">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={(e) => handleCopy(e, formattedAddress, 'address')}
+              className="font-mono text-xs truncate text-left hover:text-pink-400 transition-colors text-gray-400"
+              title="Click to copy address"
+            >
+              {formattedAddress}
+            </button>
+            {copied === 'address' && (
+              <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+            )}
+          </div>
+          <div className="space-y-1 text-sm text-gray-400">
             {profile.email && (
               <div className="truncate">{profile.email}</div>
             )}
-            <div className="font-mono text-xs truncate">{formattedAddress}</div>
+            {profile.web && (
+              <div className="truncate">{profile.web}</div>
+            )}
           </div>
         </div>
       </div>
@@ -88,6 +112,7 @@ SearchResultItem.displayName = "SearchResultItem";
 // TODO: fix search suggestion
 export default function SearchPage() {
   const { search } = useSearchContext()
+  const { address: connectedAddress } = useAccount()
   const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -110,6 +135,7 @@ export default function SearchPage() {
     try {
       // Use the centralized search function from context
       const searchResults = await search(searchQuery, limit);
+      console.log('Search results received:', searchResults);
       setResults(searchResults);
     } catch (error) {
       console.error('Search failed:', error);
@@ -152,7 +178,8 @@ export default function SearchPage() {
   }, [searchQuery, navigate]);
 
   const handleViewProfile = useCallback((network: string, address: string) => {
-    navigate(`/profile/${network}/${address}`);
+    const ecosystem = getEcosystemName(network);
+    navigate(`/profile/${ecosystem}/${address}`);
   }, [navigate]);
 
   const resultsLength = results?.length || 0
@@ -164,16 +191,18 @@ export default function SearchPage() {
         showWallet={false}
         showNetwork={false}
         rightActions={
-          <Link to="/register">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 transition-colors"
-            >
-              <UserPlus className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Register</span>
-            </Button>
-          </Link>
+          connectedAddress ? (
+            <Link to={`/profile/paseo/${connectedAddress}`}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 transition-colors"
+              >
+                <User className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">My Profile</span>
+              </Button>
+            </Link>
+          ) : undefined
         }
       />
 

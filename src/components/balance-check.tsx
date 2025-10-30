@@ -10,6 +10,7 @@ import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet
 import { useEffect, useState } from "react";
 import { ChipInRequestModal } from "./chip-in-request-modal"; // Import the new modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
+import { PaseoFaucetDialog } from "./dialogs/PaseoFaucetDialog";
 import { CopyButton } from "./ui/copy-button";
 import { CHAINS } from "@/polkadot-api/chain-config";
 
@@ -26,6 +27,7 @@ export function BalanceCheck({
   const [hasChecked, setHasChecked] = useState(false)
   const [showChipInModal, setShowChipInModal] = useState(false) // State for modal
   const [showTeleportDialog, setShowTeleportDialog] = useState(false) // State for teleport dialog
+  const [showPaseoFaucet, setShowPaseoFaucet] = useState(false) // State for Paseo faucet dialog
   const { address: walletAddress } = useWallet() // Get wallet address from context
 
   const { chainStore, accountStore, isTxBusy, balance, identity, typedApi, isConnected, error, isConnecting } = usePolkadotApi()
@@ -54,24 +56,14 @@ export function BalanceCheck({
   const formatAmount = useFormatAmount({
     symbol: chainStore.tokenSymbol || 'TOKEN',
     tokenDecimals: chainStore.tokenDecimals || 12,
+    decimals: 2
   })
 
   const balanceFormatted = isLoading ? "---" : formatAmount(balance || 0)
   const requiredBalanceFormatted = formatAmount(requiredBalance || 0)
 
   const handleRequestTokens = async () => {
-    setIsRequestingTokens(true)
-    try {
-      // TODO: Implement proper token request functionality
-      // For now, just simulate a request
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      // Re-check balance after token request
-      onSufficientBalance()
-    } catch (error) {
-      console.error('Failed to request tokens:', error)
-    } finally {
-      setIsRequestingTokens(false)
-    }
+    setShowPaseoFaucet(true)
   }
 
   const handleTeleportTokens = () => {
@@ -249,20 +241,10 @@ export function BalanceCheck({
                     </div>
                     <Button
                       onClick={handleRequestTokens}
-                      disabled={isRequestingTokens}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      {isRequestingTokens ? (
-                        <div className="flex items-center">
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending tokens...
-                        </div>
-                      ) : (
-                        <>
-                          <Zap className="w-4 h-4 mr-2" />
-                          Request Free Tokens
-                        </>
-                      )}
+                      <Zap className="w-4 h-4 mr-2" />
+                      Request Free Tokens
                     </Button>
                   </div>
                 ) : (
@@ -281,7 +263,17 @@ export function BalanceCheck({
                       </p>
                     </div>
                     <div className="flex flex-row gap-2">
-                      {fauceturl && (
+                      {fauceturl && network === "paseo" && (
+                        <Button
+                          onClick={() => setShowPaseoFaucet(true)}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          <Coins className="w-4 h-4 mr-2" />
+                          Get Test Tokens
+                        </Button>
+                      )}
+                      {fauceturl && network !== "paseo" && (
                         <Button
                           onClick={() => window.open(fauceturl, '_blank')}
                           className="w-full"
@@ -335,6 +327,14 @@ export function BalanceCheck({
         setOpen={setShowTeleportDialog}
         teleportAmount={minBalanceAmount || new BigNumber(0)}
       />
+
+      {address && (
+        <PaseoFaucetDialog
+          open={showPaseoFaucet}
+          onOpenChange={setShowPaseoFaucet}
+          address={address}
+        />
+      )}
     </>
   )
 }

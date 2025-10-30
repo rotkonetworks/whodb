@@ -2,7 +2,7 @@
 // Only includes the APIs actually used in the application
 
 export const whitelist = [
-  // Identity queries
+  // Identity queries (Capital I for People chains)
   "query.Identity.IdentityOf",
   "query.Identity.SuperOf",
   "query.Identity.SubsOf",
@@ -13,13 +13,20 @@ export const whitelist = [
   "query.System.Events",
 
   // Identity transactions
-  "tx.Identity.setIdentity",
-  "tx.Identity.requestJudgement",
-  "tx.Identity.cancelRequest",
+  "tx.Identity.set_identity",
+  "tx.Identity.request_judgement",
+  "tx.Identity.cancel_request",
+  "tx.Identity.clear_identity",
 
   // Utility transactions
-  "tx.Utility.batchAll",
+  "tx.Utility.batch_all",
+  "tx.Utility.batch",
 
   // XCM transactions
-  "tx.XcmPallet.limitedTeleportAssets",
+  "tx.XcmPallet.limited_teleport_assets",
+  "tx.PolkadotXcm.limited_teleport_assets",
+
+  // Balances
+  "query.Balances.Account",
+  "query.Balances.TotalIssuance",
 ]

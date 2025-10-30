@@ -1,6 +1,7 @@
 import { createClient, PolkadotClient } from "polkadot-api";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { startFromWorker } from "polkadot-api/smoldot/from-worker";
+import { getMetadata } from "@polkadot-api/descriptors";
 
 const clients = new Map<string, PolkadotClient>();
 
@@ -39,7 +40,7 @@ export const getPapiClient = async (
   } else {
     const endpoint = DOTTERS_ENDPOINTS[chainId] || chainId;
     const provider = getWsProvider(endpoint);
-    client = createClient(provider);
+    client = createClient(provider, { getMetadata });
   }
 
   clients.set(cacheKey, client);
