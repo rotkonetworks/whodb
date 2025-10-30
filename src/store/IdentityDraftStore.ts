@@ -5,6 +5,7 @@ export interface FieldVerificationState {
   isVerified: boolean;
   verificationDate?: string;
   proof?: string; // Challenge proof or verification data
+  verifiedAtHash?: string; // Identity hash when this field was verified
 }
 
 export interface IdentityDraftState {
@@ -21,6 +22,9 @@ export interface IdentityDraftState {
     discord?: FieldVerificationState;
     pgp_fingerprint?: FieldVerificationState;
   };
+
+  // Current identity hash from backend (on-chain)
+  currentIdentityHash: string | null;
 
   // Track if draft has unsaved changes
   isDirty: boolean;
@@ -91,6 +95,7 @@ const defaultState: IdentityDraftState = {
     image: "",
   },
   verifications: {},
+  currentIdentityHash: null,
   isDirty: false,
   editedFields: new Set(),
 };
@@ -128,60 +133,41 @@ export const initializeDraft = (existingIdentity: IdentityData) => {
 
 /**
  * Update a field in the draft
- * Clears ALL verifications since identity hash changes
  *
- * Note: Identity hash = blake2_256(all_fields), so changing ANY field
- * changes the entire hash, invalidating ALL field verifications.
- * Backend will generate fresh challenges when new identity is detected on-chain.
+ * Note: We don't clear verifications here. Instead, we compute current hash
+ * and compare with verifiedAtHash to determine if verifications are still valid.
+ * This is reactive: verifications become invalid automatically when hash changes.
  */
 export const updateDraftField = (field: keyof IdentityData, value: string) => {
-  const oldValue = identityDraftStore.draft[field];
   identityDraftStore.draft[field] = value;
   identityDraftStore.editedFields.add(field);
   identityDraftStore.isDirty = true;
-
-  // Only clear verifications if value actually changed
-  // (identity hash only changes if field values change)
-  if (oldValue !== value && Object.keys(identityDraftStore.verifications).length > 0) {
-    // Clear ALL verifications since identity hash is computed from all fields
-    identityDraftStore.verifications = {};
-  }
 };
 
 /**
  * Update multiple fields at once
- * Clears ALL verifications since identity hash changes
  */
 export const updateDraft = (updates: Partial<IdentityData>) => {
-  let hasChanges = false;
-
   Object.entries(updates).forEach(([key, value]) => {
     const field = key as keyof IdentityData;
-    if (identityDraftStore.draft[field] !== value) {
-      hasChanges = true;
-    }
     identityDraftStore.draft[field] = value;
     identityDraftStore.editedFields.add(field);
   });
-
   identityDraftStore.isDirty = true;
-
-  // Clear ALL verifications if any field changed
-  if (hasChanges && Object.keys(identityDraftStore.verifications).length > 0) {
-    identityDraftStore.verifications = {};
-  }
 };
 
 /**
- * Mark a field as verified
+ * Mark a field as verified at current identity hash
  */
 export const markFieldVerified = (
   field: keyof typeof identityDraftStore.verifications,
+  identityHash: string,
   proof?: string
 ) => {
   identityDraftStore.verifications[field] = {
     isVerified: true,
     verificationDate: new Date().toISOString(),
+    verifiedAtHash: identityHash,
     proof,
   };
 };
@@ -234,6 +220,39 @@ export const clearDraft = () => {
   } catch (error) {
     console.error("Failed to clear identity draft from storage:", error);
   }
+};
+
+/**
+ * Update current identity hash from backend (via WebSocket)
+ * This is the hash of the on-chain identity
+ */
+export const setCurrentIdentityHash = (hash: string | null) => {
+  identityDraftStore.currentIdentityHash = hash;
+};
+
+/**
+ * Check if a field verification is still valid for current identity hash
+ *
+ * Verifications are valid only if:
+ * 1. Field is marked as verified
+ * 2. verifiedAtHash matches currentIdentityHash (from backend)
+ *
+ * This makes verification validity reactive - it automatically becomes
+ * invalid when identity hash changes (e.g., after user edits and submits).
+ */
+export const isVerificationValid = (field: keyof typeof identityDraftStore.verifications): boolean => {
+  const verification = identityDraftStore.verifications[field];
+  if (!verification || !verification.isVerified) {
+    return false;
+  }
+
+  // If no hash stored, consider it valid (legacy support)
+  if (!verification.verifiedAtHash || !identityDraftStore.currentIdentityHash) {
+    return verification.isVerified;
+  }
+
+  // Check if verified at current hash
+  return verification.verifiedAtHash === identityDraftStore.currentIdentityHash;
 };
 
 /**

@@ -196,7 +196,14 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
       });
 
     setVerifications(newVerifications);
-  }, [challengeWebSocket.challenges]);
+
+    // Update current identity hash in draft store when received from backend
+    if (challengeWebSocket.challengeState?.hashed_info) {
+      import('@/store/IdentityDraftStore').then(({ setCurrentIdentityHash }) => {
+        setCurrentIdentityHash(challengeWebSocket.challengeState!.hashed_info);
+      });
+    }
+  }, [challengeWebSocket.challenges, challengeWebSocket.challengeState]);
 
   const startVerification = async (
     field: string,

@@ -18,10 +18,11 @@ export function useFieldVerification(fieldKey: string, isVerifiable: boolean) {
     if (!isVerifiable) return
 
     const status = getFieldStatus(fieldKey as VerifiableField)
-    if (status?.status === 'verified' && !isVerified) {
-      markFieldVerified(fieldKey as VerifiableField)
+    const currentHash = draftSnap.currentIdentityHash
+    if (status?.status === 'verified' && !isVerified && currentHash) {
+      markFieldVerified(fieldKey as VerifiableField, currentHash)
     }
-  }, [getFieldStatus, fieldKey, isVerifiable, isVerified])
+  }, [getFieldStatus, fieldKey, isVerifiable, isVerified, draftSnap.currentIdentityHash])
 
   // Manual verification request function
   const requestVerification = () => {

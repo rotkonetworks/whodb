@@ -4,7 +4,7 @@ import { User, Mail, Globe, MessageSquare, Github, Key, Twitter, CheckCircle, Lo
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSnapshot } from "valtio"
-import { identityDraftStore, initializeDraft, updateDraftField, isDraftReadyToSubmit, markFieldVerified } from "@/store/IdentityDraftStore"
+import { identityDraftStore, initializeDraft, updateDraftField, isDraftReadyToSubmit, markFieldVerified, isVerificationValid } from "@/store/IdentityDraftStore"
 import { useVerification } from "@/contexts/verification-context"
 import { useRegistrarIdentity } from "@/hooks/useRegistrarIdentity"
 import { generateContactLinks } from "@/utils/registrar-contacts"
@@ -104,15 +104,16 @@ export function InlineIdentityForm({
   // Sync verification status from verification context to draft store
   useEffect(() => {
     const verifiableFields: VerifiableField[] = ['email', 'twitter', 'github', 'matrix', 'discord', 'web']
+    const currentHash = snap.currentIdentityHash
 
     verifiableFields.forEach((field) => {
       const status = getFieldStatus(field)
-      if (status?.status === 'verified' && !snap.verifications[field]?.isVerified) {
-        markFieldVerified(field)
+      if (status?.status === 'verified' && !snap.verifications[field]?.isVerified && currentHash) {
+        markFieldVerified(field, currentHash)
         // No toast - the checkmark speaks for itself
       }
     })
-  }, [getFieldStatus, snap.verifications])
+  }, [getFieldStatus, snap.verifications, snap.currentIdentityHash])
 
   // Count verified fields
   const verifiedCount = Object.values(snap.verifications).filter(v => v?.isVerified).length
