@@ -236,27 +236,28 @@ export const clearDraft = () => {
  * Format: IdentityInfo { display: Raw([bytes]), legal: None, web: Raw([bytes]), ...}
  */
 export const computeIdentityHash = (identity: Partial<IdentityData>): string => {
-  // Format field as Rust Debug would: Raw([byte, byte, ...]) or None
+  // Format field as Rust Debug would: Raw14([bytes]) or None
+  // CRITICAL: Substrate uses sized variants like Raw0, Raw1, ..., Raw32
   const rustDebugField = (value: string | null | undefined): string => {
     if (!value || value === '') return 'None';
     const bytes = Buffer.from(value, 'utf8');
     const byteArray = Array.from(bytes).join(', ');
-    return `Raw([${byteArray}])`;
+    return `Raw${bytes.length}([${byteArray}])`;  // Include length in variant name!
   };
 
-  // Match Rust struct field order and names exactly
-  // NOTE: "riot" not "matrix"! Discord doesn't exist in Substrate IdentityInfo
+  // Match current Substrate format: uses 'matrix' (not 'riot') and includes 'discord'
   const debugStr = [
     'IdentityInfo { ',
     `display: ${rustDebugField(identity.display)}, `,
     `legal: ${rustDebugField(identity.legal)}, `,
     `web: ${rustDebugField(identity.web)}, `,
-    `riot: ${rustDebugField(identity.matrix)}, `, // riot = matrix
+    `matrix: ${rustDebugField(identity.matrix)}, `,
     `email: ${rustDebugField(identity.email)}, `,
     `pgp_fingerprint: ${identity.pgp_fingerprint ? `Some([${identity.pgp_fingerprint}])` : 'None'}, `,
     `image: ${rustDebugField(identity.image)}, `,
     `twitter: ${rustDebugField(identity.twitter)}, `,
-    `github: ${rustDebugField(identity.github)}`,
+    `github: ${rustDebugField(identity.github)}, `,
+    `discord: ${rustDebugField(identity.discord)}`,
     ' }'
   ].join('');
 
