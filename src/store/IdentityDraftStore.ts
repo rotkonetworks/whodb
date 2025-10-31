@@ -226,33 +226,41 @@ export const clearDraft = () => {
 /**
  * Compute identity hash from identity data (trustless, local computation)
  *
- * IMPORTANT: This hash doesn't need to match backend's hash!
- * Purpose: Deterministic fingerprint to detect when on-chain identity changes.
+ * CRITICAL: This hash MUST match Rust's format! It's used ON-CHAIN in provideJudgement.
+ * We compute locally (trustless) but must match Substrate's exact format.
  *
- * We compute from on-chain data (trustless) to track state changes.
- * Backend's hash is irrelevant - we don't trust it anyway.
+ * Rust code (w3registrar/node/mod.rs:131):
+ *   let info_bytes = format!("{:?}", registration.info).into_bytes();
+ *   let hash = blake2_256(&info_bytes);
  *
- * Format: JSON.stringify(identity) for deterministic, human-readable hashing
+ * Format: IdentityInfo { display: Raw([bytes]), legal: None, web: Raw([bytes]), ...}
  */
 export const computeIdentityHash = (identity: Partial<IdentityData>): string => {
-  // Create deterministic object (sorted keys, null for empty values)
-  const normalized = {
-    display: identity.display || null,
-    email: identity.email || null,
-    web: identity.web || null,
-    twitter: identity.twitter || null,
-    github: identity.github || null,
-    matrix: identity.matrix || null,
-    discord: identity.discord || null,
-    legal: identity.legal || null,
-    image: identity.image || null,
-    pgp_fingerprint: identity.pgp_fingerprint || null,
+  // Format field as Rust Debug would: Raw([byte, byte, ...]) or None
+  const rustDebugField = (value: string | null | undefined): string => {
+    if (!value || value === '') return 'None';
+    const bytes = Buffer.from(value, 'utf8');
+    const byteArray = Array.from(bytes).join(', ');
+    return `Raw([${byteArray}])`;
   };
 
-  // Deterministic JSON string
-  const jsonStr = JSON.stringify(normalized);
+  // Match Rust struct field order and names exactly
+  // NOTE: "riot" not "matrix"! Discord doesn't exist in Substrate IdentityInfo
+  const debugStr = [
+    'IdentityInfo { ',
+    `display: ${rustDebugField(identity.display)}, `,
+    `legal: ${rustDebugField(identity.legal)}, `,
+    `web: ${rustDebugField(identity.web)}, `,
+    `riot: ${rustDebugField(identity.matrix)}, `, // riot = matrix
+    `email: ${rustDebugField(identity.email)}, `,
+    `pgp_fingerprint: ${identity.pgp_fingerprint ? `Some([${identity.pgp_fingerprint}])` : 'None'}, `,
+    `image: ${rustDebugField(identity.image)}, `,
+    `twitter: ${rustDebugField(identity.twitter)}, `,
+    `github: ${rustDebugField(identity.github)}`,
+    ' }'
+  ].join('');
 
-  return blake2AsHex(jsonStr);
+  return blake2AsHex(debugStr);
 };
 
 /**
