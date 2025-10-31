@@ -225,28 +225,34 @@ export const clearDraft = () => {
 
 /**
  * Compute identity hash from identity data (trustless, local computation)
- * Matches backend's blake2_256(format!("{:?}", info))
  *
- * NOTE: We compute this locally from on-chain data to minimize trust in backend.
- * Only the on-chain state is the source of truth.
+ * IMPORTANT: This hash doesn't need to match backend's hash!
+ * Purpose: Deterministic fingerprint to detect when on-chain identity changes.
+ *
+ * We compute from on-chain data (trustless) to track state changes.
+ * Backend's hash is irrelevant - we don't trust it anyway.
+ *
+ * Format: JSON.stringify(identity) for deterministic, human-readable hashing
  */
 export const computeIdentityHash = (identity: Partial<IdentityData>): string => {
-  // Serialize in Rust Debug format order (matches backend)
-  // Backend does: format!("{:?}", IdentityInfo { ... })
-  const debugRepr = [
-    identity.display || "None",
-    identity.legal || "None",
-    identity.web || "None",
-    identity.matrix || "None",
-    identity.email || "None",
-    identity.pgp_fingerprint || "None",
-    identity.image || "None",
-    identity.twitter || "None",
-    identity.github || "None",
-    identity.discord || "None",
-  ].join(",");
+  // Create deterministic object (sorted keys, null for empty values)
+  const normalized = {
+    display: identity.display || null,
+    email: identity.email || null,
+    web: identity.web || null,
+    twitter: identity.twitter || null,
+    github: identity.github || null,
+    matrix: identity.matrix || null,
+    discord: identity.discord || null,
+    legal: identity.legal || null,
+    image: identity.image || null,
+    pgp_fingerprint: identity.pgp_fingerprint || null,
+  };
 
-  return blake2AsHex(debugRepr);
+  // Deterministic JSON string
+  const jsonStr = JSON.stringify(normalized);
+
+  return blake2AsHex(jsonStr);
 };
 
 /**
