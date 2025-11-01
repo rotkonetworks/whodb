@@ -1,5 +1,4 @@
 import { AllowedFields, PossibleDisplayedOutputs } from "@/types/search_fields"
-import { todo } from "node:test"
 
 /**
  * Shortens a blockchain address by showing only the beginning and end parts
@@ -51,7 +50,7 @@ export function cn(...classes: (string | undefined | boolean)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
-export const constructSearcObject = (query: string, desierdOutputs: string[] = PossibleDisplayedOutputs): any => {
+export const constructSearchObject = (query: string, desiredOutputs: string[] = PossibleDisplayedOutputs): any => {
   const parseSearchString = (input: string): { structuredFields: Record<string, string>, genericTerms: string } => {
     const result: Record<string, string> = {};
     const regex = /(\w+):\s*(\S+)/g;
@@ -102,7 +101,7 @@ export const constructSearcObject = (query: string, desierdOutputs: string[] = P
   const network = structuredFields["network"];
   delete structuredFields.network;
   delete structuredFields.result_size;
-  const outputs: string[] = Array.from(desierdOutputs)
+  const outputs: string[] = Array.from(desiredOutputs)
 
   // Build filters array starting with Generic field if we have generic terms
   const filtersFields = [];

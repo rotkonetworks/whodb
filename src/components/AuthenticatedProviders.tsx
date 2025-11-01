@@ -8,6 +8,7 @@ import { AccountProvider } from '@/contexts/wallet-context'
 import { SearchProvider, WebSocketProvider } from '@/contexts/web-socket-provider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactNode } from 'react'
+import { getWebSocketUrl } from '@/lib/websocket-url'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,7 +31,7 @@ export default function AuthenticatedProviders({ children }: Props) {
           <AccountProvider>
             <BalanceProvider>
               <UserProvider>
-                <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"} autoConnect>
+                <WebSocketProvider url={getWebSocketUrl()} autoConnect>
                   <SearchProvider>
                     <QueryClientProvider client={queryClient}>
                       <VerificationProvider>

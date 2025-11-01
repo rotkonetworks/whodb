@@ -1,5 +1,6 @@
 import { WebSocketProvider, SearchProvider } from '@/contexts/web-socket-provider'
 import { ReactNode } from 'react'
+import { getWebSocketUrl } from '@/lib/websocket-url'
 
 interface Props {
   children: ReactNode
@@ -8,7 +9,7 @@ interface Props {
 export default function LazySearchProvider({ children }: Props) {
   return (
     <WebSocketProvider
-      url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}
+      url={getWebSocketUrl()}
       autoConnect
     >
       <SearchProvider>

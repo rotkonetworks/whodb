@@ -1,7 +1,7 @@
 // NOTE: for searching, we need to only query necessary info, like wallet_id, email, verification status ONLY
 // then for profile preview, we need to query the whole thing for that id
 import { Profile, ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
-import { constructSearcObject } from "@/lib/utils"
+import { constructSearchObject } from "@/lib/utils"
 import { ArrowLeft, Mail, Wallet, Shield, CheckCircle, Globe, Github, Fingerprint, AtSign } from "lucide-react"
 import { SOCIAL_ICONS } from "@/assets/icons"
 import VerificationTimeline from "@/components/verification-timeline"
@@ -44,7 +44,7 @@ export default function ProfilePage() {
         loadedIdRef.current = id;
         try {
           setLoading(true);
-          const searchObj = constructSearcObject("id: " + id, FullDisplayedOutputs);
+          const searchObj = constructSearchObject("id: " + id, FullDisplayedOutputs);
           const searchResults = await search(searchObj, limit).then((result) => result[0]);
           setProfile(searchResults);
         } catch (error) {

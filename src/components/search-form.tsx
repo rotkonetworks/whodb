@@ -7,7 +7,7 @@ import { Circle, Search, User } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { constructSearcObject } from "@/lib/utils"
+import { constructSearchObject } from "@/lib/utils"
 
 export default function SearchForm() {
   const navigate = useNavigate()
