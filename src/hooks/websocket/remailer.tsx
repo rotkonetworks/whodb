@@ -38,7 +38,7 @@ export interface UseRemailerReturn {
 }
 
 export const useRemailer = (): UseRemailerReturn => {
-  const wsUrl = import.meta.env.VITE_APP_WS_URL || 'ws://localhost:8080'
+  const wsUrl = import.meta.env.VITE_APP_CHALLENGES_API_URL || 'ws://localhost:8080'
 
   // Enforce WSS in production
   if (import.meta.env.PROD && !wsUrl.startsWith('wss://')) {
