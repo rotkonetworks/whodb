@@ -42,8 +42,11 @@ export const useRemailer = (): UseRemailerReturn => {
 
   // Enforce WSS in production
   if (import.meta.env.PROD && !wsUrl.startsWith('wss://')) {
+    logger.error(`❌ Remailer WebSocket URL must use wss:// in production, got: ${wsUrl}`)
     throw new Error('Secure WebSocket (wss://) required in production')
   }
+
+  logger.info(`🔧 Remailer using WebSocket URL: ${wsUrl} (production: ${import.meta.env.PROD})`)
 
   const {
     isConnected,

@@ -327,10 +327,11 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
     }
 
     try {
+      logger.info(`🔌 Connecting to WebSocket: ${url}`);
       ws.current = new WebSocket(url);
 
       ws.current.onopen = () => {
-        console.log('WebSocket connected, attempt:', connectionAttempts.current);
+        logger.info(`✅ WebSocket connected to ${url}, attempt: ${connectionAttempts.current}`);
         setIsConnected(true);
         setError(null);
         setLoading(false);
