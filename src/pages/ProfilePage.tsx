@@ -52,7 +52,59 @@ export default function ProfilePage() {
   // Handle case where network is missing - use address as the actual address and default to paseo
   const network = networkParam || 'paseo';
   const address = networkParam ? addressParam : networkParam;
+  const peopleChain = getPeopleChain(network);
 
+  // Convert address to chain-specific format - MUST be before any conditional returns
+  const { chainSpecificAddress, shouldRedirect } = useMemo(() => {
+    if (!address || !peopleChain) return { chainSpecificAddress: address, shouldRedirect: false };
+
+    try {
+      const publicKey = decodeAddress(address);
+      const chainConfig = CHAINS[peopleChain as keyof typeof CHAINS];
+      if (!chainConfig) return { chainSpecificAddress: address, shouldRedirect: false };
+      const converted = encodeAddress(publicKey, chainConfig.ss58Format);
+      return {
+        chainSpecificAddress: converted,
+        shouldRedirect: converted !== address
+      };
+    } catch (error) {
+      console.error("Failed to convert address format:", error);
+      return { chainSpecificAddress: address, shouldRedirect: false };
+    }
+  }, [address, peopleChain]);
+
+  const { identity, isLoading, error, isVerified } = useIdentity(
+    chainSpecificAddress as SS58String | undefined,
+    peopleChain
+  );
+
+  // Check if viewing own profile (compare public keys to handle different SS58 formats)
+  const isOwnProfile = useMemo(() => {
+    if (!connectedAddress || !chainSpecificAddress) {
+      return false;
+    }
+    try {
+      const connectedPubKey = decodeAddress(connectedAddress);
+      const profilePubKey = decodeAddress(chainSpecificAddress);
+
+      // Compare as hex strings instead of using Buffer
+      const connectedHex = Array.from(connectedPubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+      const profileHex = Array.from(profilePubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      return connectedHex === profileHex;
+    } catch (error) {
+      return false;
+    }
+  }, [connectedAddress, chainSpecificAddress]);
+
+  // Auto-enable edit mode when user visits their own profile without identity
+  useEffect(() => {
+    if (isOwnProfile && !identity && !isLoading && !isEditing) {
+      setIsEditing(true);
+    }
+  }, [isOwnProfile, identity, isLoading, isEditing]);
+
+  // NOW we can do conditional rendering after ALL hooks are called
   // If visiting /profile without address, redirect to connected wallet or show welcome
   if (!address && !addressParam) {
     if (connectedAddress) {
@@ -111,63 +163,9 @@ export default function ProfilePage() {
     );
   }
 
-  const peopleChain = getPeopleChain(network);
-
   console.log('[ProfilePage] Route params:', { networkParam, addressParam, network, address, peopleChain });
-
-  // Convert address to chain-specific format and redirect if needed
-  const { chainSpecificAddress, shouldRedirect } = useMemo(() => {
-    if (!address || !peopleChain) return { chainSpecificAddress: address, shouldRedirect: false };
-
-    try {
-      const publicKey = decodeAddress(address);
-      const chainConfig = CHAINS[peopleChain as keyof typeof CHAINS];
-      if (!chainConfig) return { chainSpecificAddress: address, shouldRedirect: false };
-      const converted = encodeAddress(publicKey, chainConfig.ss58Format);
-      return {
-        chainSpecificAddress: converted,
-        shouldRedirect: converted !== address
-      };
-    } catch (error) {
-      console.error("Failed to convert address format:", error);
-      return { chainSpecificAddress: address, shouldRedirect: false };
-    }
-  }, [address, peopleChain]);
-
   console.log('[ProfilePage] Calling useIdentity with:', { chainSpecificAddress, peopleChain });
-
-  const { identity, isLoading, error, isVerified } = useIdentity(
-    chainSpecificAddress as SS58String | undefined,
-    peopleChain
-  );
-
   console.log('[ProfilePage] useIdentity returned:', { identity, isLoading, error, isVerified });
-
-  // Check if viewing own profile (compare public keys to handle different SS58 formats)
-  const isOwnProfile = useMemo(() => {
-    if (!connectedAddress || !chainSpecificAddress) {
-      return false;
-    }
-    try {
-      const connectedPubKey = decodeAddress(connectedAddress);
-      const profilePubKey = decodeAddress(chainSpecificAddress);
-
-      // Compare as hex strings instead of using Buffer
-      const connectedHex = Array.from(connectedPubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-      const profileHex = Array.from(profilePubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-
-      return connectedHex === profileHex;
-    } catch (error) {
-      return false;
-    }
-  }, [connectedAddress, chainSpecificAddress]);
-
-  // Auto-enable edit mode when user visits their own profile without identity
-  useEffect(() => {
-    if (isOwnProfile && !identity && !isLoading && !isEditing) {
-      setIsEditing(true);
-    }
-  }, [isOwnProfile, identity, isLoading, isEditing]);
 
   const copyToClipboard = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -240,10 +238,11 @@ export default function ProfilePage() {
     getTimeline();
   }, [chainSpecificAddress, identity]);
 
-  // Redirect to canonical address format if needed
-  if (shouldRedirect && chainSpecificAddress) {
-    return <Navigate to={`/profile/${network}/${chainSpecificAddress}`} replace />;
-  }
+  // Don't redirect - keep original address format in URL
+  // This was causing unwanted address format conversions
+  // if (shouldRedirect && chainSpecificAddress) {
+  //   return <Navigate to={`/profile/${network}/${chainSpecificAddress}`} replace />;
+  // }
 
   if (isLoading) {
     return (
