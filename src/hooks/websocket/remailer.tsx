@@ -40,13 +40,13 @@ export interface UseRemailerReturn {
 export const useRemailer = (): UseRemailerReturn => {
   const wsUrl = import.meta.env.VITE_APP_CHALLENGES_API_URL || 'ws://localhost:8080'
 
-  // Enforce WSS in production
+  // Warn about insecure WebSocket in production (but don't crash the app)
   if (import.meta.env.PROD && !wsUrl.startsWith('wss://')) {
-    logger.error(`❌ Remailer WebSocket URL must use wss:// in production, got: ${wsUrl}`)
-    throw new Error('Secure WebSocket (wss://) required in production')
+    logger.warn(`⚠️ Remailer using insecure WebSocket in production: ${wsUrl}`)
+    logger.warn('This should use wss:// - check VITE_APP_CHALLENGES_API_URL environment variable')
+  } else {
+    logger.info(`🔧 Remailer using WebSocket URL: ${wsUrl} (production: ${import.meta.env.PROD})`)
   }
-
-  logger.info(`🔧 Remailer using WebSocket URL: ${wsUrl} (production: ${import.meta.env.PROD})`)
 
   const {
     isConnected,
