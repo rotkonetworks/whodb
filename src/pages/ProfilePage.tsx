@@ -54,20 +54,37 @@ export default function ProfilePage() {
   const address = networkParam ? addressParam : networkParam;
   const peopleChain = getPeopleChain(network);
 
-  // Use address directly without conversion - no need to convert since we're not redirecting
+  // Convert address to chain-specific format for on-chain queries
+  // But keep original address in URL (no redirect)
+  const chainSpecificAddress = useMemo(() => {
+    if (!address || !peopleChain) return address;
+
+    try {
+      const publicKey = decodeAddress(address);
+      const chainConfig = CHAINS[peopleChain as keyof typeof CHAINS];
+      if (!chainConfig) return address;
+      // Convert to chain-specific SS58 format (e.g., prefix 0 for Paseo/Polkadot)
+      return encodeAddress(publicKey, chainConfig.ss58Format);
+    } catch (error) {
+      console.error("Failed to convert address format:", error);
+      return address;
+    }
+  }, [address, peopleChain]);
+
+  // Use chain-specific address for on-chain queries
   const { identity, isLoading, error, isVerified } = useIdentity(
-    address as SS58String | undefined,
+    chainSpecificAddress as SS58String | undefined,
     peopleChain
   );
 
   // Check if viewing own profile (compare public keys to handle different SS58 formats)
   const isOwnProfile = useMemo(() => {
-    if (!connectedAddress || !address) {
+    if (!connectedAddress || !chainSpecificAddress) {
       return false;
     }
     try {
       const connectedPubKey = decodeAddress(connectedAddress);
-      const profilePubKey = decodeAddress(address);
+      const profilePubKey = decodeAddress(chainSpecificAddress);
 
       // Compare as hex strings instead of using Buffer
       const connectedHex = Array.from(connectedPubKey).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -77,7 +94,7 @@ export default function ProfilePage() {
     } catch (error) {
       return false;
     }
-  }, [connectedAddress, address]);
+  }, [connectedAddress, chainSpecificAddress]);
 
   // Auto-enable edit mode when user visits their own profile without identity
   useEffect(() => {
@@ -146,7 +163,8 @@ export default function ProfilePage() {
   }
 
   console.log('[ProfilePage] Route params:', { networkParam, addressParam, network, address, peopleChain });
-  console.log('[ProfilePage] Calling useIdentity with:', { address, peopleChain });
+  console.log('[ProfilePage] Converted address:', { original: address, chainSpecific: chainSpecificAddress });
+  console.log('[ProfilePage] Calling useIdentity with:', { chainSpecificAddress, peopleChain });
   console.log('[ProfilePage] useIdentity returned:', { identity, isLoading, error, isVerified });
 
   const copyToClipboard = (text: string, fieldName: string) => {
@@ -201,12 +219,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     // Only fetch if there's an identity (no point fetching timeline if no identity exists)
-    if (!identity || !address) return;
+    if (!identity || !chainSpecificAddress) return;
 
     const getTimeline = async () => {
       try {
         setTimelineLoading(true);
-        const searchObj = constructSearcObject("id: " + address, FullDisplayedOutputs);
+        const searchObj = constructSearcObject("id: " + chainSpecificAddress, FullDisplayedOutputs);
         const result = await search(searchObj, 1).then((result) => result[0]);
         setTimeline(result?.timeline || []);
       } catch (error) {
@@ -218,7 +236,7 @@ export default function ProfilePage() {
     };
 
     getTimeline();
-  }, [address, identity, search]);
+  }, [chainSpecificAddress, identity, search]);
 
   // Don't redirect - keep original address format in URL
   // This was causing unwanted address format conversions
@@ -384,7 +402,7 @@ export default function ProfilePage() {
           <div className="pt-6 border-t border-gray-700/50 mb-6">
             <PolkadotApiProvider>
               <RegistrationOrchestrator
-                walletAddress={address as SS58String}
+                walletAddress={chainSpecificAddress as SS58String}
                 progressive={true}
                 onComplete={() => {
                   setIsEditing(false)
