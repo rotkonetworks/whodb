@@ -54,38 +54,20 @@ export default function ProfilePage() {
   const address = networkParam ? addressParam : networkParam;
   const peopleChain = getPeopleChain(network);
 
-  // Convert address to chain-specific format - MUST be before any conditional returns
-  const { chainSpecificAddress, shouldRedirect } = useMemo(() => {
-    if (!address || !peopleChain) return { chainSpecificAddress: address, shouldRedirect: false };
-
-    try {
-      const publicKey = decodeAddress(address);
-      const chainConfig = CHAINS[peopleChain as keyof typeof CHAINS];
-      if (!chainConfig) return { chainSpecificAddress: address, shouldRedirect: false };
-      const converted = encodeAddress(publicKey, chainConfig.ss58Format);
-      return {
-        chainSpecificAddress: converted,
-        shouldRedirect: converted !== address
-      };
-    } catch (error) {
-      console.error("Failed to convert address format:", error);
-      return { chainSpecificAddress: address, shouldRedirect: false };
-    }
-  }, [address, peopleChain]);
-
+  // Use address directly without conversion - no need to convert since we're not redirecting
   const { identity, isLoading, error, isVerified } = useIdentity(
-    chainSpecificAddress as SS58String | undefined,
+    address as SS58String | undefined,
     peopleChain
   );
 
   // Check if viewing own profile (compare public keys to handle different SS58 formats)
   const isOwnProfile = useMemo(() => {
-    if (!connectedAddress || !chainSpecificAddress) {
+    if (!connectedAddress || !address) {
       return false;
     }
     try {
       const connectedPubKey = decodeAddress(connectedAddress);
-      const profilePubKey = decodeAddress(chainSpecificAddress);
+      const profilePubKey = decodeAddress(address);
 
       // Compare as hex strings instead of using Buffer
       const connectedHex = Array.from(connectedPubKey).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -95,7 +77,7 @@ export default function ProfilePage() {
     } catch (error) {
       return false;
     }
-  }, [connectedAddress, chainSpecificAddress]);
+  }, [connectedAddress, address]);
 
   // Auto-enable edit mode when user visits their own profile without identity
   useEffect(() => {
@@ -164,7 +146,7 @@ export default function ProfilePage() {
   }
 
   console.log('[ProfilePage] Route params:', { networkParam, addressParam, network, address, peopleChain });
-  console.log('[ProfilePage] Calling useIdentity with:', { chainSpecificAddress, peopleChain });
+  console.log('[ProfilePage] Calling useIdentity with:', { address, peopleChain });
   console.log('[ProfilePage] useIdentity returned:', { identity, isLoading, error, isVerified });
 
   const copyToClipboard = (text: string, fieldName: string) => {
@@ -219,12 +201,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     // Only fetch if there's an identity (no point fetching timeline if no identity exists)
-    if (!identity || !chainSpecificAddress) return;
+    if (!identity || !address) return;
 
     const getTimeline = async () => {
       try {
         setTimelineLoading(true);
-        const searchObj = constructSearcObject("id: " + chainSpecificAddress, FullDisplayedOutputs);
+        const searchObj = constructSearcObject("id: " + address, FullDisplayedOutputs);
         const result = await search(searchObj, 1).then((result) => result[0]);
         setTimeline(result?.timeline || []);
       } catch (error) {
@@ -236,7 +218,7 @@ export default function ProfilePage() {
     };
 
     getTimeline();
-  }, [chainSpecificAddress, identity]);
+  }, [address, identity, search]);
 
   // Don't redirect - keep original address format in URL
   // This was causing unwanted address format conversions
@@ -402,7 +384,7 @@ export default function ProfilePage() {
           <div className="pt-6 border-t border-gray-700/50 mb-6">
             <PolkadotApiProvider>
               <RegistrationOrchestrator
-                walletAddress={chainSpecificAddress as SS58String}
+                walletAddress={address as SS58String}
                 progressive={true}
                 onComplete={() => {
                   setIsEditing(false)
