@@ -10,7 +10,7 @@ import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
 import { FullProfile } from "@/types/profile"
 import * as Avatar from "@radix-ui/react-avatar"
-import { constructSearcObject } from "@/lib/utils"
+import { constructSearchObject } from "@/lib/utils"
 
 // TODO: fix loading animation
 // TODO: fix navigation (forward and backward page)
@@ -25,12 +25,12 @@ export default function SearchPage() {
 
   const query = searchParams.get('query') || '';
   // const decodedString = atob(query);
-  var searchTxt = query;
-  var searchJson = null;
+  const searchTxt = query;
+  let searchJson = null;
 
   // Get query from decoded base64 url param
-  if (query != '') {
-    searchJson = constructSearcObject(query);
+  if (query !== '') {
+    searchJson = constructSearchObject(query);
   }
 
   const fetchResults = async (searchQuery: any, limit: number = 20) => {
