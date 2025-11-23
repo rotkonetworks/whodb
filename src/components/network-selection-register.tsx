@@ -53,9 +53,11 @@ export const NetworkSelection: React.FC<NetworkSelectionProps> = ({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <div className="w-6 h-6 flex-shrink-0">
-                    {React.cloneElement(network.icon as React.ReactElement, {
-                      className: "w-full h-full",
-                    })}
+                    {network.icon && React.isValidElement(network.icon)
+                      ? React.cloneElement(network.icon, {
+                          className: "w-full h-full",
+                        })
+                      : network.icon || <div className="w-full h-full bg-gray-600 rounded-full" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-white text-sm">{network.name}</h3>
