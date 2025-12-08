@@ -42,7 +42,7 @@ export default function ProfilePage() {
   const actingAs = useSnapshot(actingAsStore);
 
   const network = networkParam || 'paseo';
-  const address = networkParam ? addressParam : networkParam;
+  const address = addressParam || connectedAddress;
   const peopleChain = getPeopleChain(network);
 
   // Initialize acting-as to connected address
@@ -55,6 +55,7 @@ export default function ProfilePage() {
   // The effective address we're managing (could be our own or acting-as)
   const effectiveAddress = actingAs.targetAddress || connectedAddress;
 
+  // Convert address to chain-specific format for on-chain queries
   const chainSpecificAddress = useMemo(() => {
     if (!address || !peopleChain) return address;
     try {
@@ -144,13 +145,12 @@ export default function ProfilePage() {
       setTxStatus("broadcasting");
 
       // TODO: Implement actual blockchain submission
-      // For now, simulate the flow
       await new Promise(resolve => setTimeout(resolve, 800));
       setTxStatus("confirming");
 
       // Simulate confirmation
       await new Promise(resolve => setTimeout(resolve, 1200));
-      setTxHash("0x" + Math.random().toString(16).slice(2, 18) + "..."); // Fake hash for demo
+      setTxHash("0x" + Math.random().toString(16).slice(2, 18) + "...");
       setTxStatus("success");
 
       refetch();
