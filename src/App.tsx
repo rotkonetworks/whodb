@@ -4,9 +4,10 @@ import { NetworkProvider } from '@/contexts/network-context'
 import { UserProvider } from '@/contexts/user-context'
 import { VerificationProvider } from '@/contexts/verification-context'
 import { BalanceProvider } from '@/contexts/balance-context'
+import { ChatProvider } from '@/contexts/ChatContext'
 import { Toaster } from '@/components/ui/sonner'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
-import OptimizedPolkadotRoute from '@/components/OptimizedPolkadotRoute'
+import { ChatWidgetContainer } from '@/components/chat'
 
 import HomePage from './pages/homepage'
 import SearchPage from './pages/SearchPage'
@@ -35,14 +36,17 @@ export default function App() {
                       <SearchProvider>
                         <QueryClientProvider client={queryClient}>
                           <VerificationProvider>
-                            <Routes>
-                              <Route path="/" element={<HomePage />} />
-                              <Route path="/search" element={<SearchPage />} />
-                              <Route path="/profile" element={<ProfilePage />} />
-                              <Route path="/profile/:network/:address" element={<ProfilePage />} />
-                              <Route path="/profile/:address" element={<ProfilePage />} />
-                              <Route path="*" element={<div>Page not found</div>} />
-                            </Routes>
+                            <ChatProvider>
+                              <Routes>
+                                <Route path="/" element={<HomePage />} />
+                                <Route path="/search" element={<SearchPage />} />
+                                <Route path="/profile" element={<ProfilePage />} />
+                                <Route path="/profile/:network/:address" element={<ProfilePage />} />
+                                <Route path="/profile/:address" element={<ProfilePage />} />
+                                <Route path="*" element={<div>Page not found</div>} />
+                              </Routes>
+                              <ChatWidgetContainer />
+                            </ChatProvider>
                           </VerificationProvider>
                         </QueryClientProvider>
                       </SearchProvider>

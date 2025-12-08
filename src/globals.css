@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* UnoCSS is imported in main.tsx */
 /* Base theme variables */
 :root {
   --background: 222.2 84% 4.9%;
@@ -29,15 +27,13 @@ body {
   background: hsl(var(--background));
   font-feature-settings: "rlig" 1, "calt" 1;
 }
-/* Base button styles */
-@layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  button,
-  .btn {
-    transition: all 200ms ease-in-out;
-  }
+/* Base styles */
+* {
+  border-color: hsl(var(--border));
+}
+button,
+.btn {
+  transition: all 200ms ease-in-out;
 }
 /* Network-specific accent colors */
 .network-polkadot {

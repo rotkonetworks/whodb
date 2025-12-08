@@ -172,9 +172,9 @@ export function IdentityVerificationForm({
       const component = createVerificationComponent(field)
       if (!component) return
 
-      if (['email', 'web', 'twitter', 'github', 'matrix'].includes(field)) {
+      if (['email', 'web', 'twitter', 'github', 'matrix', 'discord'].includes(field)) {
         contactFields.push(component)
-      } else if (field === 'pgp_fingerprint') {
+      } else if (['pgp_fingerprint', 'image', 'legal'].includes(field)) {
         securityFields.push(component)
       }
     })

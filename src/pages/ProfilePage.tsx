@@ -1,10 +1,7 @@
-import { useSearchContext } from "@/contexts/web-socket-provider"
-import { constructSearcObject } from "@/lib/utils"
-import { CheckCircle, AlertCircle, User, Edit, Copy, Check } from "lucide-react"
-import { ProfileDetailsSection } from "@/components/ProfileDetailsSection"
+import { CheckCircle, AlertCircle, User, Copy, Check, Eye, Pencil, Settings, Shield, Users } from "lucide-react"
+import { ProfileContent } from "@/components/ProfileContent"
 import { Link, useParams, Navigate } from "react-router-dom"
-import { useEffect, useState, useMemo } from 'react';
-import { FullDisplayedOutputs } from "@/types/search_fields";
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import * as Avatar from "@radix-ui/react-avatar"
 import { useIdentity } from "@/hooks/useIdentity"
 import { SS58String } from "polkadot-api"
@@ -13,179 +10,161 @@ import { CHAINS, getPeopleChain as getEcosystemPeopleChain } from "@/polkadot-ap
 import { useAccount } from "@/contexts/wallet-context"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
-import { IdentityVerificationStatus } from "@/types/Identity"
-import { RemailerDialog } from "@/components/dialogs/RemailerDialog"
-import { RegistrationOrchestrator } from "@/components/registration/RegistrationOrchestrator"
-import { PolkadotApiProvider } from "@/contexts/PolkadotApiContext"
+import { useChat } from "@/contexts/ChatContext"
 import { useSnapshot } from "valtio"
 import { identityDraftStore } from "@/store/IdentityDraftStore"
+import { settingsStore, toggleTransactionModal } from "@/store/SettingsStore"
+import { actingAsStore, setActingAs } from "@/store/ActingAsStore"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
-import { ArrowUpRight } from "lucide-react"
-
+import { ProfileSkeleton } from "@/components/ui/profile-skeleton"
+import { TransactionProgressModal, TxStatus } from "@/components/dialogs/TransactionProgressModal"
+import { ActingAsSelector } from "@/components/ActingAsSelector"
 
 const getPeopleChain = (ecosystem: string | undefined): string | null => {
   if (!ecosystem) return "paseo_people";
-  // If it's already a people chain, return it
   if (ecosystem.includes("_people")) return ecosystem;
-  // Otherwise map ecosystem to people chain
   return getEcosystemPeopleChain(ecosystem);
 };
 
 export default function ProfilePage() {
-  const { search } = useSearchContext();
   const { address: connectedAddress } = useAccount();
   const { network: networkParam, address: addressParam } = useParams<{ network?: string; address: string }>();
-  const { initializeWallets } = usePolkadotWallet();
-
-  const [timeline, setTimeline] = useState<any[]>([]);
-  const [timelineLoading, setTimelineLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
-  const [messageContactType, setMessageContactType] = useState<'email' | 'twitter' | 'matrix' | 'discord'>('email');
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Subscribe to draft store for reactive display name
+  const [isSaving, setIsSaving] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [txModalOpen, setTxModalOpen] = useState(false);
+  const [txStatus, setTxStatus] = useState<TxStatus>("idle");
+  const [txHash, setTxHash] = useState<string | undefined>();
+  const [txError, setTxError] = useState<string | undefined>();
+  const { openChat } = useChat();
   const draftSnap = useSnapshot(identityDraftStore);
+  const settings = useSnapshot(settingsStore);
+  const actingAs = useSnapshot(actingAsStore);
 
-  // Handle case where network is missing - use address as the actual address and default to paseo
   const network = networkParam || 'paseo';
   const address = networkParam ? addressParam : networkParam;
   const peopleChain = getPeopleChain(network);
 
-  // Convert address to chain-specific format for on-chain queries
-  // But keep original address in URL (no redirect)
+  // Initialize acting-as to connected address
+  useEffect(() => {
+    if (connectedAddress && !actingAs.targetAddress) {
+      setActingAs(connectedAddress, false, false)
+    }
+  }, [connectedAddress, actingAs.targetAddress]);
+
+  // The effective address we're managing (could be our own or acting-as)
+  const effectiveAddress = actingAs.targetAddress || connectedAddress;
+
   const chainSpecificAddress = useMemo(() => {
     if (!address || !peopleChain) return address;
-
     try {
       const publicKey = decodeAddress(address);
       const chainConfig = CHAINS[peopleChain as keyof typeof CHAINS];
       if (!chainConfig) return address;
-      // Convert to chain-specific SS58 format (e.g., prefix 0 for Paseo/Polkadot)
       return encodeAddress(publicKey, chainConfig.ss58Format);
-    } catch (error) {
-      console.error("Failed to convert address format:", error);
+    } catch {
       return address;
     }
   }, [address, peopleChain]);
 
-  // Use chain-specific address for on-chain queries
-  const { identity, isLoading, error, isVerified } = useIdentity(
+  const { identity, isLoading, error, isVerified, refetch } = useIdentity(
     chainSpecificAddress as SS58String | undefined,
     peopleChain
   );
 
-  // Check if viewing own profile (compare public keys to handle different SS58 formats)
+  // Check if this is a profile we can manage (our own OR one we're acting as)
   const isOwnProfile = useMemo(() => {
-    if (!connectedAddress || !chainSpecificAddress) {
-      return false;
-    }
+    if (!chainSpecificAddress) return false;
+
+    const matchesAddress = (addr: SS58String | null) => {
+      if (!addr) return false;
+      try {
+        const pubKey = decodeAddress(addr);
+        const profilePubKey = decodeAddress(chainSpecificAddress);
+        const addrHex = Array.from(pubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+        const profileHex = Array.from(profilePubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+        return addrHex === profileHex;
+      } catch {
+        return false;
+      }
+    };
+
+    // Can manage if it's our connected address OR our acting-as address
+    return matchesAddress(connectedAddress) || matchesAddress(effectiveAddress);
+  }, [connectedAddress, effectiveAddress, chainSpecificAddress]);
+
+  // Whether we're acting as this profile (proxy/multisig)
+  const isActingAsMode = useMemo(() => {
+    if (!effectiveAddress || !chainSpecificAddress) return false;
+    if (effectiveAddress === connectedAddress) return false;
     try {
-      const connectedPubKey = decodeAddress(connectedAddress);
+      const effectivePubKey = decodeAddress(effectiveAddress);
       const profilePubKey = decodeAddress(chainSpecificAddress);
-
-      // Compare as hex strings instead of using Buffer
-      const connectedHex = Array.from(connectedPubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-      const profileHex = Array.from(profilePubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-
-      return connectedHex === profileHex;
-    } catch (error) {
+      return Array.from(effectivePubKey).every((b, i) => b === profilePubKey[i]);
+    } catch {
       return false;
     }
-  }, [connectedAddress, chainSpecificAddress]);
+  }, [effectiveAddress, connectedAddress, chainSpecificAddress]);
 
-  // Auto-enable edit mode when user visits their own profile without identity
-  useEffect(() => {
-    if (isOwnProfile && !identity && !isLoading && !isEditing) {
-      setIsEditing(true);
-    }
-  }, [isOwnProfile, identity, isLoading, isEditing]);
-
-  // NOW we can do conditional rendering after ALL hooks are called
-  // If visiting /profile without address, redirect to connected wallet or show welcome
-  if (!address && !addressParam) {
-    if (connectedAddress) {
-      // Redirect to own profile
-      return <Navigate to={`/profile/${network}/${connectedAddress}`} replace />;
-    }
-
-    // Show welcome screen for newcomers
-    return (
-      <div className="min-h-screen bg-gray-900 text-white">
-        <PageHeader backTo="/" />
-
-        <div className="container mx-auto px-4 py-16 max-w-2xl">
-          <div className="text-center space-y-6 mb-12">
-            <h1 className="text-3xl font-medium text-white">Create Your Identity</h1>
-            <p className="text-gray-300 text-lg">
-              Your on-chain identity is your digital passport across the ecosystem
-            </p>
-          </div>
-
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 space-y-6">
-            <div className="space-y-4">
-              <h2 className="text-xl font-medium text-white">Getting Started</h2>
-              <ol className="space-y-4 text-gray-300">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm font-medium">1</span>
-                  <span>Connect your wallet</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm font-medium">2</span>
-                  <span>Fill in your identity details (name, email, social handles)</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm font-medium">3</span>
-                  <span>Verify your details to build trust</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm font-medium">4</span>
-                  <span>Submit to the blockchain to make it permanent</span>
-                </li>
-              </ol>
-            </div>
-
-            <div className="pt-6 border-t border-gray-700 flex justify-center">
-              <Button
-                onClick={initializeWallets}
-                className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-6 text-lg font-medium"
-              >
-                Get Started
-                <ArrowUpRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  console.log('[ProfilePage] Route params:', { networkParam, addressParam, network, address, peopleChain });
-  console.log('[ProfilePage] Converted address:', { original: address, chainSpecific: chainSpecificAddress });
-  console.log('[ProfilePage] Calling useIdentity with:', { chainSpecificAddress, peopleChain });
-  console.log('[ProfilePage] useIdentity returned:', { identity, isLoading, error, isVerified });
-
-  const copyToClipboard = (text: string, fieldName: string) => {
+  const copyToClipboard = useCallback((text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
     setTimeout(() => setCopiedField(null), 2000);
-  };
+  }, []);
 
-  // If no identity exists, create a mock identity object for display
-  // When editing, use draft display name if available
-  const displayName = (isEditing && isOwnProfile && draftSnap.draft.display)
-    ? draftSnap.draft.display
-    : (identity?.display || "anon");
+  const handleMessageClick = useCallback((type: 'email' | 'twitter' | 'matrix' | 'discord') => {
+    openChat({
+      recipientAddress: address!,
+      recipientName: identity?.display || undefined,
+      recipientEmail: identity?.email || undefined,
+      recipientTwitter: identity?.twitter || undefined,
+      recipientMatrix: identity?.matrix || undefined,
+      recipientDiscord: identity?.discord || undefined,
+      recipientPgpFingerprint: identity?.pgpFingerprint,
+      recipientIsVerified: isVerified,
+      network,
+      contactType: type,
+    });
+  }, [address, identity, isVerified, network, openChat]);
 
-  // Show draft preview with reduced opacity when user is editing (not yet saved)
-  const isDraftMode = isEditing && isOwnProfile && draftSnap.isDirty;
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
 
-  // When own profile, always show draft data merged with identity (for live preview)
-  // When viewing others, show their identity only
-  const displayIdentity = isOwnProfile
-    ? {
+    // Show modal if enabled
+    if (settings.showTransactionModal) {
+      setTxModalOpen(true);
+      setTxStatus("signing");
+      setTxHash(undefined);
+      setTxError(undefined);
+    }
+
+    try {
+      // Simulate signing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setTxStatus("broadcasting");
+
+      // TODO: Implement actual blockchain submission
+      // For now, simulate the flow
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setTxStatus("confirming");
+
+      // Simulate confirmation
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      setTxHash("0x" + Math.random().toString(16).slice(2, 18) + "..."); // Fake hash for demo
+      setTxStatus("success");
+
+      refetch();
+    } catch (err) {
+      setTxStatus("error");
+      setTxError(err instanceof Error ? err.message : "Transaction failed");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [refetch, settings.showTransactionModal]);
+
+  const displayIdentity = useMemo(() => {
+    if (isOwnProfile) {
+      return {
         display: draftSnap.draft.display || identity?.display || null,
         legal: draftSnap.draft.legal || identity?.legal || null,
         email: draftSnap.draft.email || identity?.email || null,
@@ -197,63 +176,54 @@ export default function ProfilePage() {
         image: draftSnap.draft.image || identity?.image || null,
         pgpFingerprint: draftSnap.draft.pgp_fingerprint || identity?.pgpFingerprint || null,
         judgements: identity?.judgements || [],
-        status: identity?.status || IdentityVerificationStatus.NoIdentity
-      }
-    : {
-        display: identity?.display || null,
-        legal: identity?.legal || null,
-        email: identity?.email || null,
-        web: identity?.web || null,
-        twitter: identity?.twitter || null,
-        matrix: identity?.matrix || null,
-        discord: identity?.discord || null,
-        github: identity?.github || null,
-        image: identity?.image || null,
-        pgpFingerprint: identity?.pgpFingerprint || null,
-        judgements: identity?.judgements || [],
-        status: identity?.status || IdentityVerificationStatus.NoIdentity
       };
-
-  // Don't auto-redirect - it causes infinite loop with RegisterRedirect
-  // Instead, show a prompt to create identity with a button
-
-  useEffect(() => {
-    // Only fetch if there's an identity (no point fetching timeline if no identity exists)
-    if (!identity || !chainSpecificAddress) return;
-
-    const getTimeline = async () => {
-      try {
-        setTimelineLoading(true);
-        const searchObj = constructSearcObject("id: " + chainSpecificAddress, FullDisplayedOutputs);
-        const result = await search(searchObj, 1).then((result) => result[0]);
-        setTimeline(result?.timeline || []);
-      } catch (error) {
-        console.error('failed to fetch timeline:', error);
-        setTimeline([]);
-      } finally {
-        setTimelineLoading(false);
-      }
+    }
+    return {
+      display: identity?.display || null,
+      legal: identity?.legal || null,
+      email: identity?.email || null,
+      web: identity?.web || null,
+      twitter: identity?.twitter || null,
+      matrix: identity?.matrix || null,
+      discord: identity?.discord || null,
+      github: identity?.github || null,
+      image: identity?.image || null,
+      pgpFingerprint: identity?.pgpFingerprint || null,
+      judgements: identity?.judgements || [],
     };
+  }, [isOwnProfile, draftSnap.draft, identity]);
 
-    getTimeline();
-  }, [chainSpecificAddress, identity, search]);
+  // Redirect to own profile if visiting /profile without address
+  if (!address && !addressParam) {
+    if (connectedAddress) {
+      return <Navigate to={`/profile/${network}/${connectedAddress}`} replace />;
+    }
 
-  // Don't redirect - keep original address format in URL
-  // This was causing unwanted address format conversions
-  // if (shouldRedirect && chainSpecificAddress) {
-  //   return <Navigate to={`/profile/${network}/${chainSpecificAddress}`} replace />;
-  // }
+    return (
+      <div className="min-h-screen bg-gray-900 text-white">
+        <PageHeader backTo="/" />
+        <div className="container mx-auto px-4 py-16 max-w-lg">
+          <div className="text-center space-y-4 mb-8">
+            <h1 className="text-2xl font-medium">Create Your Identity</h1>
+            <p className="text-gray-400">Connect your wallet to get started</p>
+          </div>
+          <div className="flex justify-center">
+            <WalletConnectButton showText={true} size="lg" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = (isOwnProfile && draftSnap.draft.display)
+    ? draftSnap.draft.display
+    : (identity?.display || "Anonymous");
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-900">
         <PageHeader backTo="/search" />
-        <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
-            <p className="text-gray-400 text-sm">Loading identity...</p>
-          </div>
-        </div>
+        <ProfileSkeleton />
       </div>
     );
   }
@@ -273,161 +243,154 @@ export default function ProfilePage() {
     );
   }
 
-  // For profiles without identity, we still show the profile view
-  // If it's own profile, show edit mode inline
-
   return (
     <div className="min-h-screen bg-gray-900">
       <PageHeader
         backTo="/search"
         rightActions={
-          isOwnProfile ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-          ) : connectedAddress ? (
-            <Link to={`/profile/${network}/${connectedAddress}`}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors p-2"
-                title="My Profile"
-              >
-                <User className="w-4 h-4" />
-              </Button>
-            </Link>
-          ) : undefined
+          <div className="flex items-center gap-1">
+            {isOwnProfile && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPreviewMode(!previewMode)}
+                  className={`p-2 ${previewMode ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
+                  title={previewMode ? "Edit mode" : "Preview as public"}
+                >
+                  {previewMode ? <Pencil className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleTransactionModal}
+                  className={`p-2 ${settings.showTransactionModal ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
+                  title={settings.showTransactionModal ? "Transaction modal: ON" : "Transaction modal: OFF"}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+            {connectedAddress && !isOwnProfile && (
+              <Link to={`/profile/${network}/${connectedAddress}`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white p-2"
+                  title="My Profile"
+                >
+                  <User className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
+          </div>
         }
       />
-      <div className="container mx-auto px-4 py-8 max-w-4xl relative z-0">
 
-        {/* Draft Mode Indicator */}
-        {isDraftMode && (
-          <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-            <div className="flex items-center gap-2 text-yellow-400">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">Draft Preview - Changes not saved to blockchain</span>
-            </div>
+      <div className="container mx-auto px-4 py-6 max-w-2xl">
+        {/* Acting As Selector - shown when connected and viewing own profile */}
+        {connectedAddress && isOwnProfile && !previewMode && (
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-sm text-gray-400">Managing identity for:</span>
+            <ActingAsSelector
+              chainId={peopleChain || undefined}
+              selectedAddress={effectiveAddress}
+              onSelect={(addr, isProxy, isMultisig) => {
+                setActingAs(addr, isProxy, isMultisig)
+              }}
+            />
           </div>
         )}
 
         {/* Profile Header */}
-        <div className={`mb-8 transition-opacity duration-200 ${isDraftMode ? 'opacity-70' : 'opacity-100'}`}>
-          <div className="flex items-center gap-6 mb-6">
-            <Avatar.Root className="w-20 h-20 rounded-full overflow-hidden bg-gray-800/50 border border-gray-700/50 flex-shrink-0">
-              <Avatar.Image
-                src={displayIdentity.image || undefined}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
-              <Avatar.Fallback className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl font-medium text-gray-300">
-                {displayName.charAt(0).toUpperCase()}
-              </Avatar.Fallback>
-            </Avatar.Root>
+        <div className="flex items-start gap-4 mb-6">
+          <Avatar.Root className="w-16 h-16 rounded-full overflow-hidden bg-gray-800 border-2 border-gray-700 flex-shrink-0">
+            <Avatar.Image
+              src={displayIdentity.image || undefined}
+              alt={displayName}
+              className="w-full h-full object-cover"
+            />
+            <Avatar.Fallback className="w-full h-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-xl font-bold text-white">
+              {displayName.charAt(0).toUpperCase()}
+            </Avatar.Fallback>
+          </Avatar.Root>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-medium text-white">
-                  {displayName}
-                </h1>
-                {isVerified && !isDraftMode && (
-                  <span className="inline-flex items-center gap-1 text-xs text-green-400 bg-green-900/20 px-2 py-1 rounded border border-green-500/30">
-                    <CheckCircle className="w-3 h-3" />
-                    Verified
-                  </span>
-                )}
-                {isDraftMode && isVerified && (
-                  <span className="inline-flex items-center gap-1 text-xs text-yellow-400 bg-yellow-900/20 px-2 py-1 rounded border border-yellow-500/30">
-                    <CheckCircle className="w-3 h-3" />
-                    Verified (editing)
-                  </span>
-                )}
-                {isDraftMode && !isVerified && (
-                  <span className="text-xs text-yellow-400 bg-yellow-900/20 px-2 py-1 rounded border border-yellow-500/30">Draft</span>
-                )}
-                {!identity && isOwnProfile && !isDraftMode && (
-                  <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">Not yet registered</span>
-                )}
-              </div>
-              <div className="text-xs uppercase tracking-wide text-gray-500 mb-3">
-                {network.replace('_people', '').replace('_', ' ')}
-              </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl font-semibold text-white truncate">{displayName}</h1>
+              {isVerified && (
+                <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+              )}
+              {isOwnProfile && !previewMode && !isActingAsMode && (
+                <span className="text-xs bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded">You</span>
+              )}
+              {isActingAsMode && actingAs.isProxy && (
+                <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded flex items-center gap-1">
+                  <Shield className="w-3 h-3" /> Proxy
+                </span>
+              )}
+              {isActingAsMode && actingAs.isMultisig && (
+                <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded flex items-center gap-1">
+                  <Users className="w-3 h-3" /> Multisig
+                </span>
+              )}
             </div>
-          </div>
-
-          {/* Address */}
-          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Address</div>
-                <div className="text-white font-mono text-sm break-all">{address}</div>
-              </div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+              {network.replace('_people', '').replace('_', ' ')}
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="text-xs text-gray-400 font-mono truncate">
+                {address?.slice(0, 8)}...{address?.slice(-6)}
+              </code>
               <button
-                onClick={() => copyToClipboard(address, 'address')}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded transition-colors flex-shrink-0"
+                onClick={() => copyToClipboard(address!, 'address')}
+                className="p-1 text-gray-500 hover:text-white transition-colors"
+                title="Copy address"
               >
                 {copiedField === 'address' ? (
-                  <Check className="w-4 h-4 text-green-400" />
+                  <Check className="w-3 h-3 text-green-400" />
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3 h-3" />
                 )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Profile Details Section - Show when identity exists or user is editing */}
-        {/* Always show if identity exists (even with all fields empty) to display verification status */}
-        {(identity || (isOwnProfile && isEditing)) && (
-          <ProfileDetailsSection
-            displayIdentity={displayIdentity}
-            identity={identity}
-            timeline={timeline}
-            isDraftMode={isDraftMode}
-            isOwnProfile={isOwnProfile}
-            isVerified={isVerified}
-            onMessageClick={(type) => {
-              setMessageContactType(type);
-              setIsMessageDialogOpen(true);
-            }}
-          />
-        )}
+        {/* Profile Content - Inline Editable */}
+        <ProfileContent
+          identity={displayIdentity}
+          address={chainSpecificAddress as SS58String}
+          network={network}
+          peopleChain={peopleChain}
+          isOwnProfile={isOwnProfile && !previewMode}
+          isVerified={isVerified}
+          onMessageClick={handleMessageClick}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
 
-        {/* Edit Form (when editing) - placed after profile details */}
-        {isEditing && isOwnProfile && (
-          <div className="pt-6 border-t border-gray-700/50 mb-6">
-            <PolkadotApiProvider>
-              <RegistrationOrchestrator
-                walletAddress={chainSpecificAddress as SS58String}
-                progressive={true}
-                onComplete={() => {
-                  setIsEditing(false)
-                  window.location.reload()
-                }}
-              />
-            </PolkadotApiProvider>
+        {/* Preview mode indicator */}
+        {previewMode && (
+          <div className="mt-4 p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg text-center">
+            <span className="text-pink-300 text-sm">
+              <Eye className="w-4 h-4 inline mr-2" />
+              Preview mode — This is how others see your profile
+            </span>
           </div>
         )}
       </div>
 
-      <RemailerDialog
-        open={isMessageDialogOpen}
-        onOpenChange={setIsMessageDialogOpen}
-        recipientAddress={address}
-        recipientName={identity?.display || undefined}
-        recipientEmail={identity?.email || undefined}
-        recipientTwitter={identity?.twitter || undefined}
-        recipientMatrix={identity?.matrix || undefined}
-        recipientDiscord={identity?.discord || undefined}
-        recipientPgpFingerprint={identity?.pgpFingerprint}
-        recipientIsVerified={isVerified}
-        network={network}
-        contactType={messageContactType}
+      {/* Transaction Progress Modal */}
+      <TransactionProgressModal
+        open={txModalOpen}
+        onClose={() => setTxModalOpen(false)}
+        status={txStatus}
+        txHash={txHash}
+        error={txError}
+        title="Save Identity"
+        network={peopleChain || undefined}
       />
     </div>
-  )
+  );
 }

@@ -17,7 +17,7 @@ import {
 import { AccountBalanceBadge } from "@/components/ui/balance-badge"
 import { PolkadotApiContext } from "@/contexts/PolkadotApiContext"
 
-export function WalletConnectButton({ showText = false }: { showText?: boolean }) {
+export function WalletConnectButton({ showText = false, size = "sm" }: { showText?: boolean; size?: "sm" | "lg" }) {
   const { address, disconnect, selectAccount, isLoadingAccounts } = useAccount()
   const { extensions, getFormattedAccounts, initializeWallets, isInitialized } = usePolkadotWallet()
   const { isMetaMaskInstalled, connectWallet: connectMetaMask, isInitialized: isEthInitialized } = useEthereumWallet()
@@ -40,17 +40,23 @@ export function WalletConnectButton({ showText = false }: { showText?: boolean }
     return getFormattedAccounts(chainConfig.ss58Format)
   }, [network, getFormattedAccounts])
 
+  // Size-based styling
+  const sizeClasses = size === "lg"
+    ? "px-8 py-6 text-lg font-medium"
+    : "text-sm"
+  const iconClasses = size === "lg" ? "w-5 h-5" : "w-4 h-4"
+
   // If not initialized, show connect button
   if (!isInitialized) {
     return (
       <Button
-        variant="outline"
-        size="sm"
+        variant={size === "lg" ? "default" : "outline"}
+        size={size}
         onClick={initializeWallets}
-        className="gap-2 border-gray-700/50 hover:border-gray-600 text-sm"
+        className={`gap-2 ${size === "lg" ? "bg-pink-500 hover:bg-pink-600 text-white" : "border-gray-700/50 hover:border-gray-600"} ${sizeClasses}`}
       >
-        <WalletIcon className="w-4 h-4" />
-        {showText ? <span>Connect</span> : <span className="hidden sm:inline">Connect</span>}
+        <WalletIcon className={iconClasses} />
+        {showText ? <span>Connect Wallet</span> : <span className="hidden sm:inline">Connect</span>}
       </Button>
     )
   }

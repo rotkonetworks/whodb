@@ -4,7 +4,8 @@ import SearchForm from "@/components/search-form"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy } from "lucide-react"
+import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy, AlertCircle, RefreshCw } from "lucide-react"
+import { SearchResultSkeleton } from "@/components/ui/profile-skeleton"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
@@ -115,6 +116,7 @@ export default function SearchPage() {
   const { address: connectedAddress } = useAccount()
   const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -130,8 +132,8 @@ export default function SearchPage() {
   }
 
   const fetchResults = async (searchQuery: any, limit: number = 20) => {
-
     setIsLoading(true);
+    setSearchError(null);
     try {
       // Use the centralized search function from context
       const searchResults = await search(searchQuery, limit);
@@ -139,9 +141,17 @@ export default function SearchPage() {
       setResults(searchResults);
     } catch (error) {
       console.error('Search failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Search service unavailable';
+      setSearchError(errorMessage);
       setResults([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRetry = () => {
+    if (searchJson) {
+      fetchResults(searchJson, 20);
     }
   };
 
@@ -235,28 +245,32 @@ export default function SearchPage() {
           </p>
         </div>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        {/* Error state */}
+        {searchError && !isLoading && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-red-400 font-medium mb-1">Search failed</h3>
+                <p className="text-gray-400 text-sm mb-3">{searchError}</p>
+                <Button
+                  onClick={handleRetry}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try again
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Loading state */}
         {isLoading ? (
           <div className="bg-gray-800/20 border border-gray-700/50 rounded-lg overflow-hidden">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="p-6 border-b border-gray-700/50 animate-pulse">
-                <div className="flex items-start gap-5">
-                  <div className="w-12 h-12 bg-gray-700 rounded-full flex-shrink-0"></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="h-4 bg-gray-700 rounded w-32 mb-3"></div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-700 rounded w-48"></div>
-                      <div className="h-3 bg-gray-700 rounded w-56"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <SearchResultSkeleton />
           </div>
         ) : results.length > 0 ? (
           <div className="bg-gray-800/20 border border-gray-700/50 rounded-lg overflow-hidden">
@@ -268,14 +282,19 @@ export default function SearchPage() {
               />
             ))}
           </div>
-        ) : (
+        ) : !searchError && query ? (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">No results found</h3>
+            <p className="text-gray-400">Try a different search term or check your spelling.</p>
+          </div>
+        ) : !searchError && (
           <div className="text-center py-12">
             <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">Start searching</h3>
             <p className="text-gray-400">Enter at least 3 characters to search for identities.</p>
           </div>
-        )
-        }
+        )}
       </main >
     </div >
   )

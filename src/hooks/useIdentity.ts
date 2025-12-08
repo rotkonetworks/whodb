@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { SS58String, Binary } from "polkadot-api";
 import { logger } from "@/utils/logger";
 
@@ -24,15 +24,21 @@ export interface IdentityState {
   isLoading: boolean;
   error: string | null;
   isVerified: boolean;
+  refetch: () => void;
 }
 
 export const useIdentity = (
   address: SS58String | undefined,
-  chainId: string
+  chainId: string | null
 ): IdentityState => {
   const [identity, setIdentity] = useState<OnChainIdentity | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refetch = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     console.log('[useIdentity] Hook called with:', { address, chainId });
@@ -127,7 +133,7 @@ export const useIdentity = (
     return () => {
       isCancelled = true;
     };
-  }, [address, chainId]);
+  }, [address, chainId, refreshKey]);
 
   const isVerified = useMemo(() => {
     if (!identity || !identity.judgements || identity.judgements.length === 0) {
@@ -144,6 +150,7 @@ export const useIdentity = (
     isLoading,
     error,
     isVerified,
+    refetch,
   };
 };
 

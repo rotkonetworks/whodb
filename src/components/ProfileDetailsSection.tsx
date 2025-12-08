@@ -2,6 +2,87 @@ import { Mail, Globe, MessageSquare, Github, Copy, Check, Send, Key, User } from
 import { useState } from "react"
 import { createSafeUrl } from "@/lib/validation"
 import VerificationTimeline from "@/components/verification-timeline"
+import { useRegistrarIdentity } from "@/hooks/useRegistrarIdentity"
+
+// Component to display registrar info with fetched identity
+function RegistrarBadge({ registrarIndex, judgement }: { registrarIndex: number; judgement: string }) {
+  const { registrarInfo, isLoading, error } = useRegistrarIdentity(registrarIndex);
+  const isVerified = judgement === "Reasonable" || judgement === "KnownGood";
+  const isPending = judgement === "FeePaid";
+
+  const displayName = registrarInfo?.identity?.display || `Registrar #${registrarIndex}`;
+  const registrarWeb = registrarInfo?.identity?.web;
+  const registrarEmail = registrarInfo?.identity?.email;
+  const contactUrl = registrarWeb ? createSafeUrl(registrarWeb, 'website') : null;
+
+  return (
+    <div className={`rounded-lg p-4 border transition-all duration-200 ${
+      isVerified
+        ? "bg-green-500/10 border-green-500/30"
+        : isPending
+        ? "bg-yellow-500/10 border-yellow-500/30"
+        : "bg-gray-800/30 border-gray-700/50"
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {isVerified && (
+            <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          {isPending && (
+            <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+              <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse" />
+            </div>
+          )}
+          <div className="min-w-0">
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-gray-400 text-sm">Loading registrar...</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  {contactUrl ? (
+                    <a
+                      href={contactUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white text-sm font-medium hover:text-pink-400 transition-colors"
+                    >
+                      {displayName}
+                    </a>
+                  ) : (
+                    <span className="text-white text-sm font-medium">{displayName}</span>
+                  )}
+                  {contactUrl && (
+                    <Globe className="w-3 h-3 text-gray-500" />
+                  )}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {isVerified ? "Identity verified" : isPending ? "Verification pending" : "Under review"}
+                  {registrarEmail && !contactUrl && (
+                    <span className="ml-2 text-gray-500">({registrarEmail})</span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <span className={`text-xs px-2.5 py-1 rounded-md font-medium flex-shrink-0 ${
+          isVerified
+            ? "bg-green-400/20 text-green-300 border border-green-400/30"
+            : isPending
+            ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30"
+            : "bg-gray-600/20 text-gray-300 border border-gray-600/30"
+        }`}>
+          {judgement}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 interface ProfileDetailsSectionProps {
   displayIdentity: {
@@ -54,7 +135,7 @@ export function ProfileDetailsSection({
 
   return (
     <div className="pt-6 border-t border-gray-700/50">
-      <div className={`space-y-6 transition-opacity duration-200 ${isDraftMode ? 'opacity-70' : 'opacity-100'}`}>
+      <div className="space-y-6">
 
         {/* Show message when identity exists but no fields are filled */}
         {identity && !hasAnyFields && (
@@ -266,47 +347,13 @@ export function ProfileDetailsSection({
 
             {identity?.judgements && identity.judgements.length > 0 && (
               <div className="space-y-3 mb-6">
-                {identity.judgements.map((judgement: any, idx: number) => {
-                  const isVerified = judgement.judgement === "Reasonable" || judgement.judgement === "KnownGood";
-                  const isPending = judgement.judgement === "FeePaid";
-
-                  return (
-                    <div key={idx} className={`rounded-lg p-4 border ${
-                      isVerified
-                        ? "bg-green-500/10 border-green-500/30"
-                        : isPending
-                        ? "bg-yellow-500/10 border-yellow-500/30"
-                        : "bg-gray-800/30 border-gray-700/50"
-                    }`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {isVerified && (
-                            <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          )}
-                          <div>
-                            <span className="text-white text-sm font-medium">
-                              Registrar #{judgement.registrarIndex}
-                            </span>
-                            <div className="text-xs text-gray-400 mt-0.5">
-                              {isVerified ? "Identity verified" : isPending ? "Verification pending" : "Under review"}
-                            </div>
-                          </div>
-                        </div>
-                        <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${
-                          isVerified
-                            ? "bg-green-400/20 text-green-300 border border-green-400/30"
-                            : isPending
-                            ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30"
-                            : "bg-gray-600/20 text-gray-300 border border-gray-600/30"
-                        }`}>
-                          {judgement.judgement}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {identity.judgements.map((judgement: any, idx: number) => (
+                  <RegistrarBadge
+                    key={idx}
+                    registrarIndex={judgement.registrarIndex}
+                    judgement={judgement.judgement}
+                  />
+                ))}
               </div>
             )}
 

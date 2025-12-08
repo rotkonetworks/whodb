@@ -4,6 +4,7 @@ import { FormField } from "@/components/form-field"
 import { IdentityStatusInfo } from "@/components/IdentityStatusInfo"
 import { PgpKeyManager } from "@/components/pgp-key-manager"
 import { IdentityVerificationStatus, IdentityData } from "@/types/Identity"
+import { validateField } from "@/utils/validation"
 import {
   User,
   Mail,
@@ -14,10 +15,7 @@ import {
   Key,
   ShieldCheck,
   Info,
-  AlertTriangle,
-  CheckCircle,
 } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
 import { useAccount } from "@/contexts/wallet-context"
 import { useNetwork } from "@/contexts/network-context"
 
@@ -39,6 +37,7 @@ export function SimpleIdentityForm({
   identityStatus = IdentityVerificationStatus.NoIdentity,
 }: SimpleIdentityFormProps) {
   const [formData, setFormData] = useState(initialData)
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const { address } = useAccount()
   const { network } = useNetwork()
 
@@ -51,7 +50,29 @@ export function SimpleIdentityForm({
     const newFormData = { ...formData, [field]: value }
     setFormData(newFormData)
     onDataChange(newFormData)
+    // Mark field as touched when user types
+    setTouchedFields(prev => ({ ...prev, [field]: true }))
   }, [formData, onDataChange])
+
+  // Compute validation errors for all fields
+  const validationErrors = useMemo(() => {
+    const errors: Record<string, string | null> = {}
+    Object.keys(formData).forEach(field => {
+      const value = formData[field as keyof IdentityData]
+      if (value && value.trim() !== '') {
+        const result = validateField(field, value)
+        errors[field] = result.error
+      } else {
+        errors[field] = null
+      }
+    })
+    return errors
+  }, [formData])
+
+  // Check if form has any validation errors
+  const hasValidationErrors = useMemo(() => {
+    return Object.values(validationErrors).some(error => error !== null)
+  }, [validationErrors])
 
   const handlePgpKeyUploaded = useCallback(() => {
     // Callback when PGP key is uploaded successfully
@@ -141,6 +162,9 @@ export function SimpleIdentityForm({
     const formFieldKey = fieldMapping[fieldKey]
     if (!formFieldKey) return null
 
+    const error = touchedFields[formFieldKey] ? validationErrors[formFieldKey] : null
+    const isValid = touchedFields[formFieldKey] && !validationErrors[formFieldKey] && formData[formFieldKey]?.trim() !== ''
+
     if (formFieldKey === 'display') {
       return (
         <FormField
@@ -153,6 +177,8 @@ export function SimpleIdentityForm({
           placeholder="e.g., Satoshi Nakamoto"
           description="This name will be publicly visible. Verified on-chain after submission."
           className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+          error={error}
+          isValid={isValid}
         />
       )
     }
@@ -171,6 +197,8 @@ export function SimpleIdentityForm({
             type="text"
             description="40-character PGP key fingerprint for encrypted communication"
             className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+            error={error}
+            isValid={isValid}
           />
 
           {address && network && (
@@ -199,9 +227,11 @@ export function SimpleIdentityForm({
         placeholder={config.placeholder}
         type={config.type}
         className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+        error={error}
+        isValid={isValid}
       />
     )
-  }, [fieldMapping, formData, handleChange, fieldConfig, address, network, handlePgpKeyUploaded])
+  }, [fieldMapping, formData, handleChange, fieldConfig, address, network, handlePgpKeyUploaded, touchedFields, validationErrors])
 
   // Group fields into sections
   const formSections = useMemo(() => {
@@ -291,6 +321,11 @@ export function SimpleIdentityForm({
       {!hasAnyField && (
         <div className="mt-8 pt-6 border-t border-gray-700/50 text-sm text-gray-500">
           Fill in at least one field to set your identity.
+        </div>
+      )}
+      {hasAnyField && hasValidationErrors && (
+        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+          Please fix the validation errors above before submitting.
         </div>
       )}
     </form>

@@ -80,14 +80,22 @@ export const fetchIdentity = async (
 
     if (judgementsData.length > 0) {
       identityInfo.judgements = judgementsData;
+      // Default to JudgementRequested when judgements exist
       identityInfo.status = IdentityVerificationStatus.JudgementRequested;
     }
 
     // Update status based on judgement states
+    // PendingJudgement: Waiting for registrar to process (has judgement but not yet FeePaid or verified)
+    if (judgementsData.find(j => !["FeePaid", "Reasonable", "KnownGood"].includes(j.state))) {
+      identityInfo.status = IdentityVerificationStatus.PendingJudgement;
+    }
+
+    // FeePaid: Registrar accepted, ready for challenges
     if (judgementsData.find(j => j.state === "FeePaid")) {
       identityInfo.status = IdentityVerificationStatus.FeePaid;
     }
 
+    // IdentityVerified: Successfully verified
     if (judgementsData.find(j => ["Reasonable", "KnownGood"].includes(j.state))) {
       identityInfo.status = IdentityVerificationStatus.IdentityVerified;
     }

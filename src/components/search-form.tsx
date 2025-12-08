@@ -2,10 +2,11 @@ import { useWebSocketContext } from "@/contexts/web-socket-provider"
 import { useTriggerLog } from "@/hooks/use-trigger-log"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchWebSocket } from "@/hooks/websocket/search"
+import { useDebounce } from "@/hooks/useDebounce"
 import { FullProfile } from "@/types/profile"
-import { Circle, Search, User, Loader2, Sparkles } from "lucide-react"
+import { Search, User, Loader2, Sparkles } from "lucide-react"
 import type React from "react"
-import { useEffect, useRef, useState, useDeferredValue, useMemo, useCallback, memo } from "react"
+import { useEffect, useRef, useState, useCallback, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { constructSearcObject } from "@/lib/utils"
 import { getEcosystemName } from "@/polkadot-api/chain-config"
@@ -49,11 +50,14 @@ SuggestionItem.displayName = "SuggestionItem";
 export default function SearchForm() {
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
-  const deferredQuery = useDeferredValue(query)
+  // Fast debounce (150ms) for instant-feeling search like Google
+  // Cache layer handles deduplication so we can be more aggressive
+  const debouncedQuery = useDebounce(query, 150)
 
   const { urlParams } = useUrlParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [isTyping, setIsTyping] = useState(false) // Instant feedback on keystroke
   const [suggestions, setSuggestions] = useState<FullProfile[]>([])
   useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -83,27 +87,32 @@ export default function SearchForm() {
       setSuggestions([])
       setShowSuggestions(false)
       setIsSearching(false)
+      setIsTyping(false)
       return
     }
 
-    if (deferredQuery.length >= 3) {
+    // Start searching at 2 characters for faster results (Google-like)
+    if (debouncedQuery.length >= 2) {
       setIsSearching(true)
-      const searchObj = constructSearcObject(deferredQuery, ["WalletID", "Display", "Email", "Twitter", "Network"])
+      const searchObj = constructSearcObject(debouncedQuery, ["WalletID", "Display", "Email", "Twitter", "Network"])
       search(searchObj, 5).then((results) => {
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
         setIsSearching(false)
+        setIsTyping(false) // Clear typing indicator when results arrive
       }).catch((err) => {
         console.error("Search error:", err)
         setSuggestions([])
         setIsSearching(false)
+        setIsTyping(false)
       })
     } else {
       setSuggestions([])
       setShowSuggestions(false)
       setIsSearching(false)
+      setIsTyping(false)
     }
-  }, [deferredQuery, search, enablePredictive])
+  }, [debouncedQuery, search, enablePredictive])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -161,17 +170,28 @@ export default function SearchForm() {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const newValue = e.target.value
+              setQuery(newValue)
+              // Instant feedback: show typing indicator immediately (2+ chars for Google-like speed)
+              if (enablePredictive && newValue.length >= 2) {
+                setIsTyping(true)
+              } else {
+                setIsTyping(false)
+                setSuggestions([])
+                setShowSuggestions(false)
+              }
+            }}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            onFocus={() => enablePredictive && query.length >= 3 && setShowSuggestions(true)}
+            onFocus={() => enablePredictive && debouncedQuery.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
             placeholder="Search identities..."
             className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-20 md:pr-28 rounded-full bg-gray-800 border border-gray-700 focus:border-pink-500 focus:outline-none text-white placeholder-gray-400 transition-colors text-sm md:text-base"
             aria-label="Search query"
             disabled={isSubmitting}
             autoComplete="off"
           />
-          {isSearching ? (
+          {isSearching || isTyping ? (
             <Loader2 className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-pink-400 w-4 h-4 md:w-5 md:h-5 animate-spin" />
           ) : (
             <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />

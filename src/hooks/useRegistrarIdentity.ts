@@ -25,7 +25,7 @@ export interface RegistrarInfo {
  * This allows us to dynamically get contact details without hardcoding
  */
 export function useRegistrarIdentity(registrarIndex?: number) {
-  const { chainId } = useNetwork();
+  const { id: chainId } = useNetwork();
   const [registrarInfo, setRegistrarInfo] = useState<RegistrarInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,11 @@ export function useRegistrarIdentity(registrarIndex?: number) {
 
       try {
         // Get People chain for this ecosystem
-        const peopleChainId = getPeopleChain(chainId);
+        // If already a people chain, use it directly
+        let peopleChainId: string | null = chainId;
+        if (!chainId.includes('_people')) {
+          peopleChainId = getPeopleChain(chainId);
+        }
         if (!peopleChainId) {
           throw new Error(`No People chain found for ${chainId}`);
         }
@@ -93,18 +97,35 @@ export function useRegistrarIdentity(registrarIndex?: number) {
         const identity: RegistrarIdentity = {};
         const info = identityResult.info;
 
-        // Helper to extract string from Data field (matches useIdentity.ts pattern)
+        // Helper to extract string from Data field
         const extractData = (field: any): string | undefined => {
-          if (!field || field.type === "None" || field.type === "Raw0") return undefined;
+          if (!field) return undefined;
 
-          if (field.type === "Raw1") {
-            return Binary.fromBytes(new Uint8Array(field.value)).asText();
+          // Handle PAPI enum format { type: "RawX", value: ... }
+          if (field.type === "None" || field.type === "Raw0") return undefined;
+
+          // For Raw types, value is a Binary or can be converted to text
+          if (field.type?.startsWith("Raw")) {
+            try {
+              // If value has asText method (Binary type)
+              if (field.value?.asText) {
+                return field.value.asText();
+              }
+              // If value is a Uint8Array or array-like
+              if (field.value instanceof Uint8Array || Array.isArray(field.value)) {
+                return Binary.fromBytes(new Uint8Array(field.value)).asText();
+              }
+              // If value is already a string
+              if (typeof field.value === 'string') {
+                return field.value;
+              }
+            } catch (e) {
+              logger.warn('Failed to decode identity field:', e);
+            }
           }
 
-          // For other Raw types
-          if (field.value?.asText) {
-            return field.value.asText();
-          }
+          // Handle direct string value
+          if (typeof field === 'string') return field;
 
           return undefined;
         };
