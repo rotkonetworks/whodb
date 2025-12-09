@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback, memo } from "react"
 import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2 } from "lucide-react"
 import { InlineEditField } from "./InlineEditField"
 import { AccountRelations } from "./AccountRelations"
@@ -33,7 +33,7 @@ interface ProfileContentProps {
   isSaving?: boolean
 }
 
-export function ProfileContent({
+export const ProfileContent = memo(function ProfileContent({
   identity,
   address,
   network,
@@ -64,23 +64,23 @@ export function ProfileContent({
     }
   }, [isOwnProfile, identity])
 
-  const copyToClipboard = (text: string, field: string) => {
+  const copyToClipboard = useCallback((text: string, field: string) => {
     navigator.clipboard.writeText(text)
     setCopiedField(field)
     setTimeout(() => setCopiedField(null), 2000)
-  }
+  }, [])
 
   // Use draft values for own profile, identity values for others
-  const getValue = (field: string) => {
+  const getValue = useCallback((field: string) => {
     if (isOwnProfile) {
       return draftSnap.draft[field as keyof typeof draftSnap.draft] || identity?.[field as keyof typeof identity] || null
     }
     return identity?.[field as keyof typeof identity] || null
-  }
+  }, [isOwnProfile, draftSnap.draft, identity])
 
-  const handleFieldChange = (field: string, value: string) => {
+  const handleFieldChange = useCallback((field: string, value: string) => {
     updateDraftField(field as any, value)
-  }
+  }, [])
 
   const hasChanges = isOwnProfile && draftSnap.isDirty
 
@@ -301,4 +301,4 @@ export function ProfileContent({
       </div>
     </div>
   )
-}
+})

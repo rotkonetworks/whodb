@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, memo } from "react"
 import { Check, X, Pencil, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -16,7 +16,7 @@ interface InlineEditFieldProps {
   className?: string
 }
 
-export function InlineEditField({
+export const InlineEditField = memo(function InlineEditField({
   value,
   placeholder,
   label,
@@ -155,4 +155,4 @@ export function InlineEditField({
       </div>
     </div>
   )
-}
+})

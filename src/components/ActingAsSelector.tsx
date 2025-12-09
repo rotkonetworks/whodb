@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { SS58String } from "polkadot-api"
 import { useAccount } from "@/contexts/wallet-context"
 import { useProxies, addCanActAs, removeCanActAs, verifyProxyRelationship } from "@/hooks/useProxies"
@@ -23,7 +23,36 @@ import * as Avatar from "@radix-ui/react-avatar"
 interface ActingAsSelectorProps {
   chainId?: string
   selectedAddress: SS58String | null
-  onSelect: (address: SS58String | null, isProxy: boolean, isMultisig: boolean) => void
+  onSelect: (
+    address: SS58String | null,
+    isProxy: boolean,
+    isMultisig: boolean,
+    options?: {
+      proxyType?: string
+      multisigThreshold?: number
+      multisigSignatories?: SS58String[]
+    }
+  ) => void
+}
+
+type DialogType = 'main' | 'proxy' | 'multisig' | null
+
+interface FormState {
+  proxyAddress: string
+  multisigSignatories: string
+  multisigThreshold: number
+  multisigName: string
+  isVerifying: boolean
+  error: string | null
+}
+
+const initialFormState: FormState = {
+  proxyAddress: "",
+  multisigSignatories: "",
+  multisigThreshold: 2,
+  multisigName: "",
+  isVerifying: false,
+  error: null,
 }
 
 export function ActingAsSelector({
@@ -36,15 +65,14 @@ export function ActingAsSelector({
   const { canActAs, refetch: refetchProxies } = useProxies(connectedAddress)
   const { multisigs, addMultisig, removeMultisig } = useMultisig(connectedAddress, chainId)
 
-  const [isOpen, setIsOpen] = useState(false)
-  const [showAddProxy, setShowAddProxy] = useState(false)
-  const [showAddMultisig, setShowAddMultisig] = useState(false)
-  const [newProxyAddress, setNewProxyAddress] = useState("")
-  const [newMultisigSignatories, setNewMultisigSignatories] = useState("")
-  const [newMultisigThreshold, setNewMultisigThreshold] = useState(2)
-  const [newMultisigName, setNewMultisigName] = useState("")
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [verifyError, setVerifyError] = useState<string | null>(null)
+  // Consolidated state: 9 useState → 2 useState
+  const [openDialog, setOpenDialog] = useState<DialogType>(null)
+  const [form, setForm] = useState<FormState>(initialFormState)
+
+  // Helper to update form fields
+  const updateForm = useCallback((updates: Partial<FormState>) => {
+    setForm(prev => ({ ...prev, ...updates }))
+  }, [])
 
   // Current selection display
   const currentSelection = useMemo(() => {
@@ -63,81 +91,76 @@ export function ActingAsSelector({
     return { type: "unknown", label: "Unknown" }
   }, [selectedAddress, connectedAddress, canActAs, multisigs])
 
-  const handleAddProxy = async () => {
-    if (!connectedAddress || !newProxyAddress || !typedApi) return
+  const handleAddProxy = useCallback(async () => {
+    if (!connectedAddress || !form.proxyAddress || !typedApi) return
 
-    setIsVerifying(true)
-    setVerifyError(null)
+    updateForm({ isVerifying: true, error: null })
 
     try {
       // Verify the proxy relationship exists on-chain
       const result = await verifyProxyRelationship(
         typedApi,
         connectedAddress,
-        newProxyAddress as SS58String
+        form.proxyAddress as SS58String
       )
 
       if (!result.valid) {
-        setVerifyError("No proxy relationship found. Make sure the target account has added you as a proxy.")
+        updateForm({ error: "No proxy relationship found. Make sure the target account has added you as a proxy.", isVerifying: false })
         return
       }
 
       addCanActAs(
         connectedAddress,
-        newProxyAddress as SS58String,
+        form.proxyAddress as SS58String,
         result.proxyType || "Any",
         result.delay || 0
       )
       refetchProxies()
-      setNewProxyAddress("")
-      setShowAddProxy(false)
+      setForm(initialFormState)
+      setOpenDialog(null)
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : "Failed to verify proxy")
-    } finally {
-      setIsVerifying(false)
+      updateForm({ error: err instanceof Error ? err.message : "Failed to verify proxy", isVerifying: false })
     }
-  }
+  }, [connectedAddress, form.proxyAddress, typedApi, updateForm, refetchProxies])
 
-  const handleAddMultisig = () => {
+  const handleAddMultisig = useCallback(() => {
     if (!connectedAddress) return
 
-    const signatories = newMultisigSignatories
+    const signatories = form.multisigSignatories
       .split(/[,\n]/)
       .map(s => s.trim())
       .filter(Boolean) as SS58String[]
 
     if (signatories.length < 2) {
-      setVerifyError("At least 2 signatories required")
+      updateForm({ error: "At least 2 signatories required" })
       return
     }
 
-    if (newMultisigThreshold < 2 || newMultisigThreshold > signatories.length + 1) {
-      setVerifyError(`Threshold must be between 2 and ${signatories.length + 1}`)
+    if (form.multisigThreshold < 2 || form.multisigThreshold > signatories.length + 1) {
+      updateForm({ error: `Threshold must be between 2 and ${signatories.length + 1}` })
       return
     }
 
-    addMultisig(signatories, newMultisigThreshold, newMultisigName || undefined)
-    setNewMultisigSignatories("")
-    setNewMultisigThreshold(2)
-    setNewMultisigName("")
-    setShowAddMultisig(false)
-  }
+    addMultisig(signatories, form.multisigThreshold, form.multisigName || undefined)
+    setForm(initialFormState)
+    setOpenDialog(null)
+  }, [connectedAddress, form.multisigSignatories, form.multisigThreshold, form.multisigName, updateForm, addMultisig])
 
-  const handleRemoveProxy = (address: SS58String) => {
+  const handleRemoveProxy = useCallback((address: SS58String) => {
     if (!connectedAddress) return
     removeCanActAs(connectedAddress, address)
     refetchProxies()
     if (selectedAddress === address) {
       onSelect(connectedAddress, false, false)
     }
-  }
+  }, [connectedAddress, refetchProxies, selectedAddress, onSelect])
 
-  const handleRemoveMultisig = (address: SS58String) => {
+  const handleRemoveMultisig = useCallback((address: SS58String) => {
     removeMultisig(address)
     if (selectedAddress === address) {
       onSelect(connectedAddress, false, false)
     }
-  }
+  }, [removeMultisig, selectedAddress, connectedAddress, onSelect])
 
   if (!connectedAddress) return null
 
@@ -146,7 +169,7 @@ export function ActingAsSelector({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(true)}
+        onClick={() => setOpenDialog('main')}
         className="gap-2 bg-gray-800/50 border-gray-700 hover:bg-gray-700"
       >
         {currentSelection?.type === "proxy" && <Shield className="w-3.5 h-3.5 text-blue-400" />}
@@ -158,7 +181,7 @@ export function ActingAsSelector({
         <ChevronDown className="w-3.5 h-3.5" />
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={openDialog === 'main'} onOpenChange={(open) => setOpenDialog(open ? 'main' : null)}>
         <DialogContent className="dark:bg-gray-900 max-w-md">
           <DialogHeader>
             <DialogTitle>Act As Account</DialogTitle>
@@ -175,7 +198,7 @@ export function ActingAsSelector({
                 isSelected={selectedAddress === connectedAddress}
                 onSelect={() => {
                   onSelect(connectedAddress, false, false)
-                  setIsOpen(false)
+                  setOpenDialog(null)
                 }}
               />
             </div>
@@ -187,7 +210,7 @@ export function ActingAsSelector({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowAddProxy(true)}
+                  onClick={() => setOpenDialog('proxy')}
                   className="h-6 px-2 text-xs"
                 >
                   <Plus className="w-3 h-3 mr-1" /> Add
@@ -200,18 +223,20 @@ export function ActingAsSelector({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {canActAs.map(proxy => (
+                  {canActAs.map(proxyAccount => (
                     <AccountOption
-                      key={proxy.address}
-                      address={proxy.address}
-                      label={`${proxy.proxyType} proxy`}
+                      key={proxyAccount.address}
+                      address={proxyAccount.address}
+                      label={`${proxyAccount.proxyType} proxy`}
                       icon={<Shield className="w-4 h-4 text-blue-400" />}
-                      isSelected={selectedAddress === proxy.address}
+                      isSelected={selectedAddress === proxyAccount.address}
                       onSelect={() => {
-                        onSelect(proxy.address, true, false)
-                        setIsOpen(false)
+                        onSelect(proxyAccount.address, true, false, {
+                          proxyType: proxyAccount.proxyType,
+                        })
+                        setOpenDialog(null)
                       }}
-                      onRemove={() => handleRemoveProxy(proxy.address)}
+                      onRemove={() => handleRemoveProxy(proxyAccount.address)}
                     />
                   ))}
                 </div>
@@ -225,7 +250,7 @@ export function ActingAsSelector({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowAddMultisig(true)}
+                  onClick={() => setOpenDialog('multisig')}
                   className="h-6 px-2 text-xs"
                 >
                   <Plus className="w-3 h-3 mr-1" /> Add
@@ -246,8 +271,11 @@ export function ActingAsSelector({
                       icon={<Users className="w-4 h-4 text-purple-400" />}
                       isSelected={selectedAddress === msig.address}
                       onSelect={() => {
-                        onSelect(msig.address, false, true)
-                        setIsOpen(false)
+                        onSelect(msig.address, false, true, {
+                          multisigThreshold: msig.threshold,
+                          multisigSignatories: msig.signatories,
+                        })
+                        setOpenDialog(null)
                       }}
                       onRemove={() => handleRemoveMultisig(msig.address)}
                     />
@@ -260,7 +288,9 @@ export function ActingAsSelector({
       </Dialog>
 
       {/* Add Proxy Dialog */}
-      <Dialog open={showAddProxy} onOpenChange={setShowAddProxy}>
+      <Dialog open={openDialog === 'proxy'} onOpenChange={(open) => {
+        if (!open) { setOpenDialog(null); setForm(initialFormState) }
+      }}>
         <DialogContent className="dark:bg-gray-900 max-w-md">
           <DialogHeader>
             <DialogTitle>Add Proxy Account</DialogTitle>
@@ -274,32 +304,29 @@ export function ActingAsSelector({
 
             <Input
               placeholder="Account address (e.g., 5Grw...)"
-              value={newProxyAddress}
-              onChange={(e) => {
-                setNewProxyAddress(e.target.value)
-                setVerifyError(null)
-              }}
+              value={form.proxyAddress}
+              onChange={(e) => updateForm({ proxyAddress: e.target.value, error: null })}
               className="bg-gray-800 border-gray-700"
             />
 
-            {verifyError && (
+            {form.error && (
               <div className="flex items-center gap-2 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />
-                {verifyError}
+                {form.error}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddProxy(false)}>
+            <Button variant="outline" onClick={() => { setOpenDialog(null); setForm(initialFormState) }}>
               Cancel
             </Button>
             <Button
               onClick={handleAddProxy}
-              disabled={!newProxyAddress || isVerifying}
+              disabled={!form.proxyAddress || form.isVerifying}
               className="bg-pink-500 hover:bg-pink-600"
             >
-              {isVerifying ? (
+              {form.isVerifying ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Verifying...
@@ -313,7 +340,9 @@ export function ActingAsSelector({
       </Dialog>
 
       {/* Add Multisig Dialog */}
-      <Dialog open={showAddMultisig} onOpenChange={setShowAddMultisig}>
+      <Dialog open={openDialog === 'multisig'} onOpenChange={(open) => {
+        if (!open) { setOpenDialog(null); setForm(initialFormState) }
+      }}>
         <DialogContent className="dark:bg-gray-900 max-w-md">
           <DialogHeader>
             <DialogTitle>Add Multisig Account</DialogTitle>
@@ -326,11 +355,8 @@ export function ActingAsSelector({
               </label>
               <textarea
                 placeholder="5Grw...\n5Hpz...\n5Abc..."
-                value={newMultisigSignatories}
-                onChange={(e) => {
-                  setNewMultisigSignatories(e.target.value)
-                  setVerifyError(null)
-                }}
+                value={form.multisigSignatories}
+                onChange={(e) => updateForm({ multisigSignatories: e.target.value, error: null })}
                 className="w-full h-24 bg-gray-800 border border-gray-700 rounded-md p-2 text-sm font-mono"
               />
             </div>
@@ -342,8 +368,8 @@ export function ActingAsSelector({
               <Input
                 type="number"
                 min={2}
-                value={newMultisigThreshold}
-                onChange={(e) => setNewMultisigThreshold(parseInt(e.target.value) || 2)}
+                value={form.multisigThreshold}
+                onChange={(e) => updateForm({ multisigThreshold: parseInt(e.target.value) || 2 })}
                 className="bg-gray-800 border-gray-700"
               />
             </div>
@@ -354,27 +380,27 @@ export function ActingAsSelector({
               </label>
               <Input
                 placeholder="e.g., Team Treasury"
-                value={newMultisigName}
-                onChange={(e) => setNewMultisigName(e.target.value)}
+                value={form.multisigName}
+                onChange={(e) => updateForm({ multisigName: e.target.value })}
                 className="bg-gray-800 border-gray-700"
               />
             </div>
 
-            {verifyError && (
+            {form.error && (
               <div className="flex items-center gap-2 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />
-                {verifyError}
+                {form.error}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddMultisig(false)}>
+            <Button variant="outline" onClick={() => { setOpenDialog(null); setForm(initialFormState) }}>
               Cancel
             </Button>
             <Button
               onClick={handleAddMultisig}
-              disabled={!newMultisigSignatories}
+              disabled={!form.multisigSignatories}
               className="bg-pink-500 hover:bg-pink-600"
             >
               Add Multisig

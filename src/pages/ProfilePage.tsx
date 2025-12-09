@@ -1,7 +1,7 @@
 import { CheckCircle, AlertCircle, User, Copy, Check, Eye, Pencil, Settings, Shield, Users } from "lucide-react"
 import { ProfileContent } from "@/components/ProfileContent"
 import { Link, useParams, Navigate } from "react-router-dom"
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import * as Avatar from "@radix-ui/react-avatar"
 import { useIdentity } from "@/hooks/useIdentity"
 import { SS58String } from "polkadot-api"
@@ -11,14 +11,19 @@ import { useAccount } from "@/contexts/wallet-context"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { useChat } from "@/contexts/ChatContext"
-import { useSnapshot } from "valtio"
+import { useSnapshot, snapshot } from "valtio"
 import { identityDraftStore } from "@/store/IdentityDraftStore"
 import { settingsStore, toggleTransactionModal } from "@/store/SettingsStore"
 import { actingAsStore, setActingAs } from "@/store/ActingAsStore"
+
+// Cache for decoded address public keys
+type AddressCache = { address: string; hex: string } | null
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { ProfileSkeleton } from "@/components/ui/profile-skeleton"
 import { TransactionProgressModal, TxStatus } from "@/components/dialogs/TransactionProgressModal"
 import { ActingAsSelector } from "@/components/ActingAsSelector"
+import { getTransactionType } from "@/utils/proxyWrapper"
+import { PendingMultisigCalls } from "@/components/PendingMultisigCalls"
 
 const getPeopleChain = (ecosystem: string | undefined): string | null => {
   if (!ecosystem) return "paseo_people";
@@ -38,8 +43,17 @@ export default function ProfilePage() {
   const [txError, setTxError] = useState<string | undefined>();
   const { openChat } = useChat();
   const draftSnap = useSnapshot(identityDraftStore);
-  const settings = useSnapshot(settingsStore);
+  // Only subscribe to actingAs - read settingsStore directly in callbacks
   const actingAs = useSnapshot(actingAsStore);
+  // Minimal subscription for UI toggle state only
+  const showTxModal = useSnapshot(settingsStore).showTransactionModal;
+
+  // Cache address hex conversions to avoid recalculating
+  const addressCacheRef = useRef<{
+    connected: AddressCache;
+    effective: AddressCache;
+    profile: AddressCache;
+  }>({ connected: null, effective: null, profile: null });
 
   const network = networkParam || 'paseo';
   const address = addressParam || connectedAddress;
@@ -73,39 +87,47 @@ export default function ProfilePage() {
     peopleChain
   );
 
+  // Helper to get cached hex for an address
+  const getAddressHex = useCallback((addr: SS58String | null, cacheKey: 'connected' | 'effective' | 'profile'): string | null => {
+    if (!addr) return null;
+    const cache = addressCacheRef.current[cacheKey];
+    if (cache && cache.address === addr) return cache.hex;
+    try {
+      const pubKey = decodeAddress(addr);
+      const hex = Array.from(pubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+      addressCacheRef.current[cacheKey] = { address: addr, hex };
+      return hex;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // Check if this is a profile we can manage (our own OR one we're acting as)
-  const isOwnProfile = useMemo(() => {
+  const isOwnProfile = useMemo((): boolean => {
     if (!chainSpecificAddress) return false;
 
-    const matchesAddress = (addr: SS58String | null) => {
-      if (!addr) return false;
-      try {
-        const pubKey = decodeAddress(addr);
-        const profilePubKey = decodeAddress(chainSpecificAddress);
-        const addrHex = Array.from(pubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-        const profileHex = Array.from(profilePubKey).map(b => b.toString(16).padStart(2, '0')).join('');
-        return addrHex === profileHex;
-      } catch {
-        return false;
-      }
-    };
+    const profileHex = getAddressHex(chainSpecificAddress as SS58String, 'profile');
+    if (!profileHex) return false;
+
+    const connectedHex = getAddressHex(connectedAddress, 'connected');
+    const effectiveHex = getAddressHex(effectiveAddress as SS58String, 'effective');
 
     // Can manage if it's our connected address OR our acting-as address
-    return matchesAddress(connectedAddress) || matchesAddress(effectiveAddress);
-  }, [connectedAddress, effectiveAddress, chainSpecificAddress]);
+    const matchesConnected = connectedHex !== null && connectedHex === profileHex;
+    const matchesEffective = effectiveHex !== null && effectiveHex === profileHex;
+    return matchesConnected || matchesEffective;
+  }, [connectedAddress, effectiveAddress, chainSpecificAddress, getAddressHex]);
 
   // Whether we're acting as this profile (proxy/multisig)
   const isActingAsMode = useMemo(() => {
     if (!effectiveAddress || !chainSpecificAddress) return false;
     if (effectiveAddress === connectedAddress) return false;
-    try {
-      const effectivePubKey = decodeAddress(effectiveAddress);
-      const profilePubKey = decodeAddress(chainSpecificAddress);
-      return Array.from(effectivePubKey).every((b, i) => b === profilePubKey[i]);
-    } catch {
-      return false;
-    }
-  }, [effectiveAddress, connectedAddress, chainSpecificAddress]);
+
+    const effectiveHex = getAddressHex(effectiveAddress as SS58String, 'effective');
+    const profileHex = getAddressHex(chainSpecificAddress as SS58String, 'profile');
+
+    return effectiveHex !== null && effectiveHex === profileHex;
+  }, [effectiveAddress, connectedAddress, chainSpecificAddress, getAddressHex]);
 
   const copyToClipboard = useCallback((text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -131,8 +153,11 @@ export default function ProfilePage() {
   const handleSave = useCallback(async () => {
     setIsSaving(true);
 
+    // Read directly from store to avoid re-render subscription
+    const showModal = snapshot(settingsStore).showTransactionModal;
+
     // Show modal if enabled
-    if (settings.showTransactionModal) {
+    if (showModal) {
       setTxModalOpen(true);
       setTxStatus("signing");
       setTxHash(undefined);
@@ -160,7 +185,7 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
-  }, [refetch, settings.showTransactionModal]);
+  }, [refetch]);
 
   const displayIdentity = useMemo(() => {
     if (isOwnProfile) {
@@ -192,6 +217,9 @@ export default function ProfilePage() {
       judgements: identity?.judgements || [],
     };
   }, [isOwnProfile, draftSnap.draft, identity]);
+
+  // Get transaction type for display
+  const txType = useMemo(() => getTransactionType(), [actingAs]);
 
   // Redirect to own profile if visiting /profile without address
   if (!address && !addressParam) {
@@ -264,8 +292,8 @@ export default function ProfilePage() {
                   variant="ghost"
                   size="sm"
                   onClick={toggleTransactionModal}
-                  className={`p-2 ${settings.showTransactionModal ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
-                  title={settings.showTransactionModal ? "Transaction modal: ON" : "Transaction modal: OFF"}
+                  className={`p-2 ${showTxModal ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
+                  title={showTxModal ? "Transaction modal: ON" : "Transaction modal: OFF"}
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
@@ -290,15 +318,40 @@ export default function ProfilePage() {
       <div className="container mx-auto px-4 py-6 max-w-2xl">
         {/* Acting As Selector - shown when connected and viewing own profile */}
         {connectedAddress && isOwnProfile && !previewMode && (
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm text-gray-400">Managing identity for:</span>
-            <ActingAsSelector
-              chainId={peopleChain || undefined}
-              selectedAddress={effectiveAddress}
-              onSelect={(addr, isProxy, isMultisig) => {
-                setActingAs(addr, isProxy, isMultisig)
-              }}
-            />
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">Managing identity for:</span>
+              <ActingAsSelector
+                chainId={peopleChain || undefined}
+                selectedAddress={effectiveAddress}
+                onSelect={(addr, isProxy, isMultisig, options) => {
+                  setActingAs(addr, isProxy, isMultisig, options)
+                }}
+              />
+            </div>
+            {txType.type !== 'direct' && (
+              <div className={`text-xs px-3 py-1.5 rounded-md ${
+                txType.type === 'proxy'
+                  ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                  : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+              }`}>
+                {txType.type === 'multisig' && (
+                  <span>Transactions will require {actingAs.multisigThreshold} of {actingAs.multisigSignatories?.length} signatures</span>
+                )}
+                {txType.type === 'proxy' && (
+                  <span>Transactions will be sent via {actingAs.proxyType || 'Any'} proxy</span>
+                )}
+              </div>
+            )}
+            {/* Pending multisig calls */}
+            {txType.type === 'multisig' && actingAs.targetAddress && actingAs.multisigSignatories && (
+              <PendingMultisigCalls
+                multisigAddress={actingAs.targetAddress}
+                signatories={[...actingAs.multisigSignatories]}
+                threshold={actingAs.multisigThreshold || 2}
+                chainId={peopleChain || undefined}
+              />
+            )}
           </div>
         )}
 
