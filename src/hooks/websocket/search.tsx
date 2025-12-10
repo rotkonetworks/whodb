@@ -213,7 +213,7 @@ export const useSearchWebSocket = (
   ): Promise<Array<FullProfile>> => {
     // Search across all fields for autocomplete
     try {
-      // If query is already an object with version/type (from constructSearcObject), send it directly
+      // If query is already an object with version/type (from constructSearchObject), send it directly
       // Otherwise, construct search parameters from string
       const isFormattedObject = typeof query === 'object' && query !== null &&
                                 'version' in query && 'type' in query && 'payload' in query;

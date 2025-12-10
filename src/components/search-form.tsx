@@ -8,7 +8,7 @@ import { Search, User, Loader2, Sparkles } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState, useCallback, memo } from "react"
 import { useNavigate } from "react-router-dom"
-import { constructSearcObject } from "@/lib/utils"
+import { constructSearchObject } from "@/lib/utils"
 import { getEcosystemName } from "@/polkadot-api/chain-config"
 
 const SuggestionItem = memo<{
@@ -94,7 +94,7 @@ export default function SearchForm() {
     // Start searching at 2 characters for faster results (Google-like)
     if (debouncedQuery.length >= 2) {
       setIsSearching(true)
-      const searchObj = constructSearcObject(debouncedQuery, ["WalletID", "Display", "Email", "Twitter", "Network"])
+      const searchObj = constructSearchObject(debouncedQuery, ["WalletID", "Display", "Email", "Twitter", "Network"])
       search(searchObj, 5).then((results) => {
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
