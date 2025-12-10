@@ -82,7 +82,11 @@ export const ProfileContent = memo(function ProfileContent({
     updateDraftField(field as any, value)
   }, [])
 
-  const hasChanges = isOwnProfile && draftSnap.isDirty
+  // Show save button if:
+  // 1. User has made changes (isDirty), OR
+  // 2. User has filled data but no on-chain identity exists yet (new registration)
+  const hasUnsavedNewData = isOwnProfile && !identity?.display && !!draftSnap.draft.display?.trim()
+  const hasChanges = isOwnProfile && (draftSnap.isDirty || hasUnsavedNewData)
 
   return (
     <div className="space-y-6">

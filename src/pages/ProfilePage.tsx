@@ -8,11 +8,14 @@ import { SS58String } from "polkadot-api"
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto"
 import { CHAINS, getPeopleChain as getEcosystemPeopleChain } from "@/polkadot-api/chain-config"
 import { useAccount } from "@/contexts/wallet-context"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { useChat } from "@/contexts/ChatContext"
 import { useSnapshot, snapshot } from "valtio"
-import { identityDraftStore } from "@/store/IdentityDraftStore"
+import { identityDraftStore, markDraftSaved } from "@/store/IdentityDraftStore"
+import { toast } from "sonner"
+import { logger } from "@/utils/logger"
 import { settingsStore, toggleTransactionModal } from "@/store/SettingsStore"
 import { actingAsStore, setActingAs } from "@/store/ActingAsStore"
 
@@ -23,6 +26,7 @@ import { ProfileSkeleton } from "@/components/ui/profile-skeleton"
 import { TransactionProgressModal, TxStatus } from "@/components/dialogs/TransactionProgressModal"
 import { ActingAsSelector } from "@/components/ActingAsSelector"
 import { getTransactionType } from "@/utils/proxyWrapper"
+import { fromHexString } from "@/utils/binary"
 import { PendingMultisigCalls } from "@/components/PendingMultisigCalls"
 
 const getPeopleChain = (ecosystem: string | undefined): string | null => {
@@ -33,6 +37,7 @@ const getPeopleChain = (ecosystem: string | undefined): string | null => {
 
 export default function ProfilePage() {
   const { address: connectedAddress } = useAccount();
+  const { typedApi, signSubmitAndWatch, chainStore } = usePolkadotApi();
   const { network: networkParam, address: addressParam } = useParams<{ network?: string; address: string }>();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -151,10 +156,16 @@ export default function ProfilePage() {
   }, [address, identity, isVerified, network, openChat]);
 
   const handleSave = useCallback(async () => {
+    if (!typedApi || !connectedAddress) {
+      toast.error("Wallet not connected or API not ready");
+      return;
+    }
+
     setIsSaving(true);
 
     // Read directly from store to avoid re-render subscription
     const showModal = snapshot(settingsStore).showTransactionModal;
+    const draft = snapshot(identityDraftStore).draft;
 
     // Show modal if enabled
     if (showModal) {
@@ -165,27 +176,104 @@ export default function ProfilePage() {
     }
 
     try {
-      // Simulate signing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      logger.log("🚀 Starting identity submission", { draft });
+
+      // Build identity info object for the chain
+      const info: any = {
+        display: { none: undefined },
+        legal: { none: undefined },
+        web: { none: undefined },
+        matrix: { none: undefined },
+        email: { none: undefined },
+        image: { none: undefined },
+        twitter: { none: undefined },
+        github: { none: undefined },
+        discord: { none: undefined },
+      };
+
+      // Populate fields that have values
+      Object.entries(draft)
+        .filter(([key, value]) => value && value.trim() !== "" && key !== "pgp_fingerprint")
+        .forEach(([key, value]) => {
+          info[key] = { raw: value.trim() };
+        });
+
+      // Handle PGP fingerprint specially (same format as RegisterPage)
+      if (draft.pgp_fingerprint && draft.pgp_fingerprint.trim() !== "") {
+        const formattedPgpFingerprint = draft.pgp_fingerprint.startsWith('0x')
+          ? draft.pgp_fingerprint.slice(2)
+          : draft.pgp_fingerprint;
+        // 14_16 = 20 bytes prefix needed by PAPI
+        info.pgp_fingerprint = fromHexString(`14${formattedPgpFingerprint}`);
+      }
+
+      const transactions = [];
+
+      // Check if we need to cancel existing judgement request
+      if (identity?.judgements && identity.judgements.length > 0) {
+        const registrarIndex = Number(import.meta.env[
+          `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id?.toUpperCase()}`
+        ]);
+        if (!isNaN(registrarIndex)) {
+          logger.log("Cancelling previous judgement request");
+          transactions.push(typedApi.tx.identity.cancelRequest(registrarIndex));
+        }
+      }
+
+      // Add setIdentity transaction
+      transactions.push(typedApi.tx.identity.setIdentity(info));
+
+      // Add requestJudgement transaction
+      const networkId = chainStore.relay?.id?.toUpperCase();
+      const registrarIndex = Number(import.meta.env[`VITE_APP_REGISTRAR_INDEX__PEOPLE_${networkId}`]);
+
+      if (!isNaN(registrarIndex)) {
+        // Get registrar fee from chain
+        const registrars = await typedApi.query.identity.registrars();
+        const registrarArray = Array.isArray(registrars) ? registrars : [];
+
+        if (registrarArray[registrarIndex]?.value?.fee) {
+          const registrarFee = BigInt(registrarArray[registrarIndex].value.fee);
+          transactions.push(typedApi.tx.identity.requestJudgement(registrarIndex, registrarFee));
+          logger.log("Adding requestJudgement with fee:", registrarFee.toString());
+        }
+      }
+
+      // Execute batch or single transaction
+      const batchTx = transactions.length > 1
+        ? typedApi.tx.utility.batchAll(transactions)
+        : transactions[0];
+
+      logger.log("📝 Submitting batch transaction with", transactions.length, "operations");
       setTxStatus("broadcasting");
 
-      // TODO: Implement actual blockchain submission
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const result = await signSubmitAndWatch({
+        call: batchTx,
+        name: transactions.length > 1 ? "Update Identity (Multi-step)" : "Set Identity"
+      });
+
       setTxStatus("confirming");
 
-      // Simulate confirmation
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      setTxHash("0x" + Math.random().toString(16).slice(2, 18) + "...");
-      setTxStatus("success");
+      if (result.txHash) {
+        setTxHash(result.txHash);
+      }
 
+      setTxStatus("success");
+      toast.success("Identity saved to chain!");
+      markDraftSaved();
       refetch();
     } catch (err) {
+      logger.error("❌ Identity submission error:", err);
       setTxStatus("error");
       setTxError(err instanceof Error ? err.message : "Transaction failed");
+
+      if (err instanceof Error && !err.message.includes("Cancelled")) {
+        toast.error(err.message || "Failed to save identity");
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [refetch]);
+  }, [typedApi, connectedAddress, signSubmitAndWatch, chainStore, identity, refetch]);
 
   const displayIdentity = useMemo(() => {
     if (isOwnProfile) {
