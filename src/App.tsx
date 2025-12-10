@@ -46,8 +46,8 @@ export default function App() {
         <NetworkProvider>
           <PolkadotWalletProvider appName="whodb">
             <EthereumWalletProvider>
-              <PolkadotApiProvider>
-                <AccountProvider>
+              <AccountProvider>
+                <PolkadotApiProvider>
                   <BalanceProvider>
                     <UserProvider>
                       <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}>
@@ -75,8 +75,8 @@ export default function App() {
                       <Toaster />
                     </UserProvider>
                   </BalanceProvider>
-                </AccountProvider>
-              </PolkadotApiProvider>
+                </PolkadotApiProvider>
+              </AccountProvider>
             </EthereumWalletProvider>
           </PolkadotWalletProvider>
         </NetworkProvider>
