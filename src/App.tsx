@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '@/components/theme-provider-simple'
 import { NetworkProvider } from '@/contexts/network-context'
@@ -9,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
 import { ChatWidgetContainer } from '@/components/chat'
 
+// Immediate load for homepage
 import HomePage from './pages/homepage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
@@ -18,11 +20,22 @@ import { AccountProvider } from './contexts/wallet-context'
 import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-const queryClient = new QueryClient()
+// Lazy load heavy pages
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const AuthenticatedProviders = lazy(() => import('./components/AuthenticatedProviders'))
+const LazySearchProvider = lazy(() => import('./components/LazySearchProvider'))
+
+const PageLoader = () => (
+  <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+    <div className="text-gray-400">Loading...</div>
+  </div>
+)
 
 export default function App() {
-  // Enable modal-aware toast behavior
-  useModalAwareToasts();
+  useModalAwareToasts()
+
   return (
     <div className="bg-gray-900 text-white antialiased">
       <ThemeProvider>

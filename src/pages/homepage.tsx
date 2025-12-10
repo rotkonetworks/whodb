@@ -1,4 +1,4 @@
-import SearchForm from "@/components/search-form"
+import SearchFormMinimal from "@/components/search-form-minimal"
 import { Logo } from "@/components/logo"
 import { Footer } from "@/components/footer"
 import { Link } from "react-router-dom"
@@ -24,7 +24,7 @@ export default function HomePage() {
             <Logo variant="hero" />
           </div>
 
-          <SearchForm />
+          <SearchFormMinimal />
 
           <p className="mt-6 md:mt-8 text-gray-400 text-center text-sm px-4">
             Search for identities by name, wallet address, or social handles

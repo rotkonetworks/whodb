@@ -16,6 +16,7 @@ import { Identity, IdentityVerificationStatus } from "@/types/Identity";
 import { wait } from "@/utils";
 import { errorMessages } from "@/utils/errorMessages";
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto";
+import { u8aToHex } from "@polkadot/util";
 import { InvalidTxError, SS58String } from "polkadot-api";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useProxy } from "valtio/utils";
@@ -243,6 +244,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         ? {
           address: urlParams.address,
           encodedAddress: encodeAddress(decodedAddress, chainStore.ss58Format),
+          publicKey: u8aToHex(decodedAddress),
         }
         : null
       )
@@ -1117,6 +1119,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       // Clean up refs on error
       currentProviderRef.current = null;
       currentApiRef.current = null;
+
+      // User-friendly error notification
+      const networkName = CHAINS[chainId]?.name || chainId;
+      toast.error(`Failed to connect to ${networkName}`, {
+        description: errorMessage.includes('WebSocket')
+          ? 'Network connection issue. Please try again.'
+          : 'Please check your internet connection and try again.'
+      });
     } finally {
       setIsConnecting(false);
     }

@@ -7,9 +7,10 @@ import { searchCache, cachedSearch } from "@/utils/searchCache";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
-export const WebSocketProvider = ({ children, url }: {
+export const WebSocketProvider = ({ children, url, autoConnect = false }: {
   children: React.ReactNode;
   url: string;
+  autoConnect?: boolean;
 }) => {
   const webSocket = useWebSocket({
     url,

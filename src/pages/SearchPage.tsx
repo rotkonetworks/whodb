@@ -123,12 +123,12 @@ export default function SearchPage() {
 
   const query = searchParams.get('query') || '';
   // const decodedString = atob(query);
-  var searchTxt = query;
-  var searchJson = null;
+  const searchTxt = query;
+  let searchJson = null;
 
   // Get query from decoded base64 url param
-  if (query != '') {
-    searchJson = constructSearcObject(query);
+  if (query !== '') {
+    searchJson = constructSearchObject(query);
   }
 
   const fetchResults = async (searchQuery: any, limit: number = 20) => {

@@ -36,6 +36,7 @@ export interface ExtendedAccountData extends AccountData, InjectedAccountWithMet
   // Inherits all properties from both interfaces
   address: SS58String;
   encodedAddress: SS58String;
+  publicKey?: string; // Hex-encoded public key for cross-network identification
 }
 
 export interface SignRawParams {
@@ -69,15 +70,17 @@ const PolkadotWalletContext = createContext<PolkadotWalletContextType | undefine
 export interface PolkadotWalletProviderProps {
   children: ReactNode;
   appName?: string;
+  autoConnect?: boolean;
 }
 
-export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }: PolkadotWalletProviderProps) {
+export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", autoConnect = true }: PolkadotWalletProviderProps) {
   const [extensions, setExtensions] = useState<InjectedExtension[]>([]);
   const [accounts, setAccounts] = useState<ExtendedAccountData[]>([]);
   useTriggerLog(accounts, "PolkadotWalletProvider accounts");
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const allAccountsSubscription = useRef<(() => void) | null>(null);
 
@@ -125,11 +128,20 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
             }
           })
           .map((account) => {
+            let publicKey: string | undefined;
+            try {
+              const pk = getPublicKey(account.address);
+              publicKey = pk ? u8aToHex(pk) : undefined;
+            } catch {
+              publicKey = undefined;
+            }
+
             return {
               // AccountData properties
               name: account.meta.name || account.address,
               address: account.address as SS58String,
               encodedAddress: account.address as SS58String,
+              publicKey,
               disabled: false,
 
               // InjectedAccountWithMeta properties
@@ -235,6 +247,7 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
             return {
               ...account,
               encodedAddress: encodeAddress(publicKey, chainSs58Format),
+              publicKey: u8aToHex(publicKey),
             };
           }
           return null;
@@ -269,6 +282,7 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet" }
         return {
           ...foundAccount,
           encodedAddress: encodeAddress(publicKey, chainSs58Format),
+          publicKey: u8aToHex(publicKey),
         };
       } catch {
         console.warn("Failed to encode address for found account");
