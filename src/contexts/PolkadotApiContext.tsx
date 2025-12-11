@@ -408,16 +408,6 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [isTxBusy])
 
   //#region Transactions
-  const getNonce = useCallback(async (api: ApiPromise, address: SS58String) => {
-    try {
-      const accountInfo = await api.query.system.account(address);
-      return (accountInfo as any).nonce.toNumber();
-    } catch (error) {
-      logger.error(error)
-      return null
-    }
-  }, [])
-
   const [errorDetails, setErrorDetails] = useState<Error | null>(null)
   useEffect(() => {
     if (errorDetails) {
@@ -468,18 +458,10 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     }
     setTxBusy(true)
 
-    const nonce = params.nonce ?? await getNonce(api, accountStore.address)
-    logger.log({ nonce });
-    if (nonce === null) {
-      setTxBusy(false)
-      addAlert({
-        type: "error",
-        message: "Unable to prepare transaction. Please try again in a moment.",
-      })
-      logger.error("Failed to get nonce")
-      reject(new Error("Failed to get nonce"))
-      return
-    }
+    // Note: We intentionally do NOT fetch the nonce here.
+    // The nonce is fetched by polkadot.js at signing time (in signAndSend).
+    // Fetching it early causes "Transaction is outdated" errors when the user
+    // takes time to sign in their wallet, as the nonce becomes stale.
 
     // Use connectedWalletAddress as single source of truth
     const signerAddress = params.signer ? accountStore.address : connectedWalletAddress;
@@ -619,7 +601,6 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       });
 
       unsubscribe = await call.signAndSend(signerAddress, {
-        nonce: nonce,
         signer: signer,
         // Use immortal era (era: 0) to prevent "Transaction is outdated" errors
         // This ensures the transaction remains valid regardless of how long user takes to sign
@@ -756,7 +737,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
       }
     }
-    // Still, proposed deps remain inmutable, such as AddAlert and getNonce
+    // Still, proposed deps remain immutable, such as AddAlert
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
   //#endregion Transactions
@@ -885,7 +866,6 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         }
 
         await signSubmitAndWatch({
-          nonce: await getNonce(fromTypedApi, xcmParams.fromAddress),
           signer: fromSigner,
           awaitFinalization: true,
           call: teleportCall,

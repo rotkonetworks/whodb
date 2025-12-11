@@ -347,8 +347,12 @@ export function RegistrationOrchestrator({
     try {
       const transactions = []
 
-      // Cancel pending request if exists (for any status that might have a pending request)
-      if (identity && identity.status >= IdentityVerificationStatus.JudgementRequested) {
+      // Cancel pending request if exists (only for pending statuses, NOT after judgement is given)
+      // JudgementRequested=2, PendingJudgement=3, FeePaid=4 can be cancelled
+      // IdentityVerified=5 means judgement was already delivered, cannot cancel
+      if (identity &&
+          identity.status >= IdentityVerificationStatus.JudgementRequested &&
+          identity.status < IdentityVerificationStatus.IdentityVerified) {
         setLoadingMessage("Cancelling previous request...")
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`

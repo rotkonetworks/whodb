@@ -210,7 +210,9 @@ export default function ProfilePage() {
       const transactions = [];
 
       // Check if we need to cancel existing judgement request
-      if (identity?.judgements && identity.judgements.length > 0) {
+      // Only cancel if judgement is pending (FeePaid), not if already given (Reasonable, KnownGood, etc.)
+      const hasPendingJudgement = identity?.judgements?.some(j => j.state === "FeePaid");
+      if (hasPendingJudgement) {
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id?.toUpperCase()}`
         ]);

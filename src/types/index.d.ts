@@ -50,7 +50,6 @@ export type SignSubmitAndWatchParams = {
   name: string;
   api?: ApiPromise;
   awaitFinalization?: boolean;
-  nonce?: number;
   signer?: Signer;
 };
 
