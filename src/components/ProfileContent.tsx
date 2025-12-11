@@ -45,6 +45,7 @@ export const ProfileContent = memo(function ProfileContent({
 }: ProfileContentProps) {
   const draftSnap = useSnapshot(identityDraftStore)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [hasChanges, setHasChanges] = useState(false)
 
   // Initialize draft from identity when component mounts
   useEffect(() => {
@@ -80,18 +81,13 @@ export const ProfileContent = memo(function ProfileContent({
 
   const handleFieldChange = useCallback((field: string, value: string) => {
     updateDraftField(field as any, value)
+    setHasChanges(true)
   }, [])
-
-  // Show save button if:
-  // 1. User has made changes (isDirty), OR
-  // 2. User has filled data but no on-chain identity exists yet (new registration)
-  const hasUnsavedNewData = isOwnProfile && !identity?.display && !!draftSnap.draft.display?.trim()
-  const hasChanges = isOwnProfile && (draftSnap.isDirty || hasUnsavedNewData)
 
   return (
     <div className="space-y-6">
-      {/* Save button - shown when there are unsaved changes */}
-      {hasChanges && (
+      {/* Save button - shown when user has edited a field */}
+      {isOwnProfile && hasChanges && (
         <div className="flex items-center justify-between p-3 bg-pink-500/10 border border-pink-500/30 rounded-lg">
           <span className="text-sm text-pink-300">You have unsaved changes</span>
           <Button

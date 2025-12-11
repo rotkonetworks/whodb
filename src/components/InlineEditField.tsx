@@ -76,7 +76,10 @@ export const InlineEditField = memo(function InlineEditField({
               ref={inputRef}
               type="text"
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => {
+                setEditValue(e.target.value)
+                onChange?.(e.target.value)
+              }}
               onKeyDown={handleKeyDown}
               onBlur={handleSave}
               placeholder={placeholder}
