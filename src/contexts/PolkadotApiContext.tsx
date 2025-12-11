@@ -611,7 +611,6 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           `${name} transaction timed out. The transaction may still be processing on the blockchain.`
         );
       }, 5 * 60 * 1000);
-      // TODO Set Transaction mortality so it's invalid if not signed in time
 
       // Show initial "signing" toast
       toastId = toast.loading(`${name} - Waiting for signature...`, {
@@ -622,6 +621,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       unsubscribe = await call.signAndSend(signerAddress, {
         nonce: nonce,
         signer: signer,
+        // Use immortal era (era: 0) to prevent "Transaction is outdated" errors
+        // This ensures the transaction remains valid regardless of how long user takes to sign
+        era: 0,
       }, (result) => {
         logger.log("Transaction result:", result);
 
