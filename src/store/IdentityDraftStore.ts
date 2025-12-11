@@ -1,4 +1,4 @@
-import { proxy, subscribe } from "valtio";
+import { proxy } from "valtio";
 import { IdentityData } from "@/types/Identity";
 import { blake2AsHex } from '@polkadot/util-crypto';
 
@@ -12,6 +12,9 @@ export interface FieldVerificationState {
 export interface IdentityDraftState {
   // Draft identity data being built
   draft: IdentityData;
+
+  // Original on-chain identity (for comparison)
+  original: IdentityData;
 
   // Verification status for each field
   verifications: {
@@ -34,99 +37,38 @@ export interface IdentityDraftState {
   editedFields: Set<keyof IdentityData>;
 }
 
-const STORAGE_KEY = "w3registrar_identity_draft";
-
-// Load from localStorage
-const loadFromStorage = (): Partial<IdentityDraftState> | null => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-
-    const parsed = JSON.parse(stored);
-    // Convert editedFields array back to Set
-    if (parsed.editedFields && Array.isArray(parsed.editedFields)) {
-      parsed.editedFields = new Set(parsed.editedFields);
-    }
-    return parsed;
-  } catch (error) {
-    console.error("Failed to load identity draft from storage:", error);
-    return null;
-  }
+const emptyIdentity: IdentityData = {
+  display: "",
+  email: "",
+  legal: "",
+  web: "",
+  twitter: "",
+  matrix: "",
+  discord: "",
+  github: "",
+  pgp_fingerprint: "",
+  image: "",
 };
 
-// Save to localStorage
-const saveToStorage = (state: IdentityDraftState) => {
-  try {
-    // Convert Set to array for JSON serialization
-    const toSave = {
-      ...state,
-      editedFields: Array.from(state.editedFields),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  } catch (error) {
-    console.error("Failed to save identity draft to storage:", error);
-  }
-};
-
-// Initialize store with localStorage data or defaults
-const storedData = loadFromStorage();
-
-if (storedData) {
-  console.log("📦 Loaded identity draft from localStorage:", {
-    isDirty: storedData.isDirty,
-    hasDisplay: !!storedData.draft?.display,
-    fieldCount: Object.keys(storedData.draft || {}).filter(k => storedData.draft?.[k as keyof IdentityData]).length
-  });
-} else {
-  console.log("📦 No cached identity draft found, starting fresh");
-}
-
-// Default empty state
+// Default empty state - always start fresh, on-chain data is source of truth
 const defaultState: IdentityDraftState = {
-  draft: {
-    display: "",
-    email: "",
-    legal: "",
-    web: "",
-    twitter: "",
-    matrix: "",
-    discord: "",
-    github: "",
-    pgp_fingerprint: "",
-    image: "",
-  },
+  draft: { ...emptyIdentity },
+  original: { ...emptyIdentity },
   verifications: {},
   currentIdentityHash: null,
   isDirty: false,
   editedFields: new Set(),
 };
 
-// Merge stored data with defaults to ensure all fields exist
-const initialState: IdentityDraftState = storedData
-  ? {
-      ...defaultState,
-      ...storedData,
-      draft: { ...defaultState.draft, ...storedData.draft },
-      verifications: { ...storedData.verifications },
-      editedFields: storedData.editedFields instanceof Set
-        ? storedData.editedFields
-        : new Set(storedData.editedFields || []),
-    }
-  : defaultState;
-
 // Valtio store for identity draft
-export const identityDraftStore = proxy<IdentityDraftState>(initialState);
-
-// Subscribe to changes and persist to localStorage
-subscribe(identityDraftStore, () => {
-  saveToStorage(identityDraftStore);
-});
+export const identityDraftStore = proxy<IdentityDraftState>(defaultState);
 
 /**
  * Initialize draft from existing on-chain identity
  */
 export const initializeDraft = (existingIdentity: IdentityData) => {
   identityDraftStore.draft = { ...existingIdentity };
+  identityDraftStore.original = { ...existingIdentity };
   identityDraftStore.isDirty = false;
   identityDraftStore.editedFields = new Set();
   identityDraftStore.verifications = {};
@@ -134,10 +76,6 @@ export const initializeDraft = (existingIdentity: IdentityData) => {
 
 /**
  * Update a field in the draft
- *
- * Note: We don't clear verifications here. Instead, we compute current hash
- * and compare with verifiedAtHash to determine if verifications are still valid.
- * This is reactive: verifications become invalid automatically when hash changes.
  */
 export const updateDraftField = (field: keyof IdentityData, value: string) => {
   identityDraftStore.draft[field] = value;
@@ -199,28 +137,11 @@ export const getVerifiedFieldsCount = (): number => {
  * Reset draft to empty state
  */
 export const clearDraft = () => {
-  identityDraftStore.draft = {
-    display: "",
-    email: "",
-    legal: "",
-    web: "",
-    twitter: "",
-    matrix: "",
-    discord: "",
-    github: "",
-    pgp_fingerprint: "",
-    image: "",
-  };
+  identityDraftStore.draft = { ...emptyIdentity };
+  identityDraftStore.original = { ...emptyIdentity };
   identityDraftStore.verifications = {};
   identityDraftStore.isDirty = false;
   identityDraftStore.editedFields = new Set();
-
-  // Clear from localStorage
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error("Failed to clear identity draft from storage:", error);
-  }
 };
 
 /**
