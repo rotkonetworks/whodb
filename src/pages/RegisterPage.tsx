@@ -550,32 +550,25 @@ export default function RegisterPage() {
 
   // Helper function to prepare all identity-related transactions
   const prepareIdentityTransactions = async () => {
-    logger.log("🟢 prepareIdentityTransactions started");
-    logger.log("🟢 Current identity status:", identity?.status);
-    
     const transactions = []
 
     try {
-      // Step 1: Cancel any pending registration request (if needed)
-      logger.log("🟢 Step 1: Checking cancel request...");
-      if (identity?.status === IdentityVerificationStatus.PendingJudgement) {
-        logger.log("🟢 Adding cancel request transaction...");
+      // Clear identity first if sticky judgement exists
+      const hasStickyJudgement = identity?.judgements?.some(j =>
+        ["Reasonable", "KnownGood"].includes(j.state)
+      )
+
+      if (hasStickyJudgement) {
+        transactions.push(typedApi.tx.identity.clearIdentity())
+      } else if (identity?.status === IdentityVerificationStatus.PendingJudgement) {
+        // Cancel pending request if exists
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
         ])
-        logger.log("🟢 Registrar index for cancel:", registrarIndex);
-        
         if (!isNaN(registrarIndex)) {
-          const cancelTx = typedApi.tx.identity.cancelRequest(registrarIndex)
-          transactions.push(cancelTx)
-          logger.log("🟢 Cancel transaction added");
+          transactions.push(typedApi.tx.identity.cancelRequest(registrarIndex))
         }
-      } else {
-        logger.log("🟢 No cancel needed, status is:", identity?.status);
       }
-
-      // Step 2: Set identity (existing logic)
-      logger.log("Adding set identity transaction...")
       const dataToSubmit = identityData
 
       // Transform the data to the format expected by the blockchain

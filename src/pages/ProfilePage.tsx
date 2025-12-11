@@ -209,16 +209,24 @@ export default function ProfilePage() {
 
       const transactions = [];
 
-      // Check if we need to cancel existing judgement request
-      // Only cancel if judgement is pending (FeePaid), not if already given (Reasonable, KnownGood, etc.)
-      const hasPendingJudgement = identity?.judgements?.some(j => j.state === "FeePaid");
-      if (hasPendingJudgement) {
-        const registrarIndex = Number(import.meta.env[
-          `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id?.toUpperCase()}`
-        ]);
-        if (!isNaN(registrarIndex)) {
-          logger.log("Cancelling previous judgement request");
-          transactions.push(typedApi.tx.identity.cancelRequest(registrarIndex));
+      // Clear identity first if sticky judgement exists
+      const hasStickyJudgement = identity?.judgements?.some(j =>
+        ["Reasonable", "KnownGood"].includes(j.judgement)
+      );
+
+      if (hasStickyJudgement) {
+        transactions.push(typedApi.tx.identity.clearIdentity());
+      } else {
+        // Cancel pending request if exists
+        const hasPendingJudgement = identity?.judgements?.some(j => j.judgement === "FeePaid");
+        if (hasPendingJudgement) {
+          const registrarIndex = Number(import.meta.env[
+            `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id?.toUpperCase()}`
+          ]);
+          if (!isNaN(registrarIndex)) {
+            logger.log("Cancelling previous judgement request");
+            transactions.push(typedApi.tx.identity.cancelRequest(registrarIndex));
+          }
         }
       }
 

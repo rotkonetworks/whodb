@@ -347,12 +347,18 @@ export function RegistrationOrchestrator({
     try {
       const transactions = []
 
-      // Cancel pending request if exists (only for pending statuses, NOT after judgement is given)
-      // JudgementRequested=2, PendingJudgement=3, FeePaid=4 can be cancelled
-      // IdentityVerified=5 means judgement was already delivered, cannot cancel
-      if (identity &&
+      // Clear identity first if sticky judgement exists
+      const hasStickyJudgement = identity?.judgements?.some(j =>
+        ["Reasonable", "KnownGood"].includes(j.state)
+      )
+
+      if (hasStickyJudgement) {
+        setLoadingMessage("Clearing identity to update...")
+        transactions.push(typedApi.tx.identity.clearIdentity())
+      } else if (identity &&
           identity.status >= IdentityVerificationStatus.JudgementRequested &&
           identity.status < IdentityVerificationStatus.IdentityVerified) {
+        // Cancel pending request if exists
         setLoadingMessage("Cancelling previous request...")
         const registrarIndex = Number(import.meta.env[
           `VITE_APP_REGISTRAR_INDEX__PEOPLE_${chainStore.relay?.id.toUpperCase()}`
