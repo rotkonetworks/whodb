@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, useEffect } from "react"
+import { useState, useCallback, memo, useEffect, useMemo } from "react"
 import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2 } from "lucide-react"
 import { InlineEditField } from "./InlineEditField"
 import { AccountRelations } from "./AccountRelations"
@@ -44,11 +44,20 @@ export const ProfileContent = memo(function ProfileContent({
 }: ProfileContentProps) {
   const draftSnap = useSnapshot(identityDraftStore)
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [hasChanges, setHasChanges] = useState(false)
+
+  // Compute hasChanges by comparing draft with original on-chain identity
+  const hasChanges = useMemo(() => {
+    if (!isOwnProfile) return false
+    const keys = Object.keys(draftSnap.original) as (keyof typeof draftSnap.original)[]
+    return keys.some(key => {
+      const draftVal = draftSnap.draft[key] || ''
+      const origVal = draftSnap.original[key] || ''
+      return draftVal !== origVal
+    })
+  }, [isOwnProfile, draftSnap.draft, draftSnap.original])
 
   // Reset if come from other profile
   useEffect(() => {
-    setHasChanges(false)
     clearDraft()
   }, [address])
 
@@ -85,7 +94,6 @@ export const ProfileContent = memo(function ProfileContent({
 
   const handleFieldChange = useCallback((field: string, value: string) => {
     updateDraftField(field as any, value)
-    setHasChanges(true)
   }, [])
 
   return (
