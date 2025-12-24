@@ -138,27 +138,36 @@ export default function ProfilePage() {
   }, [effectiveAddress, connectedAddress, chainSpecificAddress, getAddressHex]);
 
   // Set up WebSocket params for verification when viewing own profile
+  // Only run when address/network changes, not on identity changes (to avoid clearing challenges)
+  const wsParamsSetRef = useRef<string | null>(null);
   useEffect(() => {
     if (isOwnProfile && chainSpecificAddress && peopleChain) {
-      // Determine identity status based on judgements
-      let identityStatus = IdentityVerificationStatus.Unknown;
-      if (identity?.judgements?.length) {
-        const hasVerified = identity.judgements.some(j =>
-          ["Reasonable", "KnownGood"].includes(j.judgement)
-        );
-        const hasPending = identity.judgements.some(j => j.judgement === "FeePaid");
-        if (hasVerified) {
-          identityStatus = IdentityVerificationStatus.Verified;
-        } else if (hasPending) {
-          identityStatus = IdentityVerificationStatus.Pending;
-        }
-      }
+      const paramsKey = `${chainSpecificAddress}-${peopleChain}`;
 
-      setWebSocketParams({
-        address: chainSpecificAddress as SS58String,
-        network: peopleChain,
-        identityStatus,
-      });
+      // Only set params if they've changed
+      if (wsParamsSetRef.current !== paramsKey) {
+        wsParamsSetRef.current = paramsKey;
+
+        // Determine identity status based on judgements
+        let identityStatus = IdentityVerificationStatus.Unknown;
+        if (identity?.judgements?.length) {
+          const hasVerified = identity.judgements.some(j =>
+            ["Reasonable", "KnownGood"].includes(j.judgement)
+          );
+          const hasPending = identity.judgements.some(j => j.judgement === "FeePaid");
+          if (hasVerified) {
+            identityStatus = IdentityVerificationStatus.Verified;
+          } else if (hasPending) {
+            identityStatus = IdentityVerificationStatus.Pending;
+          }
+        }
+
+        setWebSocketParams({
+          address: chainSpecificAddress as SS58String,
+          network: peopleChain,
+          identityStatus,
+        });
+      }
     }
   }, [isOwnProfile, chainSpecificAddress, peopleChain, identity?.judgements, setWebSocketParams]);
 

@@ -97,14 +97,25 @@ export const useChallengeWebSocket = (
   useTriggerLog(challenges, "Challenges");
 
   const unsubscribe = useRef<() => void>(() => { });
-  // Reset state when connection parameters change
+  // Track previous address/network to detect actual changes
+  const prevParamsRef = useRef<string | null>(null);
+
+  // Reset state ONLY when address or network changes (not on connection state changes)
   useEffect(() => {
-    setChallenges({});
-    setChallengeState(null);
-    setHasSubscribed(false);
-    unsubscribe.current();
-    unsubscribe.current = () => { };
-  }, [webSocketInstance, address, network]);
+    const paramsKey = `${address}-${network}`;
+
+    // Only reset if params actually changed (not on initial mount or connection state changes)
+    if (prevParamsRef.current !== null && prevParamsRef.current !== paramsKey) {
+      console.log('🔄 Address/network changed, resetting challenge state');
+      setChallenges({});
+      setChallengeState(null);
+      setHasSubscribed(false);
+      unsubscribe.current();
+      unsubscribe.current = () => { };
+    }
+
+    prevParamsRef.current = paramsKey;
+  }, [address, network]);
   useTriggerLog(webSocketInstance, "webSocketInstance");
 
   // Subscribe to account state updates
