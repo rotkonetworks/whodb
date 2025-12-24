@@ -394,6 +394,15 @@ export const useChallengeWebSocket = (
 
     const newChallenges = processVerificationState(verifyState, pendingChallenges, identityStatus);
 
+    // NOTE: MOCK DATA FOR TESTING - REMOVE AFTER TESTING
+    // Mock a verified twitter challenge
+    // newChallenges.twitter = {
+    //   type: 'twitterChallenge',
+    //   status: ChallengeStatus.Passed,
+    //   code: undefined,
+    //   accountName: '@MOCK',
+    // };
+    
     // Only update if there are actual changes
     if (!hasChanges(challenges, newChallenges)) {
       return;

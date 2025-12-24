@@ -64,6 +64,16 @@ export const ProfileContent = memo(function ProfileContent({
       : {}
   }, [registrarInfo?.identity])
 
+  // Field configuration for display
+  const fieldConfig: Record<string, { label: string; getValue: () => string | null }> = useMemo(() => ({
+    email: { label: "Email Address", getValue: () => identity?.email || null },
+    matrix: { label: "Matrix Handle", getValue: () => identity?.matrix || null },
+    twitter: { label: "Twitter", getValue: () => identity?.twitter || null },
+    discord: { label: "Discord", getValue: () => identity?.discord || null },
+    github: { label: "GitHub", getValue: () => identity?.github || null },
+    web: { label: "Website", getValue: () => identity?.web || null },
+  }), [identity])
+
   // Get pending challenges to display
   const pendingChallenges = useMemo(() => {
     const pending: Array<{
@@ -74,15 +84,6 @@ export const ProfileContent = memo(function ProfileContent({
       status: ChallengeStatus
       contactLink?: { url: string; label: string }
     }> = []
-
-    const fieldConfig: Record<string, { label: string; getValue: () => string | null }> = {
-      email: { label: "Email Address", getValue: () => identity?.email || null },
-      matrix: { label: "Matrix Handle", getValue: () => identity?.matrix || null },
-      twitter: { label: "Twitter", getValue: () => identity?.twitter || null },
-      discord: { label: "Discord", getValue: () => identity?.discord || null },
-      github: { label: "GitHub", getValue: () => identity?.github || null },
-      web: { label: "Website", getValue: () => identity?.web || null },
-    }
 
     Object.entries(challenges).forEach(([field, challenge]) => {
       if (challenge && challenge.status === ChallengeStatus.Pending && challenge.code) {
@@ -101,7 +102,31 @@ export const ProfileContent = memo(function ProfileContent({
     })
 
     return pending
-  }, [challenges, identity, contactLinks])
+  }, [challenges, fieldConfig, contactLinks])
+
+  // Get verified challenges to display
+  const verifiedChallenges = useMemo(() => {
+    const verified: Array<{
+      field: string
+      label: string
+      value: string | null
+    }> = []
+
+    Object.entries(challenges).forEach(([field, challenge]) => {
+      if (challenge && challenge.status === ChallengeStatus.Passed) {
+        const config = fieldConfig[field]
+        if (config) {
+          verified.push({
+            field,
+            label: config.label,
+            value: challenge.accountName || config.getValue(),
+          })
+        }
+      }
+    })
+
+    return verified
+  }, [challenges, fieldConfig])
 
   // Check verification status
   const handleCheckVerification = useCallback(async (field: string) => {
@@ -344,7 +369,7 @@ export const ProfileContent = memo(function ProfileContent({
       </div>
 
       {/* Verification Status */}
-      {(identity?.judgements?.length || (isOwnProfile && pendingChallenges.length > 0)) && (
+      {(identity?.judgements?.length || (isOwnProfile && (pendingChallenges.length > 0 || verifiedChallenges.length > 0))) && (
         <div className="pt-4 border-t border-gray-700/50">
           <div className="text-xs uppercase tracking-wide text-gray-500 mb-3">Verification</div>
           <div className="space-y-3">
@@ -461,6 +486,43 @@ export const ProfileContent = memo(function ProfileContent({
                         </button>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Verified challenges */}
+            {isOwnProfile && verifiedChallenges.length > 0 && (
+              <div className="space-y-3 mt-4">
+                <div className="flex items-center gap-2 text-sm text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{verifiedChallenges.length} field(s) verified</span>
+                </div>
+
+                {verifiedChallenges.map((verified) => (
+                  <div key={verified.field} className="bg-green-500/10 rounded-lg border border-green-500/30 overflow-hidden">
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex items-center gap-2">
+                        {verified.field === "email" && <Mail className="w-4 h-4 text-green-400" />}
+                        {verified.field === "matrix" && <MessageSquare className="w-4 h-4 text-green-400" />}
+                        {verified.field === "twitter" && (
+                          <svg className="w-4 h-4 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          </svg>
+                        )}
+                        {verified.field === "discord" && <MessageSquare className="w-4 h-4 text-green-400" />}
+                        {verified.field === "github" && <Github className="w-4 h-4 text-green-400" />}
+                        {verified.field === "web" && <Globe className="w-4 h-4 text-green-400" />}
+                        <span className="text-sm text-white font-medium">{verified.label}</span>
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      </div>
+                      <span className="text-xs bg-green-400/20 text-green-300 px-2 py-1 rounded">Verified</span>
+                    </div>
+                    {verified.value && (
+                      <div className="px-3 py-2 bg-green-900/20 border-t border-green-500/20">
+                        <span className="text-sm text-green-300 font-mono">{verified.value}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
