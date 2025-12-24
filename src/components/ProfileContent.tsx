@@ -1,13 +1,12 @@
-import { useState, useCallback, memo } from "react"
+import { useState, useCallback, memo, useEffect } from "react"
 import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2 } from "lucide-react"
 import { InlineEditField } from "./InlineEditField"
 import { AccountRelations } from "./AccountRelations"
 import { Button } from "@/components/ui/button"
 import { useSnapshot } from "valtio"
-import { updateDraftField, identityDraftStore, initializeDraft } from "@/store/IdentityDraftStore"
+import { updateDraftField, identityDraftStore, initializeDraft, clearDraft } from "@/store/IdentityDraftStore"
 import { createSafeUrl } from "@/lib/validation"
 import { SS58String } from "polkadot-api"
-import { useEffect } from "react"
 
 interface ProfileContentProps {
   identity: {
@@ -47,7 +46,12 @@ export const ProfileContent = memo(function ProfileContent({
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
 
-  // Initialize draft from identity when component mounts
+  // Reset if come from other profile
+  useEffect(() => {
+    setHasChanges(false)
+    clearDraft()
+  }, [address])
+
   useEffect(() => {
     if (isOwnProfile && identity) {
       initializeDraft({
@@ -63,7 +67,7 @@ export const ProfileContent = memo(function ProfileContent({
         pgp_fingerprint: identity.pgpFingerprint || "",
       })
     }
-  }, [isOwnProfile, identity])
+  }, [isOwnProfile, identity?.display, identity?.legal, identity?.email, identity?.web, identity?.twitter, identity?.matrix, identity?.github, identity?.discord, identity?.image, identity?.pgpFingerprint])
 
   const copyToClipboard = useCallback((text: string, field: string) => {
     navigator.clipboard.writeText(text)

@@ -509,8 +509,9 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Content - Inline Editable */}
+        {/* Pass raw identity (not displayIdentity) so ProfileContent can initialize draft correctly */}
         <ProfileContent
-          identity={displayIdentity}
+          identity={identity}
           address={chainSpecificAddress as SS58String}
           network={network}
           peopleChain={peopleChain}

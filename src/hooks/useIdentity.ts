@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
 import { SS58String, Binary } from "polkadot-api";
+import { useState, useEffect, useMemo, useCallback } from "react";
+
 import { logger } from "@/utils/logger";
 
 export interface OnChainIdentity {
@@ -50,6 +51,9 @@ export const useIdentity = (
       setIsLoading(false);
       return;
     }
+
+    // Clear previous identity when come from other profile
+    setIdentity(null);
 
     let isCancelled = false;
     setIsLoading(true);
