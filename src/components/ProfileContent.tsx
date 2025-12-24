@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useEffect, useMemo } from "react"
-import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2 } from "lucide-react"
+import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2, CheckCircle } from "lucide-react"
 import { InlineEditField } from "./InlineEditField"
 import { AccountRelations } from "./AccountRelations"
 import { Button } from "@/components/ui/button"
@@ -7,6 +7,12 @@ import { useSnapshot } from "valtio"
 import { updateDraftField, identityDraftStore, initializeDraft, clearDraft } from "@/store/IdentityDraftStore"
 import { createSafeUrl } from "@/lib/validation"
 import { SS58String } from "polkadot-api"
+import { useVerification } from "@/contexts/verification-context"
+import { ChallengeStatus } from "@/store/challengesStore"
+import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useRegistrarIdentity } from "@/hooks/useRegistrarIdentity"
+import { generateContactLinks } from "@/utils/registrar-contacts"
+import { toast } from "sonner"
 
 interface ProfileContentProps {
   identity: {
@@ -44,6 +50,73 @@ export const ProfileContent = memo(function ProfileContent({
 }: ProfileContentProps) {
   const draftSnap = useSnapshot(identityDraftStore)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [checkingField, setCheckingField] = useState<string | null>(null)
+
+  // Verification context
+  const { challenges, confirmVerification, verifications } = useVerification()
+  const { registrarIndex } = usePolkadotApi()
+  const { registrarInfo } = useRegistrarIdentity(registrarIndex)
+
+  // Generate contact links from registrar identity
+  const contactLinks = useMemo(() => {
+    return registrarInfo?.identity
+      ? generateContactLinks(registrarInfo.identity)
+      : {}
+  }, [registrarInfo?.identity])
+
+  // Get pending challenges to display
+  const pendingChallenges = useMemo(() => {
+    const pending: Array<{
+      field: string
+      label: string
+      value: string | null
+      code: string
+      status: ChallengeStatus
+      contactLink?: { url: string; label: string }
+    }> = []
+
+    const fieldConfig: Record<string, { label: string; getValue: () => string | null }> = {
+      email: { label: "Email Address", getValue: () => identity?.email || null },
+      matrix: { label: "Matrix Handle", getValue: () => identity?.matrix || null },
+      twitter: { label: "Twitter", getValue: () => identity?.twitter || null },
+      discord: { label: "Discord", getValue: () => identity?.discord || null },
+      github: { label: "GitHub", getValue: () => identity?.github || null },
+      web: { label: "Website", getValue: () => identity?.web || null },
+    }
+
+    Object.entries(challenges).forEach(([field, challenge]) => {
+      if (challenge && challenge.status === ChallengeStatus.Pending && challenge.code) {
+        const config = fieldConfig[field]
+        if (config) {
+          pending.push({
+            field,
+            label: config.label,
+            value: challenge.accountName || config.getValue(),
+            code: challenge.code,
+            status: challenge.status,
+            contactLink: contactLinks[field as keyof typeof contactLinks],
+          })
+        }
+      }
+    })
+
+    return pending
+  }, [challenges, identity, contactLinks])
+
+  // Check verification status
+  const handleCheckVerification = useCallback(async (field: string) => {
+    setCheckingField(field)
+    try {
+      const result = await confirmVerification(field as any, undefined as any)
+      if (result) {
+        toast.success(`${field} verified successfully!`)
+      }
+    } catch (error) {
+      console.error(`Failed to check verification for ${field}:`, error)
+    } finally {
+      setCheckingField(null)
+    }
+  }, [confirmVerification])
 
   // Compute hasChanges by comparing draft with original on-chain identity
   const hasChanges = useMemo(() => {
@@ -271,11 +344,12 @@ export const ProfileContent = memo(function ProfileContent({
       </div>
 
       {/* Verification Status */}
-      {identity?.judgements && identity.judgements.length > 0 && (
+      {(identity?.judgements?.length || (isOwnProfile && pendingChallenges.length > 0)) && (
         <div className="pt-4 border-t border-gray-700/50">
           <div className="text-xs uppercase tracking-wide text-gray-500 mb-3">Verification</div>
-          <div className="space-y-2">
-            {identity.judgements.map((j, i) => (
+          <div className="space-y-3">
+            {/* Judgement status */}
+            {identity?.judgements?.map((j, i) => (
               <div
                 key={i}
                 className={`flex items-center justify-between p-3 rounded-lg border ${
@@ -298,6 +372,99 @@ export const ProfileContent = memo(function ProfileContent({
                 </span>
               </div>
             ))}
+
+            {/* Pending verification challenges */}
+            {isOwnProfile && pendingChallenges.length > 0 && (
+              <div className="space-y-3 mt-4">
+                <div className="flex items-center gap-2 text-sm text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Challenges available for {pendingChallenges.length} field(s)</span>
+                </div>
+
+                {pendingChallenges.map((challenge) => (
+                  <div key={challenge.field} className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden">
+                    {/* Header with field info and check button */}
+                    <div className="flex items-center justify-between p-3 border-b border-gray-700/50">
+                      <div className="flex items-center gap-2">
+                        {challenge.field === "email" && <Mail className="w-4 h-4 text-gray-400" />}
+                        {challenge.field === "matrix" && <MessageSquare className="w-4 h-4 text-gray-400" />}
+                        {challenge.field === "twitter" && (
+                          <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          </svg>
+                        )}
+                        {challenge.field === "discord" && <MessageSquare className="w-4 h-4 text-gray-400" />}
+                        {challenge.field === "github" && <Github className="w-4 h-4 text-gray-400" />}
+                        {challenge.field === "web" && <Globe className="w-4 h-4 text-gray-400" />}
+                        <span className="text-sm text-white font-medium">{challenge.label}</span>
+                        <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCheckVerification(challenge.field)}
+                        disabled={checkingField === challenge.field}
+                        className="text-xs border-gray-600 hover:bg-gray-700"
+                      >
+                        {checkingField === challenge.field ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          "Check Verification"
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Account value */}
+                    {challenge.value && (
+                      <div className="px-3 py-2 bg-gray-900/50">
+                        <span className="text-sm text-gray-300 font-mono">{challenge.value}</span>
+                      </div>
+                    )}
+
+                    {/* Instructions and code */}
+                    <div className="p-3 bg-yellow-500/5 border-t border-yellow-500/20">
+                      <div className="text-xs text-yellow-400 font-medium mb-2">Action Required:</div>
+                      <p className="text-xs text-gray-400 mb-2">
+                        {challenge.field === "email" && "We'll send a verification code to your email address. Reply with the code to complete verification."}
+                        {challenge.field === "matrix" && (
+                          <>
+                            Send the verification code to our Matrix registrar bot via direct message.
+                            {challenge.contactLink && (
+                              <a
+                                href={challenge.contactLink.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-pink-400 hover:text-pink-300 ml-1"
+                              >
+                                {challenge.contactLink.label}
+                              </a>
+                            )}
+                          </>
+                        )}
+                        {challenge.field === "twitter" && "Tweet or DM the verification code to complete verification."}
+                        {challenge.field === "discord" && "Send the verification code via Discord to complete verification."}
+                        {challenge.field === "github" && "Create a gist with the verification code to complete verification."}
+                        {challenge.field === "web" && "Add the verification code to your website to complete verification."}
+                      </p>
+                      <div className="flex items-center gap-2 bg-gray-900 rounded px-3 py-2">
+                        <code className="flex-1 text-sm text-white font-mono">{challenge.code}</code>
+                        <button
+                          onClick={() => copyToClipboard(challenge.code, `code-${challenge.field}`)}
+                          className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                          title="Copy code"
+                        >
+                          {copiedField === `code-${challenge.field}` ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

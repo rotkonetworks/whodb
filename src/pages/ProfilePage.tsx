@@ -9,6 +9,8 @@ import { decodeAddress, encodeAddress } from "@polkadot/util-crypto"
 import { CHAINS, getPeopleChain as getEcosystemPeopleChain } from "@/polkadot-api/chain-config"
 import { useAccount } from "@/contexts/wallet-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
+import { useVerification } from "@/contexts/verification-context"
+import { IdentityVerificationStatus } from "@/types/Identity"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { useChat } from "@/contexts/ChatContext"
@@ -52,6 +54,7 @@ export default function ProfilePage() {
   const actingAs = useSnapshot(actingAsStore);
   // Minimal subscription for UI toggle state only
   const showTxModal = useSnapshot(settingsStore).showTransactionModal;
+  const { setWebSocketParams } = useVerification();
 
   // Cache address hex conversions to avoid recalculating
   const addressCacheRef = useRef<{
@@ -133,6 +136,31 @@ export default function ProfilePage() {
 
     return effectiveHex !== null && effectiveHex === profileHex;
   }, [effectiveAddress, connectedAddress, chainSpecificAddress, getAddressHex]);
+
+  // Set up WebSocket params for verification when viewing own profile
+  useEffect(() => {
+    if (isOwnProfile && chainSpecificAddress && peopleChain) {
+      // Determine identity status based on judgements
+      let identityStatus = IdentityVerificationStatus.Unknown;
+      if (identity?.judgements?.length) {
+        const hasVerified = identity.judgements.some(j =>
+          ["Reasonable", "KnownGood"].includes(j.judgement)
+        );
+        const hasPending = identity.judgements.some(j => j.judgement === "FeePaid");
+        if (hasVerified) {
+          identityStatus = IdentityVerificationStatus.Verified;
+        } else if (hasPending) {
+          identityStatus = IdentityVerificationStatus.Pending;
+        }
+      }
+
+      setWebSocketParams({
+        address: chainSpecificAddress as SS58String,
+        network: peopleChain,
+        identityStatus,
+      });
+    }
+  }, [isOwnProfile, chainSpecificAddress, peopleChain, identity?.judgements, setWebSocketParams]);
 
   const copyToClipboard = useCallback((text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
