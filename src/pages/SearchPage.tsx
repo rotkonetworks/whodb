@@ -55,7 +55,7 @@ const SearchResultItem = memo<{
   return (
     <div
       className="bg-gray-800/20 p-6 border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
-      onClick={() => onViewProfile(profile.network, profile.wallet_id)}
+      onClick={() => onViewProfile(profile.network, formattedAddress)}
     >
       <div className="flex items-start gap-5">
         <Avatar.Root className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">

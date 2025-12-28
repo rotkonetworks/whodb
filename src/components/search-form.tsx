@@ -9,7 +9,8 @@ import type React from "react"
 import { useEffect, useRef, useState, useCallback, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { constructSearchObject } from "@/lib/utils"
-import { getEcosystemName } from "@/polkadot-api/chain-config"
+import { getEcosystemName, CHAINS } from "@/polkadot-api/chain-config"
+import { decodeAddress, encodeAddress } from "@polkadot/util-crypto"
 
 const SuggestionItem = memo<{
   profile: FullProfile;
@@ -126,7 +127,18 @@ export default function SearchForm() {
   const handleSuggestionClick = useCallback((profile: FullProfile) => {
     setShowSuggestions(false)
     const ecosystem = profile.network ? getEcosystemName(profile.network) : 'paseo'
-    navigate(`/profile/${ecosystem}/${profile.wallet_id}`)
+    // Convert to chain-specific address format
+    let address = profile.wallet_id
+    try {
+      const chainConfig = CHAINS[profile.network as keyof typeof CHAINS]
+      if (chainConfig?.ss58Format !== undefined) {
+        const publicKey = decodeAddress(profile.wallet_id)
+        address = encodeAddress(publicKey, chainConfig.ss58Format)
+      }
+    } catch {
+      // Keep original address on error
+    }
+    navigate(`/profile/${ecosystem}/${address}`)
   }, [navigate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
