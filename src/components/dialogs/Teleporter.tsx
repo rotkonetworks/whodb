@@ -54,8 +54,12 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   useEffect(() => {
     if (address) {
       setFromAddress(address)
+      console.log("🎯 Teleporter destination:", {
+        toAddress: address,
+        availableAccounts: accounts?.map(a => ({ name: a.name, address: a.encodedAddress }))
+      });
     }
-  }, [address])
+  }, [address, accounts])
 
   const { tokenSymbol, tokenDecimals } = chainConstants
   const [amount, _setAmount] = React.useState(
@@ -86,7 +90,6 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   const handleTeleport = React.useCallback(async () => {
     const tokenDecimals = chainStore.tokenDecimals
     const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
-    console.log({ amount, newAmount })
     const tx = getTeleportCall({
       amount: newAmount,
     })
@@ -143,7 +146,12 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
           <div className="space-y-2">
             <Label htmlFor="toAddress" className="text-gray-400">Current Wallet</Label>
             <Input readOnly
-              value={accounts?.find(({ encodedAddress }) => encodedAddress === toAddress)?.name || 'Unknown Account'}
+              value={(() => {
+                const account = accounts?.find(({ encodedAddress }) => encodedAddress === toAddress);
+                const displayName = account?.name || toAddress || 'Unknown Account';
+                console.log("🔍 Destination lookup:", { toAddress, found: !!account, displayName });
+                return displayName;
+              })()}
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
           </div>

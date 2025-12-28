@@ -97,14 +97,25 @@ export const useChallengeWebSocket = (
   useTriggerLog(challenges, "Challenges");
 
   const unsubscribe = useRef<() => void>(() => { });
-  // Reset state when connection parameters change
+  // Track previous address/network to detect actual changes
+  const prevParamsRef = useRef<string | null>(null);
+
+  // Reset state ONLY when address or network changes (not on connection state changes)
   useEffect(() => {
-    setChallenges({});
-    setChallengeState(null);
-    setHasSubscribed(false);
-    unsubscribe.current();
-    unsubscribe.current = () => { };
-  }, [webSocketInstance, address, network]);
+    const paramsKey = `${address}-${network}`;
+
+    // Only reset if params actually changed (not on initial mount or connection state changes)
+    if (prevParamsRef.current !== null && prevParamsRef.current !== paramsKey) {
+      console.log('🔄 Address/network changed, resetting challenge state');
+      setChallenges({});
+      setChallengeState(null);
+      setHasSubscribed(false);
+      unsubscribe.current();
+      unsubscribe.current = () => { };
+    }
+
+    prevParamsRef.current = paramsKey;
+  }, [address, network]);
   useTriggerLog(webSocketInstance, "webSocketInstance");
 
   // Subscribe to account state updates
@@ -362,49 +373,38 @@ export const useChallengeWebSocket = (
   // Main challenge processing effect
   useEffect(() => {
     const dependencies = [challengeState, webSocketInstance.error, address, identityStatus, network];
-    console.log('🔄 Challenge dependencies changed:', { 
-      challengeState: !!challengeState,
-      error: webSocketInstance.error,
-      address,
-      identityStatus,
-      network,
-      hasChallengeState: !!challengeState,
-      pendingChallengesLength: challengeState?.pending_challenges?.length
-    });
 
     // Early returns for invalid states
     if (webSocketInstance.error) {
-      console.error('❌ WebSocket error:', webSocketInstance.error);
       return;
     }
 
     if (dependencies.some((value) => value === undefined)) {
-      console.log('⚠️ Missing required dependencies:', dependencies.map((v, i) => [`${i}: ${v}`]));
       return;
     }
 
     if (!challengeState || !identityStatus) {
-      console.log('⚠️ Missing challenge state or identity status:', { challengeState: !!challengeState, identityStatus });
       return;
     }
 
     // Process challenge state
     const { pending_challenges, verification_state: { fields: verifyState } } = challengeState;
-    console.log('🔄 Processing challenge state:', {
-      pending_challenges,
-      verifyState,
-      identityStatus
-    });
-    
-    const pendingChallenges = normalizePendingChallenges(pending_challenges);
-    console.log('🔄 Normalized challenges count:', Object.keys(pendingChallenges).length);
-    
-    const newChallenges = processVerificationState(verifyState, pendingChallenges, identityStatus);
-    console.log('🔄 Processed challenges count:', Object.keys(newChallenges).length);
 
+    const pendingChallenges = normalizePendingChallenges(pending_challenges);
+
+    const newChallenges = processVerificationState(verifyState, pendingChallenges, identityStatus);
+
+    // NOTE: MOCK DATA FOR TESTING - REMOVE AFTER TESTING
+    // Mock a verified twitter challenge
+    // newChallenges.twitter = {
+    //   type: 'twitterChallenge',
+    //   status: ChallengeStatus.Passed,
+    //   code: undefined,
+    //   accountName: '@MOCK',
+    // };
+    
     // Only update if there are actual changes
     if (!hasChanges(challenges, newChallenges)) {
-      console.log('🔄 No changes in challenges, skipping update');
       return;
     }
     

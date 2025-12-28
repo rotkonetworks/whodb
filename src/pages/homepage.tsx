@@ -1,26 +1,20 @@
-import SearchFormMinimal from "@/components/search-form-minimal"
+import SearchForm from "@/components/search-form"
 import { Logo } from "@/components/logo"
 import { Footer } from "@/components/footer"
 import { Link } from "react-router-dom"
-import { Button } from "@/components/ui/button"
 import { UserPlus } from "lucide-react"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <header className="container mx-auto px-4 py-4">
-        <div className="flex justify-end space-x-2">
-          <Link to="/register">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 p-2 md:px-3 md:py-1 text-xs md:text-sm rounded-md transition-colors"
-            >
-              <UserPlus className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Register</span>
-            </Button>
-          </Link>
-        </div>
+      <header className="p-4 flex justify-end">
+        <Link
+          to="/profile"
+          className="text-pink-400 hover:bg-pink-500/10 px-3 py-2 text-sm rounded-md transition-colors inline-flex items-center gap-2"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span className="hidden md:inline">Register</span>
+        </Link>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4">
@@ -30,7 +24,7 @@ export default function HomePage() {
             <Logo variant="hero" />
           </div>
 
-          <SearchFormMinimal />
+          <SearchForm />
 
           <p className="mt-6 md:mt-8 text-gray-400 text-center text-sm px-4">
             Search for identities by name, wallet address, or social handles

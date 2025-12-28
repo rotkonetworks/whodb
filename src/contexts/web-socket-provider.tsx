@@ -1,9 +1,9 @@
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { SearchOptions, useSearchWebSocket } from "@/hooks/websocket/search";
 import { useWebSocket, WebSocketHookReturn } from "@/hooks/websocket";
-import { SS58String } from "polkadot-api";
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useState, useRef } from "react";
 import { FullProfile } from "@/types/profile";
+import { searchCache, cachedSearch } from "@/utils/searchCache";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
@@ -12,7 +12,11 @@ export const WebSocketProvider = ({ children, url, autoConnect = false }: {
   url: string;
   autoConnect?: boolean;
 }) => {
-  const webSocket = useWebSocket({ url, autoConnect });
+  const webSocket = useWebSocket({
+    url,
+    autoConnect: true,
+    maxReconnectAttempts: 3, // Limit reconnection attempts
+  });
 
   return (
     <WebSocketContext.Provider value={webSocket}>
@@ -53,30 +57,34 @@ export const SearchProvider = ({ children }: {
     query: string,
     limit?: number,
   ): Promise<ProfileResults> => {
+    // Create a cache key that includes the limit
+    const cacheKey = typeof query === 'string'
+      ? `${query}::${limit || 100}`
+      : JSON.stringify({ query, limit });
 
-    // Search across all networks seamlessly
-    const filtered = (await searchWebSocket.search(query, limit))
-      .map((profile) => {
-        return ({
-          id: profile.wallet_id,
-          wallet_id: profile.wallet_id,
-          network: profile.network,
-          discord: profile.discord,
-          display: profile.display,
-          email: profile.email,
-          matrix: profile.matrix,
-          twitter: profile.twitter,
-          github: profile.github,
-          legal: profile.legal,
-          web: profile.web,
-          pgp_fingerprint: profile.pgp_fingerprint,
-          timeline: profile.timeline,
-          //image: profile.image || "/placeholder.svg", // TODO Add circle letter avatar fallback
-          verified: profile.timeline?.some(event => event.event === 'verified') || false,
-        })
-      })
+    // Use cached search for instant results
+    const filtered = await cachedSearch(cacheKey, async () => {
+      // Search across all networks seamlessly
+      const searchResults = await searchWebSocket.search(query, limit);
+      return searchResults.map((profile) => ({
+        id: profile.wallet_id,
+        wallet_id: profile.wallet_id,
+        network: profile.network,
+        discord: profile.discord,
+        display: profile.display,
+        email: profile.email,
+        matrix: profile.matrix,
+        twitter: profile.twitter,
+        github: profile.github,
+        legal: profile.legal,
+        web: profile.web,
+        pgp_fingerprint: profile.pgp_fingerprint,
+        timeline: profile.timeline,
+        verified: profile.timeline?.some(event => event.event === 'verified') || false,
+      }));
+    });
+
     setResults(filtered);
-
     return filtered;
   }, [searchWebSocket]);
 

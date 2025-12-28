@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import { useAccountsTree } from "@/hooks/UseAccountsTree";
 import { useAlerts } from "@/hooks/useAlerts";
 import { ChainConstants, useChainRealTimeInfo } from "@/hooks/useChainRealTimeInfo";
@@ -25,11 +26,14 @@ import { accountStore as _accountStore } from "@/store/AccountStore";
 import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
 import { useSystemAccountData } from "@/hooks/use-system-account-data";
+import { useCombinedBalance } from "@/hooks/use-combined-balance";
+import { usePapiBalance } from "@/hooks/use-papi-balance";
 import { CHAINS, cleanupAllConnections, cleanupConnection, createChainClient, getTypedApi } from "@/polkadot-api/chain-config";
 import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import BigNumber from "bignumber.js";
 import { usePolkadotWallet } from "./PolkadotWalletContext";
+import { useAccount } from "./wallet-context";
 import { toast } from "sonner";
 
 // Define the missing type based on the usage in useXcmParameters
@@ -127,7 +131,9 @@ interface PolkadotApiContextType {
 
   // Balances
   fromBalance: BigNumber;
-  balance: BigNumber;
+  balance: BigNumber; // Combined balance (People + AssetHub)
+  peopleChainBalance: BigNumber | null; // Balance specifically on People chain
+  assetHubBalance: BigNumber | null; // Balance specifically on AssetHub
   hasEnoughBalance: boolean | null;
   minimunTeleportAmount: BigNumber;
 
@@ -148,7 +154,7 @@ interface PolkadotApiContextType {
   isConnected: boolean;
 }
 
-const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
+export const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
 
 // Custom hook to use the context
 export const usePolkadotApi = () => {
@@ -188,6 +194,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const chainStore = useProxy(_chainStore);
   const accountStore = useProxy(_accountStore);
 
+  // Get the actual connected wallet address (Ryan Carniato: single source of truth)
+  const { address: connectedWalletAddress } = useAccount();
+
   const { urlParams, updateUrlParams } = useUrlParams()
 
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
@@ -221,7 +230,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     try {
       decodedAddress = decodeAddress(urlParams.address);
     } catch (error) {
-      console.error("Error decoding address:", error);
+      logger.error("Error decoding address:", error);
       addAlert({
         type: "error",
         message: "Invalid address format. Please check the address and try again.",
@@ -240,7 +249,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         : null
       )
       ;
-    console.log({ accountData });
+    logger.log({ accountData });
     if (accountData) {
       // Clear accountStore first to ensure props missing in accountData aren't kept
       Object.keys(accountStore).forEach(key => {
@@ -263,7 +272,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   const updateAccount = useCallback(({ name, address }: Pick<AccountData, 'name' | 'address'>) => {
     const account = { name, address };
-    console.log({ account });
+    logger.log({ account });
     Object.assign(accountStore, account);
     updateUrlParams({ ...urlParams, address });
   }, [accountStore, urlParams, updateUrlParams]);
@@ -281,9 +290,20 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const supportedFields = useSupportedFields({ typedApi, registrarIndex, });
 
   // Use the hook for core identity functionality
-  const {
-    identity, fetchIdAndJudgement, prepareClearIdentityTx,
-  } = useIdentity({ typedApi, address: accountStore.address, });
+  const identityHookResult = useIdentity(accountStore.address as SS58String, chainStore.id as string);
+
+  // Map the hook result to the expected structure
+  const identity = identityHookResult.identity ? {
+    info: identityHookResult.identity,
+    judgements: identityHookResult.identity.judgements || [],
+    status: identityHookResult.isVerified
+      ? IdentityVerificationStatus.IdentityVerified
+      : identityHookResult.identity ? IdentityVerificationStatus.IdentitySet : IdentityVerificationStatus.NoIdentity,
+  } as Identity : null;
+
+  // Stub functions for compatibility (these were from old implementation)
+  const fetchIdAndJudgement = async () => identity;
+  const prepareClearIdentityTx = () => null;
   useEffect(() => {
     identityFormRef.current?.reset()
   }, [identity])
@@ -305,9 +325,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
             tokenSymbol: chainProperties.tokenSymbol[0] || '',
           }
         }
-        console.log({ id, chainProperties })
+        logger.log({ id, chainProperties })
       } catch {
-        console.error({ id, })
+        logger.error({ id, })
       }
       const relayId = id.split("_")[0];
       const newChainData = {
@@ -324,7 +344,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         ...chainProperties,
       }
       Object.assign(chainStore, newChainData)
-      console.log({ id, newChainData });
+      logger.log({ id, newChainData });
     })())
   }, [chainStore.id, typedApi]);
 
@@ -379,25 +399,15 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const formatAmount = useFormatAmount({
     tokenDecimals: chainStore.tokenDecimals,
     symbol: chainStore.tokenSymbol,
-    decimals: 4
+    decimals: 2
   });
 
   const [isTxBusy, setTxBusy] = useState(false)
   useEffect(() => {
-    console.log({ isTxBusy })
+    logger.log({ isTxBusy })
   }, [isTxBusy])
 
   //#region Transactions
-  const getNonce = useCallback(async (api: ApiPromise, address: SS58String) => {
-    try {
-      const accountInfo = await api.query.system.account(address);
-      return (accountInfo as any).nonce.toNumber();
-    } catch (error) {
-      console.error(error)
-      return null
-    }
-  }, [])
-
   const [errorDetails, setErrorDetails] = useState<Error | null>(null)
   useEffect(() => {
     if (errorDetails) {
@@ -420,7 +430,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     const { call, name } = params;
     let api = params.api || null;
 
-    console.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
+    logger.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
 
     if (!api) {
       api = typedApi
@@ -436,31 +446,37 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       return
     }
 
-    // Prevent concurrent transactions
+    // Prevent concurrent transactions (Ryan Carniato: single source of truth for transaction state)
     if (isTxBusy) {
+      console.warn("⚠️ Transaction already in progress - blocking concurrent submission")
       reject(new Error("Transaction already in progress"))
-      addAlert({
-        type: "error",
-        message: "There is a transaction already in progress. Please wait for it to finish.",
+      toast.warning("Transaction in progress - Please wait", {
+        position: "bottom-right",
+        duration: 3000
       })
       return
     }
     setTxBusy(true)
 
-    const nonce = params.nonce ?? await getNonce(api, accountStore.address)
-    console.log({ nonce });
-    if (nonce === null) {
-      setTxBusy(false)
+    // Note: We intentionally do NOT fetch the nonce here.
+    // The nonce is fetched by polkadot.js at signing time (in signAndSend).
+    // Fetching it early causes "Transaction is outdated" errors when the user
+    // takes time to sign in their wallet, as the nonce becomes stale.
+
+    // Use connectedWalletAddress as single source of truth
+    const signerAddress = params.signer ? accountStore.address : connectedWalletAddress;
+
+    if (!signerAddress) {
+      setTxBusy(false);
       addAlert({
         type: "error",
-        message: "Unable to prepare transaction. Please try again in a moment.",
-      })
-      console.error("Failed to get nonce")
-      reject(new Error("Failed to get nonce"))
-      return
+        message: "No wallet connected. Please connect your wallet to sign transactions.",
+      });
+      reject(new Error("No wallet connected"));
+      return;
     }
 
-    const signer = params.signer ?? await getSignerForAddress(accountStore.address);
+    const signer = params.signer ?? await getSignerForAddress(signerAddress);
     if (!signer) {
       setTxBusy(false);
       addAlert({
@@ -476,6 +492,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       .slice(-10); // Keep only the last 10 hashes
     let unsubscribe: (() => void) | null = null;
     let timeoutId: NodeJS.Timeout | null = null;
+    let toastId: string | number | undefined;
 
     const disposeSubscription = (callback: () => void) => {
       if (!callback || typeof callback !== 'function') {
@@ -546,7 +563,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
               const decoded = api.registry.findMetaError((dispatchError as any).asModule);
               errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
               // Enhanced logging for debugging
-              console.error(`Module error in ${name}:`, {
+              logger.error(`Module error in ${name}:`, {
                 section: decoded.section,
                 name: decoded.name,
                 docs: decoded.docs,
@@ -555,11 +572,11 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
               });
             } else {
               errorInfo = dispatchError?.toString() || 'Unknown error';
-              console.error(`Non-module error in ${name}:`, { dispatchError, txHash });
+              logger.error(`Non-module error in ${name}:`, { dispatchError, txHash });
             }
           } catch (e) {
             errorInfo = 'Error parsing transaction failure details';
-            console.error(`Error parsing failure details for ${name}:`, { e, dispatchError, txHash });
+            logger.error(`Error parsing failure details for ${name}:`, { e, dispatchError, txHash });
           }
         }
         return hasError; // Stop if we found an error
@@ -576,64 +593,118 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           `${name} transaction timed out. The transaction may still be processing on the blockchain.`
         );
       }, 5 * 60 * 1000);
-      // TODO Set Transaction mortality so it's invalid if not signed in time
 
-      unsubscribe = await call.signAndSend(accountStore.address, {
-        nonce: nonce,
+      // Show initial "signing" toast
+      toastId = toast.loading(`${name} - Waiting for signature...`, {
+        duration: Infinity,
+        position: "bottom-right"
+      });
+
+      unsubscribe = await call.signAndSend(signerAddress, {
         signer: signer,
+        // Use immortal era (era: 0) to prevent "Transaction is outdated" errors
+        // This ensures the transaction remains valid regardless of how long user takes to sign
+        era: 0,
       }, (result) => {
-        console.log("Transaction result:", result);
+        logger.log("Transaction result:", result);
 
         // Handle different transaction states
         if (result.status.isBroadcast) {
-          console.log(`Transaction ${txHash} broadcasted`);
+          logger.log(`Transaction ${txHash} broadcasted`);
           alertLoading(`${name} transaction sent...`);
+          toast.loading(`${name} - Broadcasting...`, {
+            id: toastId,
+            duration: Infinity,
+            position: "bottom-right"
+          });
         }
 
         else if (result.status.isInBlock) {
-          console.log(`Transaction ${txHash} included in block`);
+          logger.log(`Transaction ${txHash} included in block`);
 
           const errorInfo = checkTxFail(result)
           if (errorInfo) {
+            toast.error(`${name} - Failed: ${errorInfo}`, {
+              id: toastId,
+              duration: 5000,
+              position: "bottom-right"
+            });
             return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
           } else {
             // Transaction succeeded
             if (params.awaitFinalization) {
-              console.log(`Transaction ${txHash} is waiting for finalization`);
+              logger.log(`Transaction ${txHash} is waiting for finalization`);
               alertLoading(`Waiting for ${name.toLowerCase()} to finalize...`);
+              toast.loading(`${name} - Finalizing...`, {
+                id: toastId,
+                duration: Infinity,
+                position: "bottom-right"
+              });
             } else {
-              console.log(`Transaction ${txHash} completed successfully`);
+              logger.log(`Transaction ${txHash} completed successfully`);
+              toast.success(`${name} - Completed!`, {
+                id: toastId,
+                duration: 5000,
+                position: "bottom-right"
+              });
               return dispatchSuccess(`${name} completed successfully`);
             }
           }
         }
 
         else if (result.status.isFinalized) {
-          console.log(`Transaction ${txHash} finalized`);
+          logger.log(`Transaction ${txHash} finalized`);
 
           if (params.awaitFinalization) {
             const errorInfo = checkTxFail(result)
             if (errorInfo) {
+              toast.error(`${name} - Failed: ${errorInfo}`, {
+                id: toastId,
+                duration: 5000,
+                position: "bottom-right"
+              });
               return dispatchFail(new Error(errorInfo), `${name} failed: ${errorInfo}`);
             } else {
+              toast.success(`${name} - Finalized!`, {
+                id: toastId,
+                duration: 5000,
+                position: "bottom-right"
+              });
               return dispatchSuccess(`${name} completed successfully`);
             }
           }
         }
 
         else if (result.status.isInvalid) {
-          console.log(`Transaction ${txHash} invalid`);
+          logger.log(`Transaction ${txHash} invalid`);
+          toast.error(`${name} - Invalid transaction`, {
+            id: toastId,
+            duration: 5000,
+            position: "bottom-right"
+          });
           return dispatchFail(new Error("Transaction is invalid"), `${name} transaction is invalid. Please try again.`);
         }
         else if (result.status.isDropped || result.status.isUsurped) {
-          console.log(`Transaction ${txHash} dropped or usurped`);
+          logger.log(`Transaction ${txHash} dropped or usurped`);
+          toast.error(`${name} - Transaction dropped`, {
+            id: toastId,
+            duration: 5000,
+            position: "bottom-right"
+          });
           return dispatchFail(new Error("Transaction dropped or usurped"), `${name} transaction was dropped or replaced. Please try again.`);
         }
       });
     } catch (error: any) {
-      console.error(`Transaction ${txHash} signing/sending error:`, error);
+      logger.error(`Transaction ${txHash} signing/sending error:`, error);
 
       if (error.message === "Cancelled") {
+        if (toastId) {
+          toast.error(`${name} - Cancelled`, {
+            id: toastId,
+            duration: 3000,
+            position: "bottom-right"
+          });
+        }
         return dispatchFail(error, `${name} transaction cancelled by user`);
       }
 
@@ -658,7 +729,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
               ?? `Error with ${name}: Please try again`;
             return dispatchFail(error, `${name} failed: ${_errorMessage}`);
           } catch (parseError) {
-            console.error("Error parsing error message:", parseError);
+            logger.error("Error parsing error message:", parseError);
             return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
           }
         }
@@ -666,7 +737,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         return dispatchFail(error, `Error with ${name}: ${error.message || "Please try again"}`);
       }
     }
-    // Still, proposed deps remain inmutable, such as AddAlert and getNonce
+    // Still, proposed deps remain immutable, such as AddAlert
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [accountStore.address, isTxBusy, fetchIdAndJudgement, typedApi,])
   //#endregion Transactions
@@ -724,9 +795,33 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [typedApi, getParachainId])
 
   //#region Balances
-  // TODO Init when needed
-  const { balance: fromBalance } = useSystemAccountData(xcmParams.fromAddress, fromTypedApi || undefined);
-  const { balance } = useSystemAccountData(accountStore.address, typedApi || undefined);
+  // Use PAPI for balance queries (Polkadot.js is deprecated)
+
+  // Get balance directly from People chain using PAPI (where registration happens)
+  // Use connectedWalletAddress as single source of truth (Ryan Carniato principle)
+  const { balance: peopleChainBalance, isLoading: isPeopleBalanceLoading, error: balanceError } = usePapiBalance(
+    connectedWalletAddress as SS58String | undefined,
+    chainStore.id
+  );
+
+  // TODO: Add fromBalance using PAPI when needed for XCM
+  const fromBalance = new BigNumber(0);
+
+  // For now, we only care about People chain balance for registration
+  // Combined balance with AssetHub can be added later if needed
+  const balance = peopleChainBalance || new BigNumber(0);
+  const assetHubBalance = null; // TODO: Add if needed for teleporter UX
+
+  useEffect(() => {
+    console.log("💰 PAPI Balance state:", {
+      connectedWalletAddress,
+      chainId: chainStore.id,
+      isLoading: isPeopleBalanceLoading,
+      error: balanceError,
+      peopleChainBalance: peopleChainBalance?.toString() || "null",
+      balanceAsNumber: balance.toString()
+    });
+  }, [connectedWalletAddress, typedApi, peopleChainBalance, balance, chainStore.id]);
 
   const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
@@ -771,14 +866,13 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         }
 
         await signSubmitAndWatch({
-          nonce: await getNonce(fromTypedApi, xcmParams.fromAddress),
           signer: fromSigner,
           awaitFinalization: true,
           call: teleportCall,
           name: "Teleport Assets"
         })
       } catch (error) {
-        console.error(error)
+        logger.error(error)
         addAlert({
           type: "error",
           message: "Error teleporting assets. Please try again.",
@@ -790,7 +884,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       let awaitedBlocks;
       for (awaitedBlocks = 0; awaitedBlocks < maxBlocksAwait; awaitedBlocks++) {
         await wait(CHAIN_UPDATE_INTERVAL)
-        console.log({ awaitedBlocks })
+        logger.log({ awaitedBlocks })
         if (balanceRef.current && balanceRef.current.isGreaterThanOrEqualTo(xcmParams.txTotalCost
           .plus(chainConstants?.existentialDeposit?.toString() || "0")
         )) {
@@ -870,7 +964,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         }
         break;
       default:
-        console.error("Unexpected openDialog value:", openDialog);
+        logger.error("Unexpected openDialog value:", openDialog);
         if (txToConfirm) {
           await signSubmitAndWatch({
             call: txToConfirm,
@@ -893,7 +987,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   })
 
   const openTxDialog = useCallback((args: OpenTxDialogArgs) => {
-    console.log({ args })
+    logger.log({ args })
     if (args.mode) {
       setOpenDialog(args.mode)
       setEstimatedCosts((args as OpenTxDialogArgs_modeSet).estimatedCosts)
@@ -912,7 +1006,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   }, [])
 
   const onAccountSelect = useCallback(async (accountAction: { type: string, account: AccountData }) => {
-    console.log({ newValue: accountAction })
+    logger.log({ newValue: accountAction })
     switch (accountAction.type) {
       case "Wallets":
         setWalletDialogOpen(true);
@@ -939,7 +1033,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         updateAccount({ ...accountAction.account });
         break;
       default:
-        console.log({ accountAction })
+        logger.log({ accountAction })
         throw new Error("Invalid action type");
     }
   }, [updateAccount, prepareClearIdentityTx, openTxDialog, accountStore, disconnectAllWallets])
@@ -950,15 +1044,15 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   // Connect to a specific chain
   const connect = useCallback(async (chainId: keyof typeof CHAINS) => {
     if (isConnecting) {
-      console.log("Connection already in progress, skipping");
+      logger.log("Connection already in progress, skipping");
       return;
     }
     if (currentChain === chainId && isConnected) {
-      console.log("Already connected to chain:", chainId);
+      logger.log("Already connected to chain:", chainId);
       return; // Already connected to this chain
     }
 
-    console.log("Connecting to chain:", chainId, "- Config:", CHAINS[chainId]);
+    logger.log("Connecting to chain:", chainId, "- Config:", CHAINS[chainId]);
 
     // Clear any existing timeout
     if (connectionTimeoutRef.current) {
@@ -972,14 +1066,14 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     try {
       // Disconnect from previous chain if different
       if (currentChain && currentChain !== chainId) {
-        console.log("Disconnecting from previous chain:", currentChain);
+        logger.log("Disconnecting from previous chain:", currentChain);
         await disconnect();
       }
 
       // Create new client and typed API (using cached connections)
-      console.log("Creating chain client for:", chainId);
+      logger.log("Creating chain client for:", chainId);
       const newProvider = createChainClient(chainId);
-      console.log("Getting typed API...");
+      logger.log("Getting typed API...");
       const newTypedApi = await getTypedApi(chainId, newProvider);
 
       // Store refs for cleanup
@@ -987,7 +1081,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       currentApiRef.current = newTypedApi;
 
       const currentBlock = (await newTypedApi.rpc.chain.getFinalizedHead()).toHuman();
-      console.debug("Current block:", currentBlock);
+      logger.debug("Current block:", currentBlock);
 
       // Set up the client and typed API
       setClient(newProvider);
@@ -996,10 +1090,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       setIsConnected(true);
 
     } catch (err) {
-      console.error("Connection error for chain", chainId, ":", err);
-      console.error("Chain config:", CHAINS[chainId]);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect';
-      setError(errorMessage);
+      logger.error("Connection error for chain", chainId, ":", err);
+      logger.error("Chain config:", CHAINS[chainId]);
+      setError(err instanceof Error ? err.message : 'Failed to connect');
       setClient(null);
       setTypedApi(null);
       setCurrentChain(null);
@@ -1054,7 +1147,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   const network = chainStore.id;
   // Auto-connect on network change with debouncing
   useEffect(() => {
-    console.log('Auto-connect effect triggered:', {
+    logger.log('Auto-connect effect triggered:', {
       network,
       currentChain,
       isConnected,
@@ -1073,14 +1166,10 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
     // Debounce connection attempts
     connectionTimeoutRef.current = setTimeout(() => {
-      console.log('Attempting to connect to network:', network);
+      logger.log('Attempting to connect to network:', network);
       connect(network as keyof typeof CHAINS).catch(err => {
-        console.error('Connection failed:', err);
-        const errorMsg = err.message || 'Connection failed';
-        setError(errorMsg);
-        toast.error('Network connection failed', {
-          description: `Unable to connect to ${CHAINS[network as keyof typeof CHAINS]?.name || network}. Please try again.`
-        });
+        logger.error('Connection failed:', err);
+        setError(err.message || 'Connection failed');
       });
     }, 300); // 300ms debounce
 
@@ -1096,7 +1185,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   useEffect(() => {
     return () => {
       // Cleanup all connections when the provider unmounts
-      cleanupAllConnections().catch(console.warn);
+      cleanupAllConnections().catch(logger.warn);
     };
   }, []);
 
@@ -1118,7 +1207,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     openDialog, setOpenDialog, openTxDialog, closeTxDialog, handleOpenChange,
     estimatedCosts, setEstimatedCosts,
     xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
-    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    fromBalance, balance, peopleChainBalance, assetHubBalance, hasEnoughBalance, minimunTeleportAmount,
     txToConfirm, setTxToConfirm,
     accountTree, accountTreeLoading, refreshAccountTree,
     errorDetails, setErrorDetails,
@@ -1148,7 +1237,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     openDialog, openTxDialog, closeTxDialog, handleOpenChange,
     estimatedCosts,
     xcmParams, relayAndParachains, getTeleportCall, getParachainId, teleportExpanded, setTeleportExpanded, parachainId,
-    fromBalance, balance, hasEnoughBalance, minimunTeleportAmount,
+    fromBalance, balance, peopleChainBalance, assetHubBalance, hasEnoughBalance, minimunTeleportAmount,
     txToConfirm,
     accountTree, accountTreeLoading, refreshAccountTree,
     errorDetails,

@@ -1,69 +1,176 @@
-import { ApiPromise } from "@polkadot/api";
-import { SS58String } from "polkadot-api";
-import { useCallback, useEffect, useState } from "react";
+import { SS58String, Binary } from "polkadot-api";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { IdentityFormData } from "@/components/tabs/IdentityForm";
-import { Identity, IdentityVerificationStatus } from "@/types/Identity";
-import { ApiTx } from "@/types/api";
-import { fetchIdentity } from "@/utils/fetchIdentity";
+import { logger } from "@/utils/logger";
 
-export function useIdentity({ typedApi, address, }: {
-  typedApi: ApiPromise,
-  address: SS58String,
-}) {
-  // Please note _setIdentity is only for internal state management and does not set on-chain 
-  //  identity. if you're looking to set on-chain identity, see IdentityForm.tsx for the transaction
-  //  preparation methods.
-  const _blankIdentity = {
-    info: {},
-    judgements: [],
-    status: IdentityVerificationStatus.Unknown,
-  };
-  const [identity, _setIdentity] = useState<Identity>(_blankIdentity);
+export interface OnChainIdentity {
+  display: string | null;
+  legal: string | null;
+  web: string | null;
+  matrix: string | null;
+  email: string | null;
+  twitter: string | null;
+  github: string | null;
+  discord: string | null;
+  image: string | null;
+  pgpFingerprint: string | null;
+  judgements: Array<{
+    registrarIndex: number;
+    judgement: string;
+  }>;
+}
 
-  const fetchIdAndJudgement = useCallback(async () => {
-    try {
-      const identityInfo = await fetchIdentity(typedApi, address);
-      console.log({ identityInfo });
+export interface IdentityState {
+  identity: OnChainIdentity | null;
+  isLoading: boolean;
+  error: string | null;
+  isVerified: boolean;
+  refetch: () => void;
+}
 
-      const newIdentity = { ..._blankIdentity };
-      // Update the identity store with the fetched information
-      Object.assign(newIdentity, identityInfo);
-      _setIdentity(newIdentity);
+export const useIdentity = (
+  address: SS58String | undefined,
+  chainId: string | null
+): IdentityState => {
+  const [identity, setIdentity] = useState<OnChainIdentity | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-      return identityInfo;
-    } catch (error) {
-      console.error("Error fetching identity info:", error);
-      return null;
-    }
-  }, [typedApi, address]);
+  const refetch = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
-    _setIdentity({ ..._blankIdentity });
+    console.log('[useIdentity] Hook called with:', { address, chainId });
 
-    if (address && typedApi) {
-      fetchIdAndJudgement();
+    if (!address || !chainId) {
+      console.log('[useIdentity] ❌ Missing address or chainId, skipping fetch');
+      setIdentity(null);
+      setError(null);
+      setIsLoading(false);
+      return;
     }
-  }, [address, typedApi]);
 
-  // Transaction preparation methods
-  const prepareSetIdentityTx = useCallback((identityData: IdentityFormData): ApiTx => {
-    return typedApi.tx.identity.setIdentity(identityData);
-  }, [typedApi]);
+    // Clear previous identity when come from other profile
+    setIdentity(null);
 
-  const prepareRequestJudgementTx = useCallback((regIndex: number, maxFee: bigint = 0n): ApiTx => {
-    return typedApi.tx.identity.requestJudgement(regIndex, maxFee);
-  }, [typedApi]);
+    let isCancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-  const prepareClearIdentityTx = useCallback((): ApiTx => {
-    return typedApi.tx.identity.clearIdentity();
-  }, [typedApi]);
+    console.log('[useIdentity] 🔄 Starting fetch for', address, 'on', chainId);
+
+    const fetchOnChainIdentity = async () => {
+      try {
+        const { getPapiClient } = await import("@/lib/papi-client");
+        const descriptors = await import("@polkadot-api/descriptors");
+
+        const client = await getPapiClient(chainId, false);
+        const descriptor = descriptors[chainId];
+
+        if (!descriptor) {
+          throw new Error(`No descriptor for chain: ${chainId}`);
+        }
+
+        const typedApi = client.getTypedApi(descriptor);
+
+        // Use .getValue() method like in papi-console
+        const identityData = await typedApi.query.Identity.IdentityOf.getValue(address);
+
+        if (isCancelled) return;
+
+        if (!identityData) {
+          setIdentity(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const readData = (field: any): string | null => {
+          if (!field || field.type === "None" || field.type === "Raw0") return null;
+          if (field.type === "Raw1") {
+            return Binary.fromBytes(new Uint8Array(field.value)).asText();
+          }
+          return field.value?.asText() || null;
+        };
+
+        const decoded: OnChainIdentity = {
+          display: readData(identityData.info.display),
+          legal: readData(identityData.info.legal),
+          web: readData(identityData.info.web),
+          matrix: readData(identityData.info.matrix),
+          email: readData(identityData.info.email),
+          twitter: readData(identityData.info.twitter),
+          github: readData(identityData.info.github),
+          discord: readData(identityData.info.discord),
+          image: readData(identityData.info.image),
+          pgpFingerprint: identityData.info.pgp_fingerprint
+            ? Array.from(identityData.info.pgp_fingerprint).map(b => b.toString(16).padStart(2, '0')).join('')
+            : null,
+          judgements: identityData.judgements.map(([index, judgement]) => ({
+            registrarIndex: index,
+            judgement: judgement.type,
+          })),
+        };
+
+        console.log('[useIdentity] Decoded identity:', decoded);
+
+        // Validate that we actually have some data
+        if (!decoded.display && !decoded.email && !decoded.twitter && !decoded.legal) {
+          console.warn('[useIdentity] Identity exists but all fields are null/empty');
+        }
+
+        setIdentity(decoded);
+        setIsLoading(false);
+      } catch (err) {
+        if (isCancelled) return;
+
+        logger.error("failed to fetch on-chain identity:", err);
+        setError(err instanceof Error ? err.message : "failed to fetch identity");
+        setIdentity(null);
+        setIsLoading(false);
+      }
+    };
+
+    fetchOnChainIdentity();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [address, chainId, refreshKey]);
+
+  const isVerified = useMemo(() => {
+    if (!identity || !identity.judgements || identity.judgements.length === 0) {
+      return false;
+    }
+
+    return identity.judgements.some(
+      (j) => j.judgement === "Reasonable" || j.judgement === "KnownGood"
+    );
+  }, [identity]);
 
   return {
     identity,
-    fetchIdAndJudgement,
-    prepareSetIdentityTx,
-    prepareRequestJudgementTx,
-    prepareClearIdentityTx,
+    isLoading,
+    error,
+    isVerified,
+    refetch,
   };
-}
+};
+
+export const decodeIdentityField = (field: any): string | null => {
+  if (!field) return null;
+
+  // Polkadot.js JSON format: { raw: "0x..." }
+  if (typeof field === 'object' && field.raw) {
+    const hex = field.raw.startsWith('0x') ? field.raw.slice(2) : field.raw;
+    try {
+      return new TextDecoder().decode(Buffer.from(hex, 'hex'));
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof field === "string") return field;
+  return null;
+};

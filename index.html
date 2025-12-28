@@ -10,7 +10,7 @@
     content="blockchain identity, decentralized identity, identity verification, web3 identity, blockchain search" />
   <meta name="theme-color" content="#111827" />
 
-  <title>whodb - Decentralized Identity Search</title>
+  <title>whodb - Identities, Verified</title>
 
   <link rel="preload" href="/whodb_icon_compact.svg" as="image" type="image/svg+xml" fetchpriority="high" />
   <link rel="icon" href="/whodb_icon_compact.svg" type="image/svg+xml" />
@@ -20,12 +20,299 @@
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="whodb - Decentralized Identity Search" />
+  <meta property="og:title" content="whodb - Identities, Verified" />
   <meta property="og:description" content="Search and verify blockchain identities across multiple networks" />
+
+  <style>
+    /* Tailwind/UnoCSS reset - must match @unocss/reset/tailwind.css */
+    *, *::before, *::after { box-sizing: border-box; border-width: 0; border-style: solid; }
+    html { line-height: 1.5; -webkit-text-size-adjust: 100%; tab-size: 4; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; line-height: inherit; }
+    blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre, fieldset, legend { margin: 0; padding: 0; }
+    form { margin: 0; }
+    h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+    ol, ul, menu { list-style: none; margin: 0; padding: 0; }
+    a { color: inherit; text-decoration: inherit; }
+    b, strong { font-weight: bolder; }
+    code, kbd, samp, pre { font-family: ui-monospace, monospace; font-size: 1em; }
+    small { font-size: 80%; }
+    button, input, optgroup, select, textarea { font-family: inherit; font-size: 100%; font-weight: inherit; line-height: inherit; color: inherit; margin: 0; padding: 0; }
+    button, select { text-transform: none; }
+    button, [type='button'], [type='reset'], [type='submit'] { -webkit-appearance: button; background-color: transparent; background-image: none; }
+    :-moz-focusring { outline: auto; }
+    img, svg, video, canvas, audio, iframe, embed, object { display: block; vertical-align: middle; }
+    img, video { max-width: 100%; height: auto; }
+    [hidden] { display: none; }
+
+    /* App styles */
+    :root {
+      --primary: 343 89% 58%;
+      --primary-foreground: 210 40% 98%;
+    }
+    html { background-color: #111827; }
+    body { background-color: #111827; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    /* Shell positioning - absolute overlay that hides when React renders */
+    #root, #shell {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      min-height: 100vh;
+    }
+
+    /* Shell on top initially */
+    #shell {
+      z-index: 1;
+    }
+
+    /* Matches App wrapper: div.bg-gray-900.text-white.antialiased */
+    .s-app {
+      background-color: #111827;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Matches HomePage: div.min-h-screen.bg-gray-900.flex.flex-col */
+    .s-page {
+      min-height: 100vh;
+      background-color: #111827;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Hide shell when React renders */
+    #root:not(:empty) ~ #shell { display: none !important; }
+    #shell.hidden { display: none !important; }
+
+    /* Header - matches p-4 flex justify-end */
+    .s-header { padding: 1rem; display: flex; justify-content: flex-end; }
+
+    /* Register link - matches text-pink-400 hover:bg-pink-500/10 px-3 py-2 text-sm rounded-md transition-colors inline-flex items-center gap-2 */
+    .s-link {
+      color: #f472b6;
+      text-decoration: none;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      border-radius: 0.375rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 150ms;
+    }
+    .s-link:hover { background: rgba(236,72,153,0.1); }
+    .s-link svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+    .s-link span { display: none; }
+    @media(min-width:768px) { .s-link span { display: inline; } }
+
+    /* Main - matches flex-1 flex flex-col items-center justify-center px-4 */
+    /* flex-1 in Tailwind/UnoCSS is "flex: 1 1 0%" not just "flex: 1" */
+    .s-main { flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 1rem; }
+
+    /* Content wrapper - matches w-full max-w-md mx-auto flex flex-col items-center */
+    .s-content { width: 100%; max-width: 28rem; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
+
+    /* Logo wrapper - matches mb-6 md:mb-8 */
+    .s-logo-wrap { margin-bottom: 1.5rem; }
+    @media(min-width:768px) { .s-logo-wrap { margin-bottom: 2rem; } }
+
+    /* Logo container - matches flex items-center */
+    .s-logo { display: flex; align-items: center; }
+
+    /* Logo icon - matches w-auto h-8 sm:h-10 md:h-12 lg:h-14 mr-2 sm:mr-2 md:mr-3 */
+    .s-logo img {
+      height: 2rem;
+      width: auto;
+      margin-right: 0.5rem;
+    }
+    @media(min-width:640px) { .s-logo img { height: 2.5rem; } }
+    @media(min-width:768px) { .s-logo img { height: 3rem; margin-right: 0.75rem; } }
+    @media(min-width:1024px) { .s-logo img { height: 3.5rem; } }
+
+    /* Logo text - matches text-3xl sm:text-4xl md:text-5xl lg:text-6xl + module CSS */
+    .s-logo-text {
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      letter-spacing: -0.02em;
+      color: #fff;
+      font-size: 1.875rem;
+      line-height: 2.25rem;
+    }
+    @media(min-width:640px) { .s-logo-text { font-size: 2.25rem; line-height: 2.5rem; } }
+    @media(min-width:768px) { .s-logo-text { font-size: 3rem; line-height: 1; } }
+    @media(min-width:1024px) { .s-logo-text { font-size: 3.75rem; line-height: 1; } }
+
+    /* Form wrapper - matches w-full relative from SearchForm component */
+    .s-form-wrap { width: 100%; position: relative; }
+
+    /* Form - matches w-full */
+    .s-form { width: 100%; position: relative; }
+
+    /* Input - matches h-10 md:h-12 px-4 pl-10 md:pl-12 pr-20 md:pr-28 rounded-full bg-gray-800 border border-gray-700 */
+    .s-input {
+      width: 100%;
+      height: 2.5rem;
+      padding: 0 5rem 0 2.5rem;
+      border-radius: 9999px;
+      background: #1f2937;
+      border: 1px solid #374151;
+      color: #fff;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      outline: none;
+      box-sizing: border-box;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .s-input::placeholder { color: #9ca3af; }
+    .s-input:focus { border-color: #ec4899; }
+    @media(min-width:768px) { .s-input { height: 3rem; padding: 0 7rem 0 3rem; font-size: 1rem; line-height: 1.5rem; } }
+
+    /* Search icon - matches absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400 */
+    .s-icon {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1rem;
+      height: 1rem;
+      color: #9ca3af;
+      pointer-events: none;
+    }
+    @media(min-width:768px) { .s-icon { left: 1rem; width: 1.25rem; height: 1.25rem; } }
+
+    /* Button container - matches absolute right-2 md:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 */
+    .s-btns {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    @media(min-width:768px) { .s-btns { right: 0.75rem; } }
+
+    /* Sparkle button - matches p-1 rounded-full text-pink-400 hover:bg-pink-500/10 */
+    .s-sparkle {
+      padding: 0.25rem;
+      background: none;
+      border: none;
+      color: #f472b6;
+      cursor: pointer;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 150ms;
+    }
+    .s-sparkle:hover { background: rgba(236,72,153,0.1); }
+    .s-sparkle svg { width: 0.875rem; height: 0.875rem; display: block; }
+    @media(min-width:768px) { .s-sparkle svg { width: 1rem; height: 1rem; } }
+
+    /* Submit button - matches bg-primary text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium */
+    .s-btn {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      line-height: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: Inter, system-ui, sans-serif;
+      transition: all 200ms ease-in-out;
+    }
+    .s-btn:hover { background: hsl(var(--primary) / 0.9); }
+    .s-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    @media(min-width:768px) { .s-btn { padding: 0.375rem 1rem; font-size: 0.875rem; line-height: 1.25rem; } }
+    .s-btn .m { display: inline; }
+    .s-btn .d { display: none; }
+    @media(min-width:768px) { .s-btn .m { display: none; } .s-btn .d { display: inline; } }
+
+    /* Tagline - matches mt-6 md:mt-8 text-gray-400 text-center text-sm px-4 */
+    .s-tag { margin-top: 1.5rem; color: #9ca3af; font-size: 0.875rem; line-height: 1.25rem; text-align: center; padding: 0 1rem; }
+    @media(min-width:768px) { .s-tag { margin-top: 2rem; } }
+
+    /* Footer - matches p-4 text-center text-gray-500 text-xs */
+    .s-footer { padding: 1rem; text-align: center; color: #6b7280; font-size: 0.75rem; line-height: 1rem; }
+  </style>
 </head>
 
-<body class="bg-gray-900 text-white antialiased">
+<body>
   <div id="root"></div>
+
+  <div id="shell">
+    <!-- Matches App wrapper: div.bg-gray-900.text-white.antialiased -->
+    <div class="s-app">
+    <!-- Matches HomePage: div.min-h-screen.bg-gray-900.flex.flex-col -->
+    <div class="s-page">
+    <header class="s-header">
+      <a href="/profile" class="s-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
+        </svg>
+        <span>Register</span>
+      </a>
+    </header>
+    <main class="s-main">
+      <div class="s-content">
+        <div class="s-logo-wrap">
+          <div class="s-logo">
+            <img src="/whodb_icon_compact.svg" alt="" />
+            <span class="s-logo-text">whodb</span>
+          </div>
+        </div>
+        <div class="s-form-wrap">
+          <form class="s-form" id="sf" autocomplete="off">
+          <input class="s-input" id="si" type="text" placeholder="Search identities..." />
+          <svg class="s-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <div class="s-btns">
+            <button type="button" class="s-sparkle" title="Predictive search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                <path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/>
+              </svg>
+            </button>
+            <button type="submit" class="s-btn" id="sb" disabled><span class="m">Go</span><span class="d">Search</span></button>
+          </div>
+          </form>
+        </div>
+        <p class="s-tag">Search for identities by name, wallet address, or social handles</p>
+      </div>
+    </main>
+    <footer class="s-footer">whodb</footer>
+    </div><!-- .s-page -->
+    </div><!-- .s-app -->
+  </div>
+
+  <script>
+    (function() {
+      var shell = document.getElementById('shell');
+      // Hide on non-homepage
+      if (location.pathname !== '/' && location.pathname !== '') {
+        shell.style.display = 'none';
+        return;
+      }
+      // Form handling
+      var input = document.getElementById('si');
+      var btn = document.getElementById('sb');
+      var form = document.getElementById('sf');
+      input.oninput = function() { btn.disabled = !input.value.trim(); };
+      form.onsubmit = function(e) {
+        e.preventDefault();
+        var q = input.value.trim();
+        if (q) location.href = '/search?query=' + encodeURIComponent(q);
+      };
+      // Hide shell when React renders
+      window.__shellHide = function() { shell.classList.add('hidden'); };
+    })();
+  </script>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

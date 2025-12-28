@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { WebSocketHookReturn } from '.';
 import { TimelineEventRecord } from '@/types/timeline';
 import { FullProfile } from '@/types/profile';
-import { CHAINS } from '@/polkadot-api/chain-config';
+import { CHAINS, sortByNetworkPriority } from '@/polkadot-api/chain-config';
+import { logger } from '@/utils/logger';
 
 interface SearchRecord {
   wallet_id: string;
@@ -92,89 +93,186 @@ export const useSearchWebSocket = (
   }
 
   const constructSearchParameters = (query: string, limit?: number) => {
-    console.debug('Constructing search parameters for query:', query);
-    const parseSearchString = (input: string): Record<string, string> => {
-      const result: Partial<SearchFilterCriteria> = {};
-      const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
+    logger.debug('Constructing search parameters for query:', query);
 
+    // For empty or whitespace-only queries, get all results
+    if (!query || query.trim() === "") {
+      return {
+        version: "1.1",
+        type: "SearchRegistration",
+        payload: {
+          network: null,
+          outputs: Object.values(SEARCH_OUTPUT_FIELDS)
+            .filter((v): v is string => typeof v === 'string'),
+          filters: {
+            fields: [],
+            result_size: limit || 100,
+            time: null
+          }
+        }
+      };
+    }
+
+    const parseSearchString = (input: string): { structuredFields: Record<string, string>, genericTerms: string } => {
+      const result: Record<string, string> = {};
+      const regex = /(\w+):\s*([^:]+?)(?=\s+\w+:|\s*$)/g;
       let match;
+      let lastIndex = 0;
+      const genericTerms: string[] = [];
+
       while ((match = regex.exec(input)) !== null) {
-        const key = match[1].trim() as keyof SearchFilterCriteria;
+        // Extract any text before this match as generic terms
+        if (match.index > lastIndex) {
+          const beforeMatch = input.substring(lastIndex, match.index).trim();
+          if (beforeMatch) {
+            genericTerms.push(beforeMatch);
+          }
+        }
+
+        const key = match[1].trim();
         const value = match[2].trim();
 
         if (Object.keys(SEARCH_FILTER_CRITERIA_KEYS).includes(key) && value !== undefined) {
-          console.debug("Matched query parameter:", key, value);
+          logger.debug("Matched query parameter:", key, value);
           result[key] = value;
+        }
+
+        lastIndex = regex.lastIndex;
+      }
+
+      // Extract any remaining text after the last match as generic terms
+      if (lastIndex < input.length) {
+        const afterLastMatch = input.substring(lastIndex).trim();
+        if (afterLastMatch) {
+          genericTerms.push(afterLastMatch);
         }
       }
 
-      return result;
+      // If no structured fields found and no generic terms collected yet, treat the entire input as generic
+      if (Object.keys(result).length === 0 && genericTerms.length === 0 && input.trim()) {
+        genericTerms.push(input.trim());
+      }
+
+      return {
+        structuredFields: result,
+        genericTerms: genericTerms.join(' ').trim()
+      };
     }
 
-    const pairs = parseSearchString(query);
-    if (Object.keys(pairs).length === 0 && query.trim() !== "") {
-      pairs["display"] = query.trim();
+    const { structuredFields, genericTerms } = parseSearchString(query);
+    const resultSize = structuredFields["result_size"] ? parseInt(structuredFields["result_size"]) : limit || 100;
+
+    // Remove result_size from structured fields
+    delete structuredFields.result_size;
+    delete structuredFields.network;
+
+    logger.debug('Parsed search - structured:', structuredFields, 'generic:', genericTerms);
+
+    // Build filters array
+    const filtersFields = [];
+
+    // Add Generic field for uncategorized terms (this is what the backend expects!)
+    if (genericTerms) {
+      filtersFields.push({
+        field: { "Generic": genericTerms },
+        strict: false
+      });
     }
-    if (Object.keys(pairs).length === 0) {
-      throw new Error("No valid search parameters found in query.");
-    }
-    console.debug('Parsed search parameters:', pairs);
+
+    // Add structured field filters
+    Object.keys(structuredFields).forEach(key => {
+      const mappedKey = SEARCH_FILTER_CRITERIA_KEYS[key as keyof typeof SEARCH_FILTER_CRITERIA_KEYS];
+      if (mappedKey) {
+        filtersFields.push({
+          field: { [mappedKey]: structuredFields[key] },
+          strict: false
+        });
+      }
+    });
 
     return {
-      network: pairs["network"],
-      outputs: Object.values(SEARCH_OUTPUT_FIELDS)
-        .filter((v): v is string => typeof v === 'string')
-      ,
-      filters: {
-        fields: (Object.entries(pairs) as [keyof SearchFilterCriteria, string][])
-          .filter(([, value]) => value !== undefined)
-          // These two don't get mapped into the searchParams.filters.fields, as usual.
-          .filter(([key]) => ['network', 'result_size'].includes(key) === false)
-          .map(([key, value]) => ({
-            field: { [SEARCH_FILTER_CRITERIA_KEYS[key]]: `${value}` },
-            strict: false, // Default to not strict for now
-          })),
-        result_size: pairs["result_size"] ? parseInt(pairs["result_size"]) : limit || 10,
+      version: "1.1",
+      type: "SearchRegistration",
+      payload: {
+        network: null,  // Search across all networks
+        outputs: Object.values(SEARCH_OUTPUT_FIELDS)
+          .filter((v): v is string => typeof v === 'string'),
+        filters: {
+          fields: filtersFields,
+          result_size: resultSize,
+          time: null
+        }
       }
     }
   }
 
   // TODO Allow to specify strict fields
   const search = useCallback(async (
-    query: string,  // TODO Allow direct object passing
+    query: string | object,  // Allow direct object passing
     limit?: number,
   ): Promise<Array<FullProfile>> => {
     // Search across all fields for autocomplete
     try {
-      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(query);
+      // If query is already an object with version/type (from constructSearchObject), send it directly
+      // Otherwise, construct search parameters from string
+      const isFormattedObject = typeof query === 'object' && query !== null &&
+                                'version' in query && 'type' in query && 'payload' in query;
+
+      const searchMessage = typeof query === 'string'
+        ? constructSearchParameters(query, limit)
+        : isFormattedObject
+          ? query
+          : constructSearchParameters(JSON.stringify(query), limit);
+
+      logger.log('Sending search message:', JSON.stringify(searchMessage));
+
+      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(searchMessage);
 
       if ((response as ErrorResponse).type === 'error') {
         const errorResponse = response as ErrorResponse;
-        console.error('Search error:', errorResponse.message);
+        logger.error('Search error:', errorResponse.message);
         throw new Error(errorResponse.message);
       }
 
       if (Array.isArray(response)) {
-        return (response as SearchResults).map((profile) => {
+        const results = (response as SearchResults).map((profile) => {
           const timeline = profile.timeline;
-          return ({
+
+          // Map backend field names to IdentityInfo field names
+          const identityInfo: Partial<IdentityInfo> = {};
+          if (profile.display_name && profile.display_name !== "NULL") identityInfo.display = profile.display_name;
+          if (profile.email && profile.email !== "NULL") identityInfo.email = profile.email;
+          if (profile.web && profile.web !== "NULL") identityInfo.web = profile.web;
+          if (profile.discord && profile.discord !== "NULL") identityInfo.discord = profile.discord;
+          if (profile.twitter && profile.twitter !== "NULL") identityInfo.twitter = profile.twitter;
+          if (profile.matrix && profile.matrix !== "NULL") identityInfo.matrix = profile.matrix;
+          if (profile.github && profile.github !== "NULL") identityInfo.github = profile.github;
+          if (profile.legal && profile.legal !== "NULL") identityInfo.legal = profile.legal;
+          if (profile.pgp_fingerprint && profile.pgp_fingerprint !== "NULL") identityInfo.pgp_fingerprint = profile.pgp_fingerprint;
+
+          const mapped: FullProfile = {
             wallet_id: profile.wallet_id,
             network: profile.network as keyof typeof CHAINS,
-            ...Object.entries(profile)
-              .filter(([, v]) => v !== undefined && v !== null && v !== "NULL")
-              .filter(([k]) => Object.keys(FULL_PROFILE_IDENTIY_INFO_MAPPING).includes(k))
-              .reduce((acc, [k, v]) => ({
-                ...acc,
-                [FULL_PROFILE_IDENTIY_INFO_MAPPING[k as keyof IdentityInfo] || k]: v
-              }), {}) as IdentityInfo,
+            ...identityInfo,
             timeline: timeline
-          });
-        })
+          };
+
+          logger.debug('Mapped profile:', profile, '→', mapped);
+          return mapped;
+        });
+
+        logger.log('Total results mapped:', results.length);
+        logger.log('Sample mapped result:', results[0]);
+
+        const sorted = sortByNetworkPriority(results);
+
+        logger.log('Returning sorted results:', sorted.length);
+        return sorted;
       }
 
       throw new Error('Invalid search response format');
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', error);
 
       throw error;
     }

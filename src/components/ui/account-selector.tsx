@@ -67,27 +67,27 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
               }
             }}
           >
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2 min-w-0 flex-1">
-                  <div className="w-6 h-6 flex-shrink-0">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 flex-shrink-0">
                     {account.address ? (
                       <PolkadotIdenticon
                         value={account.address}
-                        size={24}
+                        size={40}
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3 text-white" />
+                        <User className="w-5 h-5 text-white" />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-white text-sm truncate">
+                    <h3 className="font-semibold text-white text-base mb-1 truncate">
                       {account.name || "Unnamed Account"}
                     </h3>
-                    <p className="text-xs text-gray-400 font-mono truncate">
-                      {account.encodedAddress || account.address}
+                    <p className="text-xs text-gray-500 font-mono truncate">
+                      {account.address}
                     </p>
                     {chainStore?.name && (
                       <p className="text-xs text-gray-500">
@@ -96,19 +96,13 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center space-x-1.5 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {account.address && chainStore?.id && (
                     <AccountBalanceBadge address={account.address} chainId={chainStore.id} />
                   )}
                   {selectedAccount === account.address && (
-                    <Check className="w-4 h-4 text-green-400" />
+                    <Check className="w-5 h-5 text-green-400" />
                   )}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 items-center mt-1.5">
-                <div className="flex items-center text-xs text-gray-300">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 flex-shrink-0"></div>
-                  <span>Ready to sign transactions</span>
                 </div>
               </div>
             </CardContent>

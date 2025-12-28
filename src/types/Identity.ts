@@ -56,8 +56,9 @@ export enum IdentityVerificationStatus {
   NoIdentity = 0,
   IdentitySet = 1,
   JudgementRequested = 2,
-  FeePaid = 3, // Ready to complete challenges
-  IdentityVerified = 4, // Judgement is deemed Reasonable, KnownGood, or any other afformative state
+  PendingJudgement = 3, // Judgement requested, waiting for registrar
+  FeePaid = 4, // Ready to complete challenges
+  IdentityVerified = 5, // Judgement is deemed Reasonable, KnownGood, or any other afformative state
 }
 
 export interface Judgement {

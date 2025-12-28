@@ -1,19 +1,35 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '@/components/theme-provider-simple'
+import { NetworkProvider } from '@/contexts/network-context'
+import { UserProvider } from '@/contexts/user-context'
+import { VerificationProvider } from '@/contexts/verification-context'
+import { BalanceProvider } from '@/contexts/balance-context'
+import { ChatProvider } from '@/contexts/ChatContext'
 import { Toaster } from '@/components/ui/sonner'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
+import { ChatWidgetContainer } from '@/components/chat'
+import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
+import { EthereumWalletProvider } from './contexts/EthereumWalletContext'
+import { PolkadotApiProvider } from './contexts/PolkadotApiContext'
+import { AccountProvider } from './contexts/wallet-context'
+import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provider'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Immediate load for homepage
 import HomePage from './pages/homepage'
 import SearchPage from './pages/SearchPage'
 
-// Lazy load heavy pages
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const AuthenticatedProviders = lazy(() => import('./components/AuthenticatedProviders'))
-const LazySearchProvider = lazy(() => import('./components/LazySearchProvider'))
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    },
+  },
+})
 
 const PageLoader = () => (
   <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -27,57 +43,43 @@ export default function App() {
   return (
     <div className="bg-gray-900 text-white antialiased">
       <ThemeProvider>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Public routes - minimal dependencies, instant load */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/search" element={
-              <LazySearchProvider>
-                <SearchPage />
-              </LazySearchProvider>
-            } />
-
-            {/* Authenticated routes - lazy load providers and components */}
-            <Route path="/register" element={
-              <AuthenticatedProviders>
-                <RegisterPage />
-              </AuthenticatedProviders>
-            } />
-
-            {/* Network-specific profile routes */}
-            <Route path="/polkadot/profile/:id" element={
-              <AuthenticatedProviders>
-                <ProfilePage />
-              </AuthenticatedProviders>
-            } />
-            <Route path="/kusama/profile/:id" element={
-              <AuthenticatedProviders>
-                <ProfilePage />
-              </AuthenticatedProviders>
-            } />
-            <Route path="/paseo/profile/:id" element={
-              <AuthenticatedProviders>
-                <ProfilePage />
-              </AuthenticatedProviders>
-            } />
-
-            {/* Legacy route for backwards compatibility */}
-            <Route path="/profile/:id" element={
-              <AuthenticatedProviders>
-                <ProfilePage />
-              </AuthenticatedProviders>
-            } />
-
-            <Route path="/settings" element={
-              <AuthenticatedProviders>
-                <SettingsPage />
-              </AuthenticatedProviders>
-            } />
-
-            <Route path="*" element={<div className="min-h-screen bg-gray-900 flex items-center justify-center">Page not found</div>} />
-          </Routes>
-        </Suspense>
-        <Toaster />
+        <NetworkProvider>
+          <PolkadotWalletProvider appName="whodb">
+            <EthereumWalletProvider>
+              <AccountProvider>
+                <PolkadotApiProvider>
+                  <BalanceProvider>
+                    <UserProvider>
+                      <WebSocketProvider url={import.meta.env.VITE_APP_CHALLENGES_API_URL || "ws://localhost:8080/ws"}>
+                        <SearchProvider>
+                          <QueryClientProvider client={queryClient}>
+                            <VerificationProvider>
+                              <ChatProvider>
+                                <Suspense fallback={<PageLoader />}>
+                                  <Routes>
+                                    <Route path="/" element={<HomePage />} />
+                                    <Route path="/search" element={<SearchPage />} />
+                                    <Route path="/register" element={<RegisterPage />} />
+                                    <Route path="/profile" element={<ProfilePage />} />
+                                    <Route path="/profile/:network/:address" element={<ProfilePage />} />
+                                    <Route path="/profile/:address" element={<ProfilePage />} />
+                                    <Route path="*" element={<div className="min-h-screen bg-gray-900 flex items-center justify-center">Page not found</div>} />
+                                  </Routes>
+                                </Suspense>
+                                <ChatWidgetContainer />
+                              </ChatProvider>
+                            </VerificationProvider>
+                          </QueryClientProvider>
+                        </SearchProvider>
+                      </WebSocketProvider>
+                      <Toaster />
+                    </UserProvider>
+                  </BalanceProvider>
+                </PolkadotApiProvider>
+              </AccountProvider>
+            </EthereumWalletProvider>
+          </PolkadotWalletProvider>
+        </NetworkProvider>
       </ThemeProvider>
     </div>
   )

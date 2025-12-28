@@ -50,132 +50,65 @@ export default function ConfirmActionDialog({
         : closeTxDialog()
       }
     >
-      <DialogContent className="dark:bg-gray-900/50 bg-gray-100/50 backdrop-blur-sm">
+      <DialogContent className="dark:bg-gray-900 bg-gray-100 max-w-md">
         <DialogHeader>
-          {/* TODO Add transaction name */}
-          <DialogTitle>
-            Confirm <i>{name}</i> transaction
+          <DialogTitle className="text-xl">
+            Confirm {name}
           </DialogTitle>
-          <DialogDescription>
-            Please review the following information before confirming this transaction.
-          </DialogDescription>
         </DialogHeader>
-        <div className="overflow-y-auto max-h-[80vh] space-y-4">
-          {Object.keys(estimatedCosts).length > 0 && (
-            <Card className="bg-gray-700/30 border-gray-600">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Coins className="h-5 w-5" />
-                  Transaction Costs
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {estimatedCosts.fees && (
-                    <div className="flex items-center justify-between border-gray-600 last:border-b-0">
-                      <span className="text-gray-400">Estimated cost:</span>
-                      <span className="text-white font-mono text-sm">
-                        {formatAmount(estimatedCosts.fees)}
-                      </span>
-                    </div>
-                  )}
-                  {estimatedCosts.deposits && (
-                    <div className="flex items-center justify-between border-gray-600 last:border-b-0">
-                      <span className="text-gray-400">Existential deposit:</span>
-                      <span className="text-white font-mono text-sm">
-                        {formatAmount(estimatedCosts.deposits)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between py-2 border-t">
-                    <span className="text-gray-400">Current balance:</span>
-                    <span className="text-white font-mono text-sm">
-                      {formatAmount(balance)}
-                    </span>
-                  </div>
+
+        <div className="space-y-4 py-4">
+          {/* Simple cost display */}
+          {estimatedCosts.fees && (
+            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400 text-sm">Transaction fee</span>
+                <span className="text-white font-mono text-sm">
+                  {formatAmount(estimatedCosts.fees)}
+                </span>
+              </div>
+              {estimatedCosts.deposits && (
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700">
+                  <span className="text-gray-400 text-sm">Deposit (refundable)</span>
+                  <span className="text-white font-mono text-sm">
+                    {formatAmount(estimatedCosts.deposits)}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           )}
 
-          <Card className="bg-gray-700/30 border-gray-600">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Important Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ul className="space-y-2 list-disc list-inside text-gray-300">
-                {openDialog === "clearIdentity" && (<>
-                  <li>All identity data will be deleted from chain.</li>
-                  <li>You will have to set identity again.</li>
-                  <li>You will lose verification status.</li>
-                  <li>Your deposit of {formatAmount(identity.deposit)} will be returned.</li>
-                  <li>All of your subaccounts will be dropped.</li>
-                </>)}
-                {openDialog === "setIdentity" && (<>
-                  <li>Identity data will be set on chain.</li>
-                  <li>
-                    Deposit of {formatAmount(identity.deposit)} will be taken, which will be
-                    released if you clear your identity.
-                  </li>
-                </>)}
-                {openDialog === "requestJudgement" && (<>
-                  <li>
-                    After having fees paid, you will need to complete all verification challenges
-                    in order to be verified.
-                  </li>
-                </>)}
-                {openDialog === "cancelRequest" && (<>
-                  <li>Your current judgment request will be cancelled.</li>
-                  <li>Any fees paid for the judgment request will be forfeited.</li>
-                  <li>You will be able to update your identity information and request judgment again.</li>
-                  <li>You will return to the identity setting step after cancellation.</li>
-                </>)}
-                {["setIdentity", "requestJudgement"].includes(openDialog) && (<>
-                  <li>Your identity information will remain publicly visible on-chain to everyone until you clear it.</li>
-                  <li>Please ensure all provided information is accurate before submission.</li>
-                </>)}
-                {openDialog === "addSubaccount" && (<>
-                  <li>You will link another account as a subaccount under your identity.</li>
-                  <li>This relationship will be publicly visible on-chain.</li>
-                  <li>A deposit will be required for managing subaccounts.</li>
-                  <li>
-                    If you link an account you don&apos;t own, the actual owner can quit and take your deposit.
-                  </li>
-                </>)}
-                {openDialog === "removeSubaccount" && (<>
-                  <li>You will remove the link between your account and this subaccount.</li>
-                  <li>Your deposit for this subaccount will be returned.</li>
-                </>)}
-                {openDialog === "editSubAccount" && (<>
-                  <li>You will update the name of this subaccount.</li>
-                  <li>This will be publicly visible on-chain.</li>
-                  <li>There is no deposit required for this action.</li>
-                </>)}
-                {openDialog === "quitSub" && (<>
-                  <li>You will remove your account&apos;s status as a subaccount.</li>
-                  <li>This will break the link with your parent account.</li>
-                  <li>The deposit for this subaccount will be returned to you.</li>
-                </>)}
-              </ul>
-            </CardContent>
-          </Card>
+          {/* Simplified context-specific message */}
+          <div className="text-sm text-gray-400">
+            {openDialog === "setIdentity" && (
+              <p>Your identity will be stored on-chain and publicly visible.</p>
+            )}
+            {openDialog === "requestJudgement" && (
+              <p>Complete verification challenges after payment to get verified.</p>
+            )}
+            {openDialog === "cancelRequest" && (
+              <p>Cancel your verification request. Fees paid will be forfeited.</p>
+            )}
+            {openDialog === "clearIdentity" && (
+              <p>Remove your identity from chain. Your deposit will be returned.</p>
+            )}
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button
-            variant="secondary"
+            variant="outline"
             onClick={closeTxDialog}
+            className="flex-1"
+            disabled={isTxBusy}
           >
             Cancel
           </Button>
           <Button
-            variant="default"
             onClick={submitTransaction}
             disabled={isTxBusy}
+            className="flex-1 bg-pink-500 hover:bg-pink-600"
           >
-            Confirm
+            {isTxBusy ? "Processing..." : "Sign & Submit"}
           </Button>
         </DialogFooter>
       </DialogContent>

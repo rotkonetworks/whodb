@@ -59,8 +59,10 @@ export interface PolkadotWalletContextType {
   getWalletAccount: (address: SS58String | Uint8Array, chainSs58Format?: number) => ExtendedAccountData | null;
   connectedWallets: InjectedExtension[];
   disconnectAllWallets: () => void;
-  connect: () => Promise<void>;
-  isConnected: boolean;
+
+  // Lazy initialization
+  initializeWallets: () => Promise<void>;
+  isInitialized: boolean;
 }
 
 const PolkadotWalletContext = createContext<PolkadotWalletContextType | undefined>(undefined);
@@ -76,13 +78,15 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
   const [accounts, setAccounts] = useState<ExtendedAccountData[]>([]);
   useTriggerLog(accounts, "PolkadotWalletProvider accounts");
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   const allAccountsSubscription = useRef<(() => void) | null>(null);
 
-  const connect = useCallback(async () => {
-    if (isConnected) return;
+  // Lazy initialization function - only called when needed
+  const initializeWallets = useCallback(async () => {
+    if (isInitialized) return;
 
     setIsLoading(true);
     setError(null);
@@ -90,36 +94,27 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
     try {
       const ext = await web3Enable(appName);
       if (ext.length === 0) {
-        const errorMsg = "No extensions found. Make sure Polkadot.js extension is installed.";
+        const errorMsg = "No wallet found. Please install a Polkadot wallet extension.";
         console.error(errorMsg);
         setError(errorMsg);
         setIsLoading(false);
+        setIsInitialized(true); // Mark as initialized so button can show "Install" state
         return;
       }
-      console.log("Extensions enabled:", ext);
       setExtensions(ext as InjectedExtension[]);
-      setIsConnected(true);
-    } catch (err) {
+      setIsInitialized(true);
+    } catch (err: any) {
       const errorMsg = `Failed to enable extensions: ${err.message}`;
       console.error(errorMsg);
       setError(errorMsg);
       setIsLoading(false);
     }
-  }, [appName, isConnected]);
-
-  // Auto-connect if specified
-  useEffect(() => {
-    if (autoConnect && !isConnected) {
-      connect();
-    }
-  }, [autoConnect, connect, isConnected]);
+  }, [appName, isInitialized]);
 
   // Load accounts when extensions are available
   useEffect(() => {
     if (extensions.length > 0) {
       web3AccountsSubscribe((injectedAccounts) => {
-        console.log("Accounts updated: count =", injectedAccounts.length);
-
         // Transform InjectedAccountWithMeta to ExtendedAccountData
         const transformedAccounts: ExtendedAccountData[] = injectedAccounts
           .filter(account => {
@@ -320,8 +315,10 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
     getWalletAccount,
     connectedWallets: extensions,
     disconnectAllWallets,
-    connect,
-    isConnected,
+
+    // Lazy initialization
+    initializeWallets,
+    isInitialized,
   };
 
   return (

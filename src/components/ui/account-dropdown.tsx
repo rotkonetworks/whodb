@@ -1,12 +1,13 @@
 import { Check, ChevronDown, Wallet } from "lucide-react";
 import { SS58String } from "polkadot-api";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
 import { AccountData } from "@/store/AccountStore";
 import { PolkadotIdenticon } from "dot-identicon/react.js";
 import { AccountBalanceBadge } from "./balance-badge";
 import { Card, CardContent } from "./card";
+import { ScrollArea } from "./scroll-area";
 
 export const AccountDropdown = ({
   accounts: providedAccounts, address, onAddressSelect: onAddressChange, id, open, handleOpen, disabled = false
@@ -24,9 +25,20 @@ export const AccountDropdown = ({
 
   const [_open, setOpen] = useState(false);
   const isOpen = typeof open === "boolean" ? open : _open;
-  
+
   const selectedAccount = accounts.find((account: AccountData) => account.address === address);
   const [hoveredAccount, setHoveredAccount] = useState<string | null>(null);
+
+  // Sort accounts: selected first, then others
+  const sortedAccounts = useMemo(() => {
+    return [...accounts].sort((a, b) => {
+      // Selected account always first
+      if (a.address === address) return -1;
+      if (b.address === address) return 1;
+      // Keep original order for others (balances will be visible anyway)
+      return 0;
+    });
+  }, [accounts, address]);
 
   const handleAccountChange = (selectedAddress: SS58String) => {
     onAddressChange(selectedAddress);
@@ -68,10 +80,11 @@ export const AccountDropdown = ({
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute mt-2 w-full min-w-48 rounded-md shadow-lg bg-gray-900 border border-gray-700 z-50 max-h-96 overflow-y-auto">
-          <div className="p-3 space-y-3">
-            {accounts.length > 0 ? (
-              accounts.map((account: AccountData) => (
+        <div className="absolute mt-2 w-full min-w-48 rounded-md shadow-lg bg-gray-900 border border-gray-700 z-50">
+          <ScrollArea className="max-h-[32rem]">
+            <div className="p-3 space-y-3">
+              {sortedAccounts.length > 0 ? (
+                sortedAccounts.map((account: AccountData) => (
                 <Card
                   key={account.address}
                   className={`cursor-pointer transition-all duration-200 bg-gray-800/50 ${
@@ -128,7 +141,8 @@ export const AccountDropdown = ({
                 <p className="text-gray-500 text-xs">Connect a wallet to see accounts</p>
               </div>
             )}
-          </div>
+            </div>
+          </ScrollArea>
         </div>
       )}
     </div>
