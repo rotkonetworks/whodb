@@ -5,17 +5,23 @@ import { getMetadata } from "@polkadot-api/descriptors";
 
 const clients = new Map<string, PolkadotClient>();
 
-const DOTTERS_ENDPOINTS = {
+const DOTTERS_ENDPOINTS: Record<string, string> = {
   polkadot: "wss://polkadot.dotters.network",
   polkadot_people: "wss://people-polkadot.dotters.network",
   polkadot_assethub: "wss://asset-hub-polkadot.dotters.network",
+  polkadot_asset_hub: "wss://asset-hub-polkadot.dotters.network",
   kusama: "wss://kusama.dotters.network",
   kusama_people: "wss://people-kusama.dotters.network",
   kusama_assethub: "wss://asset-hub-kusama.dotters.network",
+  ksmcc3: "wss://kusama.dotters.network",
+  ksmcc3_people: "wss://people-kusama.dotters.network",
+  ksmcc3_assethub: "wss://asset-hub-kusama.dotters.network",
+  ksmcc3_asset_hub: "wss://asset-hub-kusama.dotters.network",
   paseo: "wss://paseo.dotters.network",
   paseo_people: "wss://people-paseo.dotters.network",
   paseo_assethub: "wss://asset-hub-paseo.dotters.network",
-} as const;
+  paseo_asset_hub: "wss://asset-hub-paseo.dotters.network",
+};
 
 export const getPapiClient = async (
   chainId: string,
