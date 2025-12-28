@@ -1,6 +1,6 @@
 import { CheckCircle, AlertCircle, User, Copy, Check, Eye, Pencil, Settings, Shield, Users } from "lucide-react"
 import { ProfileContent } from "@/components/ProfileContent"
-import { Link, useParams, Navigate } from "react-router-dom"
+import { Link, useParams, Navigate, useNavigate } from "react-router-dom"
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import * as Avatar from "@radix-ui/react-avatar"
 import { useIdentity } from "@/hooks/useIdentity"
@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const { address: connectedAddress } = useAccount();
   const { typedApi, signSubmitAndWatch, chainStore } = usePolkadotApi();
   const { network: networkParam, address: addressParam } = useParams<{ network?: string; address: string }>();
+  const navigate = useNavigate();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -89,6 +90,13 @@ export default function ProfilePage() {
       return address;
     }
   }, [address, peopleChain]);
+
+  // Redirect to canonical URL if address format doesn't match chain-specific format
+  useEffect(() => {
+    if (addressParam && chainSpecificAddress && addressParam !== chainSpecificAddress) {
+      navigate(`/${network}/profile/${chainSpecificAddress}`, { replace: true });
+    }
+  }, [addressParam, chainSpecificAddress, network, navigate]);
 
   const { identity, isLoading, error, isVerified, refetch } = useIdentity(
     chainSpecificAddress as SS58String | undefined,
