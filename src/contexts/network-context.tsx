@@ -1,4 +1,4 @@
-import { CHAINS } from "@/polkadot-api/chain-config"
+import { CHAINS, getPeopleChain } from "@/polkadot-api/chain-config"
 import type React from "react"
 import type { ChainInfo } from "@/store/ChainStore"
 import { useParams, useLocation } from "react-router-dom"
@@ -28,11 +28,14 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const network = useMemo(() => {
     // Try to get network from route params first
     if (params.network) {
-      const peopleChain = params.network.includes('_people')
-        ? params.network
-        : `${params.network}_people`;
+      // If already a people chain key, use it directly
+      if (params.network.includes('_people') && Object.keys(networks).includes(params.network)) {
+        return params.network as Network;
+      }
 
-      if (Object.keys(networks).includes(peopleChain)) {
+      // Map ecosystem name to people chain (handles kusama -> ksmcc3_people)
+      const peopleChain = getPeopleChain(params.network);
+      if (peopleChain && Object.keys(networks).includes(peopleChain)) {
         return peopleChain as Network;
       }
     }
