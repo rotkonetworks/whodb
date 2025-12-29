@@ -56,6 +56,7 @@ export default function RegisterPage() {
     networkDisplayName,
     networkColor,
     isEncrypted: isNetworkEncrypted,
+    isViewOnly,
   } = useNetwork()
   const [_network, _setNetwork] = useState<AppNetwork | null>(network || 'paseo')
 
@@ -990,8 +991,29 @@ export default function RegisterPage() {
             {isEditMode ? "Update your on-chain identity information" : "Set your on-chain identity information"}
           </p>
 
+          {/* Show view-only message for networks without registrar */}
+          {isViewOnly && (
+            <div className="py-12 text-center">
+              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">View-Only Network</h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Registration is not available on {networkDisplayName}. We are not operating as a registrar on this network.
+              </p>
+              <p className="text-gray-500 text-xs">
+                You can still browse profiles on this network using the search.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-6"
+                onClick={() => navigate('/search')}
+              >
+                Browse Profiles
+              </Button>
+            </div>
+          )}
+
           {/* Show wallet connection prompt if not connected */}
-          {!accountStore.address && (
+          {!isViewOnly && !accountStore.address && (
             <div className="py-12 text-center">
               <WalletIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-white mb-2">Connect Your Wallet</h3>
@@ -1001,7 +1023,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {accountStore.address && <div>
+          {!isViewOnly && accountStore.address && <div>
             {currentStep === STEP_NUMBERS.pickNetwork && (
               <>
                 <div className="mb-4 p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md flex items-start">
