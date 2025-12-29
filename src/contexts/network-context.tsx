@@ -13,6 +13,7 @@ interface NetworkContextType extends ChainInfo {
   networkDisplayName: string
   isEncrypted: boolean
   isFree: boolean
+  isViewOnly: boolean
 }
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
@@ -48,6 +49,9 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const networkDisplayName = networks[network]?.name?.replace(" People", "") || networks[network]?.name
   const isEncrypted = networks[network]?.isEncrypted || false
   const isFree = networks[network]?.isFree || false
+  // View-only if no registrar index configured (NaN or undefined)
+  const registrarIndex = networks[network]?.registrarIndex
+  const isViewOnly = registrarIndex === undefined || isNaN(registrarIndex)
 
   const relayId = network?.split("_")[0] || "";
   const relay = network ? {
@@ -68,12 +72,13 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       networkDisplayName,
       isEncrypted,
       isFree,
+      isViewOnly,
       id: networks[network]?.id,
       name: networks[network]?.name || "",
       ss58Format: networks[network]?.ss58Format,
       tokenDecimals: networks[network]?.tokenDecimals,
       tokenSymbol: networks[network]?.tokenSymbol,
-      registrarIndex: networks[network]?.registrarIndex,
+      registrarIndex,
       relay,
     }}>
       {children}
