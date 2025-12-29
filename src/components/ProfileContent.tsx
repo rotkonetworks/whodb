@@ -2,6 +2,7 @@ import { useState, useCallback, memo, useEffect, useMemo } from "react"
 import { Mail, Globe, MessageSquare, Github, Key, User, Send, Copy, Check, Save, Loader2, CheckCircle } from "lucide-react"
 import { InlineEditField } from "./InlineEditField"
 import { AccountRelations } from "./AccountRelations"
+import { IdentityHistory } from "./IdentityHistory"
 import { Button } from "@/components/ui/button"
 import { useSnapshot } from "valtio"
 import { updateDraftField, identityDraftStore, initializeDraft, clearDraft } from "@/store/IdentityDraftStore"
@@ -540,6 +541,13 @@ export const ProfileContent = memo(function ProfileContent({
           isOwnProfile={isOwnProfile}
         />
       </div>
+
+      {/* Identity History */}
+      <IdentityHistory
+        wallet={address}
+        network={network}
+        peopleChain={peopleChain}
+      />
     </div>
   )
 })
