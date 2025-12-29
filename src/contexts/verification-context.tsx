@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { SS58String } from 'polkadot-api';
 
 import { IdentityVerificationStatus } from '@/types/Identity';
-import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage } from '../hooks/websocket/challenges';
+import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage, InitiateChallengeMessage } from '../hooks/websocket/challenges';
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { useWebSocketContext } from "./web-socket-provider";
 
@@ -65,6 +65,7 @@ interface VerificationContextType {
   wsConnect: () => void
   wsDisconnect: () => void
   wsSendPGPVerification: (payload: VerifyPGPKeyMessage) => Promise<void>
+  wsInitiateChallenge: (payload: InitiateChallengeMessage) => Promise<void>
 }
 
 const initialVerificationFields: FieldVerification[] = [
@@ -390,6 +391,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
         wsConnect: challengeWebSocket.connect,
         wsDisconnect: challengeWebSocket.disconnect,
         wsSendPGPVerification: challengeWebSocket.sendPGPVerification,
+        wsInitiateChallenge: challengeWebSocket.initiateChallenge,
       }}
     >
       {children}

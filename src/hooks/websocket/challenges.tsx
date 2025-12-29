@@ -46,11 +46,19 @@ export interface ChallengeWebSocketConfig {
   network?: string;
 }
 
+export interface InitiateChallengeMessage {
+  network: string;
+  account: string;
+  field_type: string;
+  field_value: string;
+}
+
 export interface ChallengeWebSocketReturn extends Pick<WebSocketHookReturn, 'isConnected' | 'error' | 'loading' | 'connect' | 'disconnect'> {
   challengeState: ResponseAccountState | null;
   challenges: ChallengeStore;
   subscribe: () => void;
   sendPGPVerification: (payload: VerifyPGPKeyMessage) => Promise<void>;
+  initiateChallenge: (payload: InitiateChallengeMessage) => Promise<void>;
 }
 
 // Workaround for old API
@@ -149,6 +157,19 @@ export const useChallengeWebSocket = (
     async (payload: VerifyPGPKeyMessage): Promise<void> => {
       await webSocketInstance.sendMessage({
         type: 'VerifyPGPKey',
+        payload,
+      });
+    },
+    [webSocketInstance]
+  );
+
+  // Initiate challenge for a field (pre-verification flow)
+  const initiateChallenge = useCallback(
+    async (payload: InitiateChallengeMessage): Promise<void> => {
+      console.log('🔵 Initiating challenge:', payload);
+      await webSocketInstance.sendMessage({
+        type: 'InitiateChallenge',
+        version: '1.1',
         payload,
       });
     },
@@ -422,5 +443,6 @@ export const useChallengeWebSocket = (
     challenges,
     subscribe,
     sendPGPVerification,
+    initiateChallenge,
   };
 };
