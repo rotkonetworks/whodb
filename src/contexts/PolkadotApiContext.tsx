@@ -317,10 +317,12 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       let chainProperties
       try {
         chainProperties = (await typedApi.rpc.system.properties()).toHuman()
+        // Use our configured ss58Format from CHAINS (e.g., Paseo should use 0, not 42 from RPC)
+        const configuredChain = CHAINS[id as keyof typeof CHAINS]
         if (chainProperties) {
           chainProperties = {
             ...chainProperties,
-            ss58Format: Number(chainProperties.ss58Format || 0),
+            ss58Format: configuredChain?.ss58Format ?? Number(chainProperties.ss58Format || 0),
             tokenDecimals: Number(chainProperties.tokenDecimals[0] || 0),
             tokenSymbol: chainProperties.tokenSymbol[0] || '',
           }
@@ -786,11 +788,13 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   useEffect(() => {
     if (typedApi) {
-      getParachainId(typedApi).then(id => {
-        if (id !== null) {
-          setParachainId(id)
-        }
-      })
+      getParachainId(typedApi)
+        .then(id => {
+          if (id !== null) {
+            setParachainId(id)
+          }
+        })
+        .catch(err => logger.error('Failed to get parachain ID:', err))
     }
   }, [typedApi, getParachainId])
 
@@ -804,24 +808,33 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     chainStore.id
   );
 
+  // Stable zero reference - Ryan Carniato: avoid creating objects in render
+  const ZERO = useMemo(() => new BigNumber(0), []);
+
   // TODO: Add fromBalance using PAPI when needed for XCM
-  const fromBalance = new BigNumber(0);
+  const fromBalance = ZERO;
 
   // For now, we only care about People chain balance for registration
   // Combined balance with AssetHub can be added later if needed
-  const balance = peopleChainBalance || new BigNumber(0);
+  // Ryan Carniato: derived state, stable reference when null
+  const balance = useMemo(
+    () => peopleChainBalance || ZERO,
+    [peopleChainBalance, ZERO]
+  );
   const assetHubBalance = null; // TODO: Add if needed for teleporter UX
 
+  // Debug logging - only in development, minimal deps
   useEffect(() => {
-    console.log("💰 PAPI Balance state:", {
-      connectedWalletAddress,
-      chainId: chainStore.id,
-      isLoading: isPeopleBalanceLoading,
-      error: balanceError,
-      peopleChainBalance: peopleChainBalance?.toString() || "null",
-      balanceAsNumber: balance.toString()
-    });
-  }, [connectedWalletAddress, typedApi, peopleChainBalance, balance, chainStore.id]);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("💰 PAPI Balance state:", {
+        connectedWalletAddress,
+        chainId: chainStore.id,
+        isLoading: isPeopleBalanceLoading,
+        error: balanceError,
+        peopleChainBalance: peopleChainBalance?.toString() || "null",
+      });
+    }
+  }, [connectedWalletAddress, chainStore.id, peopleChainBalance, isPeopleBalanceLoading, balanceError]);
 
   const hasEnoughBalance = useMemo(() => (balance && chainConstants) && balance
     .isGreaterThanOrEqualTo(xcmParams.txTotalCost
@@ -1104,8 +1117,9 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
       // User-friendly error notification
       const networkName = CHAINS[chainId]?.name || chainId;
+      const errorMsg = err instanceof Error ? err.message : String(err);
       toast.error(`Failed to connect to ${networkName}`, {
-        description: errorMessage.includes('WebSocket')
+        description: errorMsg.includes('WebSocket')
           ? 'Network connection issue. Please try again.'
           : 'Please check your internet connection and try again.'
       });

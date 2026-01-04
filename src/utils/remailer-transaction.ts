@@ -28,8 +28,8 @@ export function getRemailerFee(network: string): RemailerFeeConfig {
     paseo: BigInt(100_000_000),    // 0.01 PAS (testnet)
   }
 
-  // TODO: Use actual remailer service address
-  const remailerAddress = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY' as SS58String
+  // Remailer service address (configurable via env)
+  const remailerAddress = (import.meta.env.VITE_APP_REMAILER_ADDRESS || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY') as SS58String
 
   return {
     amount: feeAmounts[baseNetwork] || feeAmounts.paseo,

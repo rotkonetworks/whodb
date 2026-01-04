@@ -17,8 +17,8 @@ import { SearchProvider, WebSocketProvider } from './contexts/web-socket-provide
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import HomePage from './pages/homepage'
-import SearchPage from './pages/SearchPage'
 
+const SearchPage = lazy(() => import('./pages/SearchPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
@@ -33,7 +33,10 @@ const queryClient = new QueryClient({
 
 const PageLoader = () => (
   <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-    <div className="text-gray-400">Loading...</div>
+    <div className="flex flex-col items-center gap-3">
+      <div className="i-lucide-loader-2 w-8 h-8 text-pink-500 animate-spin" />
+      <div className="text-gray-400 text-sm">Loading...</div>
+    </div>
   </div>
 )
 

@@ -7,15 +7,15 @@ import { searchCache, cachedSearch } from "@/utils/searchCache";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
-export const WebSocketProvider = ({ children, url, autoConnect = false }: {
+export const WebSocketProvider = ({ children, url, autoConnect = true }: {
   children: React.ReactNode;
   url: string;
   autoConnect?: boolean;
 }) => {
   const webSocket = useWebSocket({
     url,
-    autoConnect: true,
-    maxReconnectAttempts: 3, // Limit reconnection attempts
+    autoConnect,
+    maxReconnectAttempts: 3,
   });
 
   return (

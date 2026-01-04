@@ -5,7 +5,17 @@ export default defineConfig({
     presetWind(),
     presetIcons({
       scale: 1.2,
-      cdn: 'https://esm.sh/',
+      extraProperties: {
+        'display': 'inline-block',
+        'vertical-align': 'middle',
+      },
+      collections: {
+        carbon: () => import('@iconify-json/carbon/icons.json').then(i => i.default),
+        mdi: () => import('@iconify-json/mdi/icons.json').then(i => i.default),
+        lucide: () => import('@iconify-json/lucide/icons.json').then(i => i.default),
+        logos: () => import('@iconify-json/logos/icons.json').then(i => i.default),
+        ph: () => import('@iconify-json/ph/icons.json').then(i => i.default),
+      },
     }),
   ],
   transformers: [

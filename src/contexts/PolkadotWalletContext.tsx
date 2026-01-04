@@ -258,8 +258,8 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
       .filter((account): account is NonNullable<typeof account> => account !== null);
   }, [accounts]);
 
-  // Get wallet account by address
-  const getWalletAccount = useCallback((address: SS58String | Uint8Array, chainSs58Format = 42) => {
+  // Get wallet account by address (default to Polkadot format 0, not generic substrate 42)
+  const getWalletAccount = useCallback((address: SS58String | Uint8Array, chainSs58Format = 0) => {
     if (!address) return null;
 
     try {
