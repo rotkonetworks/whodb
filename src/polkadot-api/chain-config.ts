@@ -223,12 +223,14 @@ export async function getTypedApi(chainId: keyof typeof CHAINS, provider?: WsPro
 /**
  * Get network priority for sorting (lower = higher priority)
  * Polkadot networks first, then Kusama, then others
+ * Handles both frontend chain IDs (ksmcc3_people) and backend network names (kusama)
  */
 export function getNetworkPriority(network?: string): number {
   if (!network) return 999;
-  if (network.startsWith('polkadot')) return 0;
-  if (network.startsWith('ksmcc3')) return 1;
-  if (network.startsWith('paseo')) return 2;
+  const n = network.toLowerCase();
+  if (n.startsWith('polkadot')) return 0;
+  if (n.startsWith('ksmcc3') || n === 'kusama') return 1;
+  if (n.startsWith('paseo')) return 2;
   return 3;
 }
 
@@ -243,11 +245,13 @@ export function sortByNetworkPriority<T extends { network?: string }>(profiles: 
 
 /**
  * Map parachain to its relay chain ecosystem for URL routing
+ * Handles both frontend chain IDs (ksmcc3_people) and backend network names (kusama)
  */
 export function getEcosystemName(chainId: string): string {
-  if (chainId.startsWith('polkadot')) return 'polkadot';
-  if (chainId.startsWith('ksmcc3')) return 'kusama';
-  if (chainId.startsWith('paseo')) return 'paseo';
+  const id = chainId.toLowerCase();
+  if (id.startsWith('polkadot')) return 'polkadot';
+  if (id.startsWith('ksmcc3') || id === 'kusama') return 'kusama';
+  if (id.startsWith('paseo')) return 'paseo';
   return chainId;
 }
 
@@ -263,6 +267,28 @@ export function getPeopleChain(ecosystem: string): keyof typeof CHAINS | null {
     case 'paseo':
       return 'paseo_people';
     default:
+      return null;
+  }
+}
+
+/**
+ * Map backend network names to CHAINS keys
+ * Backend stores: "kusama", "polkadot", "paseo"
+ * Frontend uses: "ksmcc3_people", "polkadot_people", "paseo_people"
+ */
+export function getChainKeyFromNetwork(network: string): keyof typeof CHAINS | null {
+  switch (network.toLowerCase()) {
+    case 'polkadot':
+      return 'polkadot_people';
+    case 'kusama':
+      return 'ksmcc3_people';
+    case 'paseo':
+      return 'paseo_people';
+    default:
+      // Try direct lookup
+      if (network in CHAINS) {
+        return network as keyof typeof CHAINS;
+      }
       return null;
   }
 }

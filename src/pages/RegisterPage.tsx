@@ -24,7 +24,7 @@ import { useUser } from "@/contexts/user-context"; // For fetching profile to ed
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { CHAINS } from "@/polkadot-api/chain-config"
+import { CHAINS, getEcosystemName } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode } from "@/types"
@@ -770,9 +770,9 @@ export default function RegisterPage() {
     isEditMode ? "Update Complete" : "Registration Complete",
   ]
 
-  // Only show Paseo testnet for registration (we're not registrars on Polkadot/Kusama yet)
+  // Show all people chains - view-only messaging will be shown for networks without registrar
   const networks = Object.entries(CHAINS)
-    .filter(([key]) => key.endsWith("_people") && key === "paseo_people")
+    .filter(([key]) => key.endsWith("_people"))
     .map(([key, networkInfo]) => ({
       id: key,
       name: networkInfo.name,
@@ -995,20 +995,29 @@ export default function RegisterPage() {
           {isViewOnly && (
             <div className="py-12 text-center">
               <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">View-Only Network</h3>
+              <h3 className="text-lg font-medium text-white mb-2">Registrar Not Available</h3>
               <p className="text-gray-400 text-sm mb-4">
-                Registration is not available on {networkDisplayName}. We are not operating as a registrar on this network.
+                We are not operating as a registrar on {networkDisplayName} yet.
               </p>
-              <p className="text-gray-500 text-xs">
-                You can still browse profiles on this network using the search.
+              <p className="text-gray-500 text-xs mb-4">
+                You can still browse profiles and edit your on-chain identity, but automatic verification is not available.
               </p>
-              <Button
-                variant="outline"
-                className="mt-6"
-                onClick={() => navigate('/search')}
-              >
-                Browse Profiles
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/search')}
+                >
+                  Browse Profiles
+                </Button>
+                {accountStore.address && (
+                  <Button
+                    variant="default"
+                    onClick={() => navigate(`/profile/${getEcosystemName(network || 'paseo')}/${accountStore.address}`)}
+                  >
+                    View My Profile
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
@@ -1026,10 +1035,10 @@ export default function RegisterPage() {
           {!isViewOnly && accountStore.address && <div>
             {currentStep === STEP_NUMBERS.pickNetwork && (
               <>
-                <div className="mb-4 p-3 text-sm text-yellow-300 bg-yellow-900/20 border border-yellow-500/30 rounded-md flex items-start">
-                  <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-yellow-400" />
+                <div className="mb-4 p-3 text-sm text-blue-300 bg-blue-900/20 border border-blue-500/30 rounded-md flex items-start">
+                  <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-blue-400" />
                   <span>
-                    Registration is currently only available on Paseo testnet. We will be available as registrars on Polkadot and Kusama soon!
+                    Full registration with automatic verification is available on Paseo. Other networks allow identity management but require external registrars.
                   </span>
                 </div>
                 <NetworkSelection
