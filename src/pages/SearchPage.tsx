@@ -1,20 +1,41 @@
-import { useEffect, useState, memo, useMemo, useCallback } from "react"
+import { useEffect, useState, memo, useMemo, useCallback, useRef } from "react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import SearchForm from "@/components/search-form"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy, AlertCircle, RefreshCw } from "lucide-react"
+import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy, AlertCircle, RefreshCw, Database } from "lucide-react"
 import { SearchResultSkeleton } from "@/components/ui/profile-skeleton"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
+import { useLocalIdentitySearch } from "@/hooks/useLocalIdentitySearch"
 import { FullProfile } from "@/types/profile"
+import { ScoredIdentity } from "@/lib/identity-cache"
 import * as Avatar from "@radix-ui/react-avatar"
 import { constructSearchObject } from "@/lib/utils"
-import { CHAINS, getEcosystemName } from "@/polkadot-api/chain-config"
+import { CHAINS, getEcosystemName, getChainKeyFromNetwork } from "@/polkadot-api/chain-config"
 import { encodeAddress, decodeAddress } from "@polkadot/util-crypto"
 import { useAccount } from "@/contexts/wallet-context"
+
+// Convert local cached identity to FullProfile format
+function scoredIdentityToProfile(identity: ScoredIdentity): FullProfile {
+  return {
+    wallet_id: identity.address,
+    network: identity.network,
+    display: identity.display || undefined,
+    legal: identity.legal || undefined,
+    web: identity.web || undefined,
+    email: identity.email || undefined,
+    twitter: identity.twitter || undefined,
+    github: identity.github || undefined,
+    discord: identity.discord || undefined,
+    matrix: identity.matrix || undefined,
+    image: identity.image || undefined,
+    pgp_fingerprint: identity.pgpFingerprint || undefined,
+    verified: identity.isVerified,
+  }
+}
 
 const SearchResultItem = memo<{
   profile: FullProfile;
@@ -29,7 +50,9 @@ const SearchResultItem = memo<{
 
   const formattedAddress = useMemo(() => {
     try {
-      const chainConfig = CHAINS[profile.network]
+      // Map backend network name to CHAINS key
+      const chainKey = getChainKeyFromNetwork(profile.network)
+      const chainConfig = chainKey ? CHAINS[chainKey] : null
       if (chainConfig?.ss58Format !== undefined) {
         const publicKey = decodeAddress(profile.wallet_id)
         return encodeAddress(publicKey, chainConfig.ss58Format)
@@ -41,8 +64,16 @@ const SearchResultItem = memo<{
   }, [profile.wallet_id, profile.network])
 
   const networkDisplayName = useMemo(() => {
-    const chainConfig = CHAINS[profile.network]
-    return chainConfig?.name?.replace(' People', '') || profile.network
+    // Map backend network name to CHAINS key
+    const chainKey = getChainKeyFromNetwork(profile.network)
+    const chainConfig = chainKey ? CHAINS[chainKey] : null
+    if (chainConfig?.name) {
+      return chainConfig.name.replace(' People', '')
+    }
+    if (profile.network) {
+      return profile.network.charAt(0).toUpperCase() + profile.network.slice(1)
+    }
+    return 'Unknown'
   }, [profile.network])
 
   const handleCopy = useCallback((e: React.MouseEvent, text: string, label: string) => {
@@ -113,13 +144,20 @@ SearchResultItem.displayName = "SearchResultItem";
 // TODO: fix search suggestion
 export default function SearchPage() {
   const { search } = useSearchContext()
+  const { search: localSearch, cacheStats, isSyncing } = useLocalIdentitySearch()
   const { address: connectedAddress } = useAccount()
   const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [usingLocalFallback, setUsingLocalFallback] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Stable cache check and syncing ref
+  const hasLocalCache = useMemo(() => cacheStats && cacheStats.count > 0, [cacheStats?.count])
+  const isSyncingRef = useRef(isSyncing)
+  isSyncingRef.current = isSyncing
 
   const query = searchParams.get('query') || '';
   // const decodedString = atob(query);
@@ -134,15 +172,44 @@ export default function SearchPage() {
   const fetchResults = async (searchQuery: any, limit: number = 20) => {
     setIsLoading(true);
     setSearchError(null);
+
+    // Extract search text from the query object
+    const searchText = typeof searchQuery === 'string'
+      ? searchQuery
+      : searchQuery?.payload?.filters?.fields?.[0]?.field?.Generic || '';
+
+    // PRIORITY: Local on-chain data is trustless - use it when available
+    // Also search local if syncing in progress (partial results are better than nothing)
+    if ((hasLocalCache || isSyncingRef.current) && searchText && searchText.length >= 2) {
+      try {
+        const localResults = await localSearch(searchText, undefined, limit);
+        const profiles = localResults.map(scoredIdentityToProfile);
+        console.log('Local search results (trustless):', profiles.length);
+        setResults(profiles);
+        setUsingLocalFallback(true);
+        if (profiles.length === 0) {
+          setSearchError('No matching identities found in local cache.');
+        }
+      } catch (localErr) {
+        console.error('Local search failed:', localErr);
+        setSearchError('Local search failed');
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // FALLBACK: Use WebSocket for fast initial search when local cache is empty
+    setUsingLocalFallback(false);
     try {
-      // Use the centralized search function from context
       const searchResults = await search(searchQuery, limit);
-      console.log('Search results received:', searchResults);
+      console.log('WebSocket search results:', searchResults.length);
       setResults(searchResults);
     } catch (error) {
-      console.error('Search failed:', error);
+      console.error('WebSocket search failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Search service unavailable';
-      setSearchError(errorMessage);
+      setSearchError(errorMessage + '. Sync identities from chain to enable local search.');
       setResults([]);
     } finally {
       setIsLoading(false);
@@ -274,6 +341,15 @@ export default function SearchPage() {
           </div>
         ) : results.length > 0 ? (
           <div className="bg-gray-800/20 border border-gray-700/50 rounded-lg overflow-hidden">
+            {usingLocalFallback && (
+              <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400 bg-gray-700/30 border-b border-gray-700">
+                <Database className="w-4 h-4 text-pink-400/70" />
+                <span>
+                  local cache ({cacheStats?.count || 0} identities)
+                  {isSyncing && ' · syncing...'}
+                </span>
+              </div>
+            )}
             {results.map((profile) => (
               <SearchResultItem
                 key={profile.wallet_id}
