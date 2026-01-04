@@ -1,5 +1,6 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useEffect } from 'react'
 import { useIdentityEvents, IdentityEvent } from '@/hooks/useIdentityEvents'
+import { useVerification } from '@/contexts/verification-context'
 import { History, ExternalLink, Loader2, AlertCircle, CheckCircle, XCircle, UserPlus, UserMinus, FileEdit, Scale } from 'lucide-react'
 
 interface IdentityHistoryProps {
@@ -106,7 +107,15 @@ export const IdentityHistory = memo(function IdentityHistory({
   network,
   peopleChain,
 }: IdentityHistoryProps) {
-  const { events, isLoading, error } = useIdentityEvents(wallet, peopleChain || network)
+  const { events, isLoading, error, refetch } = useIdentityEvents(wallet, peopleChain || network)
+  const { challengeState } = useVerification()
+
+  // refetch events when websocket state changes (real-time updates)
+  useEffect(() => {
+    if (challengeState) {
+      refetch()
+    }
+  }, [challengeState, refetch])
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => b.block_number - a.block_number)
