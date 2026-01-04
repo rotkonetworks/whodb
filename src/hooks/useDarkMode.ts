@@ -13,7 +13,6 @@ export function useDarkMode() {
     }
   }, [])
   useEffect(() => {
-    console.log({ isDark })
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
   const setDark = (value: boolean) => {

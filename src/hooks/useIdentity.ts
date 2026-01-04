@@ -42,24 +42,19 @@ export const useIdentity = (
   }, []);
 
   useEffect(() => {
-    console.log('[useIdentity] Hook called with:', { address, chainId });
-
     if (!address || !chainId) {
-      console.log('[useIdentity] ❌ Missing address or chainId, skipping fetch');
       setIdentity(null);
       setError(null);
       setIsLoading(false);
       return;
     }
 
-    // Clear previous identity when come from other profile
+    // Clear previous identity when switching accounts
     setIdentity(null);
 
     let isCancelled = false;
     setIsLoading(true);
     setError(null);
-
-    console.log('[useIdentity] 🔄 Starting fetch for', address, 'on', chainId);
 
     const fetchOnChainIdentity = async () => {
       try {
@@ -112,13 +107,6 @@ export const useIdentity = (
             judgement: judgement.type,
           })),
         };
-
-        console.log('[useIdentity] Decoded identity:', decoded);
-
-        // Validate that we actually have some data
-        if (!decoded.display && !decoded.email && !decoded.twitter && !decoded.legal) {
-          console.warn('[useIdentity] Identity exists but all fields are null/empty');
-        }
 
         setIdentity(decoded);
         setIsLoading(false);

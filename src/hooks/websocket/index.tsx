@@ -276,7 +276,7 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
 
   const connect = useCallback(() => {
     if (!url) {
-      console.warn('Cannot connect: WebSocket URL is required');
+      logger.warn('Cannot connect: WebSocket URL is required');
       return;
     }
 
@@ -340,7 +340,7 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
       };
 
       ws.current.onclose = (event) => {
-        console.log('WebSocket closed, code:', event.code, 'attempt:', connectionAttempts.current);
+        logger.log('WebSocket closed, code:', event.code);
         setIsConnected(false);
         isReconnecting.current = false;
 
@@ -355,10 +355,8 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
             reconnectDelay * Math.pow(1.5, Math.min(connectionAttempts.current, 5)),
             maxReconnectDelay
           );
-          console.log(`Scheduling reconnection in ${reconnectDelayMs}ms`);
           reconnectTimeout.current = window.setTimeout(() => {
             if (!isReconnecting.current) {
-              console.log('Attempting to reconnect...');
               connect();
             }
           }, reconnectDelayMs);
@@ -371,16 +369,16 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
         }
       };
 
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error, 'attempt:', connectionAttempts.current);
+      ws.current.onerror = () => {
+        logger.error('WebSocket connection failed');
         setError('WebSocket connection failed');
         isReconnecting.current = false;
         setLoading(false);
       };
 
       ws.current.onmessage = handleMessage;
-    } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+    } catch (err) {
+      logger.error('Failed to create WebSocket:', err);
       setError('Failed to create WebSocket connection');
       isReconnecting.current = false;
       setLoading(false);

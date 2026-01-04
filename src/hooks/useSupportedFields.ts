@@ -46,7 +46,6 @@ export function useSupportedFields({ typedApi, registrarIndex, }: {
         const fields = registrarEntry?.fields;
         const _supportedFields = getSupportedFields(fields > 0 ? Number(fields) : (1 << 10) - 1);
         setSupportedFields(_supportedFields);
-        console.log({ supportedFields: _supportedFields, result });
       } catch (error) {
         console.error("Error fetching supported fields:", error);
       }

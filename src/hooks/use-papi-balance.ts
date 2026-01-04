@@ -16,14 +16,6 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log("🔍 usePapiBalance effect:", {
-      address,
-      chainId,
-      hasAddress: !!address,
-      hasChainId: !!chainId,
-      addressLength: address?.length || 0
-    })
-
     // Reset state when dependencies change
     setIsLoading(true)
     setBalance(null)
@@ -31,10 +23,6 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
     setError(null)
 
     if (!address || !chainId || address.length === 0) {
-      console.log("⚠️ Missing address or chainId, skipping balance subscription", {
-        address: address || "undefined",
-        chainId: chainId || "undefined"
-      })
       setIsLoading(false)
       return
     }
@@ -52,8 +40,6 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
 
         if (!mounted) return
 
-        console.log("✅ Setting up PAPI balance subscription for:", address)
-
         // Subscribe to system.account for real-time updates
         subscription = typedApi.query.System.Account.watchValue(address).subscribe({
           next: (accountInfo) => {
@@ -70,23 +56,13 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
             setNonce(accountInfo.nonce)
             setIsLoading(false)
             setError(null)
-
-            console.log("💰 PAPI Balance update for", address, ":", {
-              free: free.toString(),
-              frozen: frozen.toString(),
-              reserved: reserved.toString(),
-              available: availableBalance.toString(),
-              nonce: accountInfo.nonce
-            })
           },
           error: (err) => {
-            console.error("❌ PAPI balance subscription error:", err)
             setError(err.message || "Failed to load balance")
             setIsLoading(false)
           }
         })
       } catch (err) {
-        console.error("❌ Failed to set up PAPI balance subscription:", err)
         setError(err instanceof Error ? err.message : "Failed to connect")
         setIsLoading(false)
       }
@@ -96,10 +72,7 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
 
     return () => {
       mounted = false
-      if (subscription) {
-        console.log("🧹 Cleaning up PAPI balance subscription for:", address)
-        subscription.unsubscribe()
-      }
+      subscription?.unsubscribe()
     }
   }, [address, chainId])
 

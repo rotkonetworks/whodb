@@ -35,7 +35,6 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   useEffect(() => {
     if (typedApi) {
       (async () => {
-        console.log("Fetching chain constants...");
         const fetchConstants = async (retryCount = 0): Promise<void> => {
           try {
             const constants = {
@@ -49,7 +48,6 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
               throw new Error('Missing required constants')
             }
 
-            console.log({ constants })
             setConstants(constants)
           } catch (e) {
             console.error(`Attempt ${retryCount + 1} failed:`, e)
@@ -81,8 +79,6 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
     let systemEventsSub = null;
 
     const cleanUp = () => {
-      if (systemEventsSub) {
-      }
       systemEventsSub?.unsubscribe?.();
     };
 
@@ -92,7 +88,6 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
 
     (async () => {
       systemEventsSub = await typedApi.query.system.events((events) => {
-        console.log({ events });
         events
           .filter(({ event }: any) => {
             // Get the section (pallet) and method from the event

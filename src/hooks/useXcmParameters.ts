@@ -50,7 +50,6 @@ export function useXcmParameters({
     if (typedApi) {
       try {
         const paraId = await typedApi.consts.parachainSystem.selfParaId.toNumber();
-        console.log({ paraId });
         return paraId;
       } catch (error) {
         console.error("Error getting parachain ID", error);
@@ -170,7 +169,6 @@ export function useXcmParameters({
       }
     });
 
-    console.log({ txArguments });
     return fromApi.tx.xcmPallet.limitedTeleportAssets(txArguments);
   }, [xcmParams.fromChain.paraId]);
 
