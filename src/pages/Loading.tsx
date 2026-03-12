@@ -1,8 +1,8 @@
 import { Circle } from "lucide-react";
 import React from "react";
 
-import { HelpCarousel } from "~/help/helpCarousel";
-import { useDarkMode } from "~/hooks/useDarkMode";
+import { HelpCarousel } from "@/help/helpCarousel";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 export const LoadingPlaceholder = ({ className, children, ...props }: {
   className?: string,
@@ -69,7 +69,7 @@ export function Loading() {
             </div>
           </div>
           <div className="flex gap-2">
-            <LoadingPlaceholder disabled
+            <LoadingPlaceholder
               className="h-10 w-10 flex flex-center border-[#E6007A] text-inherit hover:text-[#FFFFFF]" 
             >
               <Circle className="h-4 w-4" />

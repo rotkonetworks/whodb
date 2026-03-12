@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 
-import { FormatAmountOptions } from "~/types"
+import { FormatAmountOptions } from "@/types"
 
 export class LocalStorageUtil {
   static getItem<T>(key: string): T | null {

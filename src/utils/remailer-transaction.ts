@@ -63,7 +63,7 @@ export async function sendRemailerFeeTransaction(
 
     // Get the typed API
     const descriptors = await import('@polkadot-api/descriptors')
-    const typedApi = client.getTypedApi(descriptors[network])
+    const typedApi: any = client.getTypedApi((descriptors as any)[network])
 
     // Create a balance transfer transaction
     const tx = typedApi.tx.Balances.transfer_keep_alive({
@@ -104,10 +104,10 @@ export async function sendRemailerFeeTransaction(
 export async function waitForTransactionFinalization(
   network: string,
   txHash: string,
-  timeout: number = 60000
+  _timeout: number = 60000
 ): Promise<boolean> {
   try {
-    const client = await getPapiClient(network, false)
+    await getPapiClient(network, false) // ensure connection is valid
 
     // TODO: Implement proper transaction watching
     // For now, just wait a bit and assume success

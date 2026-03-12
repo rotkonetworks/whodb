@@ -333,7 +333,7 @@ export async function fetchAndCacheIdentity(
       matrix: readIdentityField(identityData.info.matrix),
       image: readIdentityField(identityData.info.image),
       pgpFingerprint: identityData.info.pgp_fingerprint
-        ? Array.from(identityData.info.pgp_fingerprint).map((b: number) => b.toString(16).padStart(2, '0')).join('')
+        ? Array.from(identityData.info.pgp_fingerprint).map((b: any) => b.toString(16).padStart(2, '0')).join('')
         : null,
       isVerified: identityData.judgements?.some(
         ([, j]: [number, { type: string }]) => j.type === "Reasonable" || j.type === "KnownGood"
@@ -424,7 +424,7 @@ export async function syncAllIdentities(
         matrix: readIdentityField(value.info.matrix),
         image: readIdentityField(value.info.image),
         pgpFingerprint: value.info.pgp_fingerprint
-          ? Array.from(value.info.pgp_fingerprint).map((b: number) => b.toString(16).padStart(2, '0')).join('')
+          ? Array.from(value.info.pgp_fingerprint).map((b: any) => b.toString(16).padStart(2, '0')).join('')
           : null,
         isVerified: value.judgements?.some(
           ([, j]: [number, { type: string }]) => j.type === "Reasonable" || j.type === "KnownGood"

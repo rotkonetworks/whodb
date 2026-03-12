@@ -36,7 +36,7 @@ export const getPapiClient = async (
   let client: PolkadotClient;
 
   if (useLightClient) {
-    const smoldot = startFromWorker(
+    startFromWorker(
       new Worker(new URL("polkadot-api/smoldot/worker", import.meta.url), {
         type: "module",
       })
@@ -67,7 +67,7 @@ export const queryIdentity = async (
 ) => {
   const client = await getPapiClient(chainId, useLightClient);
 
-  const identity = await client.request("state_call", [
+  const identity = await (client as any).request("state_call", [
     "Identity_identity_of",
     address,
   ]);

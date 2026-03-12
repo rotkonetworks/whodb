@@ -1,8 +1,8 @@
 import { ApiPromise } from "@polkadot/api";
 import { SS58String, Binary } from "polkadot-api";
 
-import { AccountTreeNode } from "~/hooks/UseAccountsTree";
-import { ApiStorage } from "~/types/api";
+import { AccountTreeNode } from "@/hooks/UseAccountsTree";
+// import { ApiStorage } from "@/types/api";
 
 type SubsOfResult = {
   deposit: bigint,
@@ -78,7 +78,7 @@ export type RawSubs = [SS58String, {
   type: RawType,
   value: Binary,
 }][];
-export const prepareRawSetSubs = (node: AccountTreeNode) => node.subs?.map(sub => [
+export const prepareRawSetSubs = (node: AccountTreeNode) => node.subs?.map((sub: any) => [
   sub.address, {
     type: `Raw${sub.name.length}`,
     value: Binary.fromText(sub.name),

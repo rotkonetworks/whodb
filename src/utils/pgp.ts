@@ -49,7 +49,7 @@ export async function encryptMessage(
  * @returns The public key in ASCII armor format or null
  */
 export async function fetchPublicKeyFromFingerprint(
-  fingerprint: string
+  _fingerprint: string
 ): Promise<string | null> {
   try {
     // TODO: Implement fetching from keyserver or on-chain storage

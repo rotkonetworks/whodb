@@ -164,9 +164,9 @@ export default function ProfilePage() {
           );
           const hasPending = identity.judgements.some(j => j.judgement === "FeePaid");
           if (hasVerified) {
-            identityStatus = IdentityVerificationStatus.Verified;
+            identityStatus = IdentityVerificationStatus.IdentityVerified;
           } else if (hasPending) {
-            identityStatus = IdentityVerificationStatus.Pending;
+            identityStatus = IdentityVerificationStatus.PendingJudgement;
           }
         }
 

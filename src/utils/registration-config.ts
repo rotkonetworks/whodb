@@ -1,8 +1,7 @@
 import { IdentityVerificationStatus } from "@/types/Identity"
-import type { ReactNode } from "react"
 import {
-  WalletIcon, UserCheck, Loader2, Globe, Github, Mail,
-  MessageSquare, Twitter, Key, User, ShieldCheck
+  Globe, Github, Mail,
+  MessageSquare, Twitter, Key, User,
 } from "lucide-react"
 
 // Compact step configuration

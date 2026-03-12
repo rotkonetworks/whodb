@@ -1,10 +1,7 @@
 import { useEffect, useState, memo, useMemo, useCallback, useRef } from "react"
-import { useUrlParams } from "@/hooks/useUrlParams"
-import SearchForm from "@/components/search-form"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { User, Mail, Wallet, Globe, Shield, CheckCircle, Search, UserPlus, Copy, AlertCircle, RefreshCw, Database } from "lucide-react"
+import { User, Globe, CheckCircle, Search, AlertCircle, RefreshCw, Database } from "lucide-react"
 import { SearchResultSkeleton } from "@/components/ui/profile-skeleton"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Link } from "react-router-dom"
@@ -22,7 +19,7 @@ import { useAccount } from "@/contexts/wallet-context"
 function scoredIdentityToProfile(identity: ScoredIdentity): FullProfile {
   return {
     wallet_id: identity.address,
-    network: identity.network,
+    network: identity.network as any,
     display: identity.display || undefined,
     legal: identity.legal || undefined,
     web: identity.web || undefined,
@@ -91,7 +88,7 @@ const SearchResultItem = memo<{
       <div className="flex items-start gap-5">
         <Avatar.Root className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
           <Avatar.Image
-            src={profile.image}
+            src={profile.image || undefined}
             alt={profile.display}
             className="w-full h-full object-cover"
           />

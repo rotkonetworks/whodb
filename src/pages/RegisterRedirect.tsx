@@ -8,7 +8,7 @@ import { WalletIcon } from 'lucide-react'
 export default function RegisterRedirect() {
   const { address } = useAccount()
   const { network } = useNetwork()
-  const [searchParams] = useSearchParams()
+  const [_searchParams] = useSearchParams()
   const navigate = useNavigate()
 
   // When both wallet and network are connected, redirect to profile
