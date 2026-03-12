@@ -11,12 +11,19 @@ export type ChainConfig = {
   maxRegistrarFee?: number; // Maximum fee to pay for registrar judgement (in planck)
   endpoint: string; // Endpoint URL for the chain
   // UI properties
+  id?: string;
   description?: string;
   iconStyle?: string;
   primaryColor?: string;
   badge?: string;
   badgeColor?: string;
   features?: string[];
+  // Derived properties set at runtime
+  isFree?: boolean;
+  isEncrypted?: boolean;
+  tokenDecimals?: number;
+  tokenSymbol?: string;
+  isViewOnly?: boolean;
 };
 
 // Chain configurations
@@ -148,6 +155,14 @@ export const CHAINS = {
     features: ["Free Tokens", "Fast Transactions"],
   },
 } as const satisfies Record<string, ChainConfig>;
+
+// Helper type for accessing chain config with full type info
+export type ChainId = keyof typeof CHAINS;
+
+// Helper function to get chain config with proper typing
+export function getChainConfig(chainId: string): ChainConfig | undefined {
+  return (CHAINS as Record<string, ChainConfig>)[chainId];
+}
 
 export const targetChains = import.meta.env.VITE_APP_AVAILABLE_CHAINS
   ? import.meta.env.VITE_APP_AVAILABLE_CHAINS.split(',').map((key: string) => key.trim())

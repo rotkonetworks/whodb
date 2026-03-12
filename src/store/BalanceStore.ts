@@ -62,7 +62,7 @@ export const checkBalance = async (address: string, network: string) => {
  * Request tokens (faucet)
  * Only available on testnets
  */
-export const requestTokens = async (address: string): Promise<boolean> => {
+export const requestTokens = async (_address: string): Promise<boolean> => {
   balanceStore.isRequestingTokens = true;
   balanceStore.error = null;
 

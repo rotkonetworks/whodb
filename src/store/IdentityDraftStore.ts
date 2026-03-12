@@ -89,7 +89,7 @@ export const updateDraftField = (field: keyof IdentityData, value: string) => {
 export const updateDraft = (updates: Partial<IdentityData>) => {
   Object.entries(updates).forEach(([key, value]) => {
     const field = key as keyof IdentityData;
-    identityDraftStore.draft[field] = value;
+    identityDraftStore.draft[field] = value || "";
     identityDraftStore.editedFields.add(field);
   });
   identityDraftStore.isDirty = true;

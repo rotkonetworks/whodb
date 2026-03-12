@@ -1,5 +1,5 @@
 import { proxy } from "valtio";
-import { CHAINS } from "@/polkadot-api/chain-config";
+import { CHAINS, type ChainConfig } from "@/polkadot-api/chain-config";
 
 export type Network = keyof typeof CHAINS;
 
@@ -56,7 +56,8 @@ const computeNetworkState = (network: Network | undefined): Partial<NetworkState
     };
   }
 
-  const chain = CHAINS[network];
+  const chains = CHAINS as Record<string, ChainConfig>;
+  const chain = chains[network];
   const relayId = network.split("_")[0] || "";
 
   return {
@@ -72,12 +73,12 @@ const computeNetworkState = (network: Network | undefined): Partial<NetworkState
     registrarIndex: chain?.registrarIndex,
     relay: {
       id: relayId,
-      name: CHAINS[relayId]?.name || "",
-      parachains: Object.keys(CHAINS)
+      name: chains[relayId]?.name || "",
+      parachains: Object.keys(chains)
         .filter((key) => key.startsWith(relayId))
         .map((key) => ({
           id: key,
-          name: CHAINS[key]?.name || "",
+          name: chains[key]?.name || "",
         })),
     },
   };

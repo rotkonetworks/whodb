@@ -26,6 +26,7 @@ export interface ChallengeStore {
   image?: Challenge;
   pgp_fingerprint?: Challenge;
   web?: Challenge;
+  [key: string]: Challenge | undefined;
 }
 
 export const challengeStore = proxy<ChallengeStore>({})

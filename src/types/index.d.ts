@@ -37,7 +37,7 @@ export type EstimatedCostInfo = {
 
 export type OpenTxDialogArgs_modeSet = {
   mode: DialogMode
-  tx: ApiTx
+  tx: ApiTx | null
   estimatedCosts: EstimatedCostInfo
   name?: string
 }
@@ -46,7 +46,7 @@ export type OpenTxDialogArgs = OpenTxDialogArgs_modeSet | { mode: null }
 export type IdentityFormRef = { reset: () => void; };
 
 export type SignSubmitAndWatchParams = {
-  call: ApiTx;
+  call: ApiTx | null;
   name: string;
   api?: ApiPromise;
   awaitFinalization?: boolean;

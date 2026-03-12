@@ -9,18 +9,9 @@ import { useChallengeWebSocket, ResponseAccountState, VerifyPGPKeyMessage, Initi
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { useWebSocketContext } from "./web-socket-provider";
 
-export type ChallengeType = keyof Omit<ChallengeStore, "display">
+export type ChallengeType = "discord" | "email" | "legal" | "github" | "matrix" | "twitter" | "image" | "pgp_fingerprint" | "web"
 type ExtraConfirmationData = {
-  "email": never
-  "matrix": never
-  "twitter": never
-  "website": never
-  "github": never
-  "pgp_fingerprint": VerifyPGPKeyMessage
-  "discord": never
-  "image": never
-  "legal": never
-  "web": never
+  [K in ChallengeType]: K extends "pgp_fingerprint" ? VerifyPGPKeyMessage : never
 }
 
 export interface FieldVerification {
@@ -155,9 +146,9 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     setWsParams(params);
   }, []);
 
-  const isVerifying = useCallback((field: string) => verifyingFields.has(field), [verifyingFields])
+  const isVerifying = useCallback((field: ChallengeType) => verifyingFields.has(field), [verifyingFields])
 
-  const resetFieldVerification = useCallback((fieldToReset: string) => {
+  const resetFieldVerification = useCallback((fieldToReset: ChallengeType) => {
     setVerifications((prev) =>
       prev.map((v) =>
         v.field === fieldToReset
@@ -192,8 +183,9 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
   // Update verifications when WebSocket challenges change
   useEffect(() => {
     const newVerifications: FieldVerification[] = Object.entries(challengeWebSocket.challenges)
-      .map(([key, challenge]: [string, Challenge]) => {
-        return convertChallengeToVerification(key, challenge);
+      .filter(([, challenge]) => challenge !== undefined)
+      .map(([key, challenge]: [string, Challenge | undefined]) => {
+        return convertChallengeToVerification(key, challenge!);
       });
 
     setVerifications(newVerifications);
@@ -208,16 +200,16 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     _methodType: "code" | "oauth" | "dns-challenge" | "challenge" | "challenge-url" | "gpg-challenge",
     label: string,
   ): Promise<string | null> => {
-    setFieldVerifying(field, true);
+    setFieldVerifying(field as ChallengeType, true);
 
     // Check if we have a challenge from WebSocket for this field
     const websocketChallenge = challenges[field];
-    
+
     if (websocketChallenge?.code) {
       toast.info(`Using verification challenge for ${label}...`);
-      
-      updateVerificationState(field, "pending");
-      setFieldVerifying(field, false);
+
+      updateVerificationState(field as ChallengeType, "pending");
+      setFieldVerifying(field as ChallengeType, false);
       
       return websocketChallenge.code;
     }
@@ -226,7 +218,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     window.setTimeout(() => {
       if (!challenges[field]?.code) {
         toast.error(`No verification challenge available for ${label}. Please try again later.`);
-        setFieldVerifying(field, false);
+        setFieldVerifying(field as ChallengeType, false);
       }
     }, 10000);
 
@@ -235,7 +227,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
 
   // Helper function to handle PGP verification
   const handlePGPVerification = async (
-    field: ChallengeType, 
+    _field: ChallengeType,
     extraConfirmationData: VerifyPGPKeyMessage
   ): Promise<boolean> => {
     if (!sendPGPVerification) {
@@ -353,7 +345,7 @@ export function VerificationProvider({ children }: { children: React.ReactNode }
     }
   }
 
-  const getFieldStatus = useCallback((field: string) => {
+  const getFieldStatus = useCallback((field: ChallengeType) => {
     return verifications.find((v) => v.field === field) || null
   }, [verifications])
 

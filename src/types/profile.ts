@@ -1,4 +1,4 @@
-import { Timeline, TimelineEventRecord } from "./timeline";
+import { TimelineEventRecord } from "./timeline";
 import { CHAINS } from "@/polkadot-api/chain-config";
 import { SS58String } from "polkadot-api";
 
@@ -15,5 +15,6 @@ export type FullProfile = {
   legal?: string;
   web?: string;
   pgp_fingerprint?: string;
-  image?: null
+  image?: string | null
+  verified?: boolean
 }
