@@ -1,13 +1,8 @@
-import BigNumber from "bignumber.js";
-import { AlertCircle, Coins } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogMode, EstimatedCostInfo, FormatAmountFn, OpenTxDialogArgs } from "@/types";
-import { Identity } from "@/types/Identity";
 import { ApiTx } from "@/types/api";
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 
 
 export default function ConfirmActionDialog({
@@ -18,9 +13,7 @@ export default function ConfirmActionDialog({
   submitTransaction,
   estimatedCosts,
   txToConfirm,
-  balance,
   formatAmount,
-  identity,
   isTxBusy,
 }: {
   openDialog: DialogMode;
@@ -30,9 +23,7 @@ export default function ConfirmActionDialog({
   submitTransaction: () => void;
   estimatedCosts: EstimatedCostInfo;
   txToConfirm: ApiTx;
-  balance: BigNumber;
   formatAmount: FormatAmountFn;
-  identity: Identity;
   isTxBusy: boolean;
 }) {
   return (
@@ -40,7 +31,7 @@ export default function ConfirmActionDialog({
       open={[
         "clearIdentity", "setIdentity", "requestJudgement", "cancelRequest", "addSubaccount", "removeSubaccount",
         "quitSub", "editSubAccount"
-      ].includes(openDialog)}
+      ].includes(openDialog as string)}
       onOpenChange={v => v
         ? openTxDialog({
           mode: openDialog,

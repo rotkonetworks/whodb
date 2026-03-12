@@ -61,7 +61,8 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
     }
   }, [address, accounts])
 
-  const { tokenSymbol, tokenDecimals } = chainConstants
+  const tokenSymbol = (chainConstants as any)?.tokenSymbol ?? chainStore.tokenSymbol
+  const tokenDecimals = (chainConstants as any)?.tokenDecimals ?? chainStore.tokenDecimals
   const [amount, _setAmount] = React.useState(
     teleportAmount && tokenDecimals
       ? BigNumber(teleportAmount.toString())
@@ -75,7 +76,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
     setTeleportAmount(amountInBase)
   }
 
-  const [selectedChain, setSelectedChain] = React.useState<string>(chainStore.relay.id)
+  const [selectedChain, setSelectedChain] = React.useState<string>(chainStore.relay?.id ?? '')
   const fromChainId = selectedChain as Network
   const toChainId = chainStore.id as Network
 
@@ -84,11 +85,12 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   }, [])
 
   const availableAccounts = accounts
-  const otherChains = [chainStore.relay, ...chainStore.relay.parachains]
-    .filter((chain) => chain.id !== toChainId)
+  const otherChains = chainStore.relay
+    ? [chainStore.relay, ...chainStore.relay.parachains].filter((chain) => chain?.id !== toChainId)
+    : []
 
   const handleTeleport = React.useCallback(async () => {
-    const tokenDecimals = chainStore.tokenDecimals
+    const tokenDecimals = chainStore.tokenDecimals ?? 10
     const newAmount = BigNumber(amount).multipliedBy(BigNumber(10).pow(BigNumber(tokenDecimals)))
     const tx = getTeleportCall({
       amount: newAmount,
@@ -109,7 +111,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
       name: `Teleport Assets from ${fromChainId} to ${toChainId}`,
       awaitFinalization: true,
       signer: fromSigner, // Ensure to use the correct signer
-      api: fromTypedApi, // Pass the API for the from chain
+      api: fromTypedApi || undefined, // Pass the API for the from chain
     })
   }, [amount, xcmParams, getTeleportCall, chainStore, signSubmitAndWatch, fromChainId, toChainId])
 

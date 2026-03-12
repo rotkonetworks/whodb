@@ -22,7 +22,7 @@ interface FormFieldProps {
 export function FormField({
   id,
   label,
-  icon,
+  icon: _icon,
   value,
   onChange,
   placeholder,

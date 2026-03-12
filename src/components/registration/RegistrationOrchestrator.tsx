@@ -2,13 +2,12 @@ import { useState, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 import { SS58String } from "polkadot-api"
 import BigNumber from "bignumber.js"
-import { IdentityData, IdentityVerificationStatus } from "@/types/Identity"
+import { IdentityVerificationStatus } from "@/types/Identity"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useNetwork } from "@/contexts/network-context"
 import { useVerification } from "@/contexts/verification-context"
 import { InlineIdentityForm } from "@/components/inline-identity-form"
 import { ProgressiveIdentityForm } from "@/components/registration/ProgressiveIdentityForm"
-import { BalanceDisplay } from "@/components/balance-display"
 import { IdentityVerificationForm } from "@/components/identity-verification-form"
 import { PaymentPrompt } from "@/components/registration/PaymentPrompt"
 import { Button } from "@/components/ui/button"
@@ -54,7 +53,7 @@ export function RegistrationOrchestrator({
     formatAmount,
     balance, // Combined balance (People + AssetHub)
     peopleChainBalance, // CRITICAL: Use this for registration checks
-    assetHubBalance,
+    assetHubBalance: _assetHubBalance,
     chainConstants,
     supportedFields,
     chainStore,
@@ -128,16 +127,10 @@ export function RegistrationOrchestrator({
       registrationBalance: registrationBalance.toString(),
       minBalance: minBalance.toString(),
       hasBalance,
-      decimals: chainConstants?.tokenDecimals
+      decimals: chainStore.tokenDecimals
     });
     return hasBalance;
   }, [peopleChainBalance, registrationBalance, minBalance, chainConstants])
-
-  // Check if user has balance on AssetHub that could be teleported
-  const hasAssetHubBalance = useMemo(
-    () => assetHubBalance && assetHubBalance.isGreaterThan(0),
-    [assetHubBalance]
-  )
 
   // Derived: show payment prompt if user tried to submit but lacks balance
   const showPaymentPrompt = useMemo(() => {
@@ -156,7 +149,7 @@ export function RegistrationOrchestrator({
   // Update current identity hash when on-chain identity changes (trustless)
   useEffect(() => {
     if (identity?.info) {
-      setCurrentIdentityHash(identity.info)
+      setCurrentIdentityHash(identity.info as any)
     }
   }, [identity])
 
@@ -396,7 +389,7 @@ export function RegistrationOrchestrator({
             : sanitized.pgp_fingerprint
           info.pgp_fingerprint = Array.from(Buffer.from(`14${formatted}`, 'hex'))
         } catch (err) {
-          throw new Error(`Invalid PGP fingerprint format: ${err.message}`)
+          throw new Error(`Invalid PGP fingerprint format: ${(err as Error).message}`)
         }
       }
 

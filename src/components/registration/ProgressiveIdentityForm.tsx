@@ -42,7 +42,6 @@ const FIELDS: FieldConfig[] = [
 ]
 
 export function ProgressiveIdentityForm({
-  initialData,
   onSubmit,
   isSubmitting
 }: ProgressiveIdentityFormProps) {
@@ -66,7 +65,7 @@ export function ProgressiveIdentityForm({
 
   const currentValue = String(draftSnap.draft[currentField.key] || "")
   const { isVerified, challenge, hasChallenge, autoCopied, requestVerification } = useFieldVerification(
-    currentField.key,
+    currentField.key as string,
     currentField.verifiable ?? false
   )
 
@@ -169,7 +168,7 @@ export function ProgressiveIdentityForm({
             hasChallenge={hasChallenge}
             autoCopied={autoCopied}
             challengeCode={challenge?.code}
-            contactLink={contactLinks[currentField.key]}
+            contactLink={contactLinks[currentField.key] ?? undefined}
             registrarEmail={registrarInfo?.identity?.email || undefined}
             onChange={handleFieldChange}
             onKeyPress={handleKeyPress}

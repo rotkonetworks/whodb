@@ -104,7 +104,7 @@ export const AccountDropdown = ({
                         <div className="w-6 h-6 flex-shrink-0">
                           <div className="w-full h-full rounded-full flex items-center justify-center">
                             <PolkadotIdenticon
-                              value={account.address}
+                              address={account.address}
                               size={24}
                             />
                           </div>

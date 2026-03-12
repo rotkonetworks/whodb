@@ -3,10 +3,10 @@ import { Mail, MessageCircle, Twitter, Globe, Github, Key, Copy } from "lucide-r
 import { Button } from "@/components/ui/button"
 import { ChallengeType, useVerification } from "@/contexts/verification-context"
 import { toast } from "sonner"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useParams } from "react-router-dom"
 import { SS58String } from "polkadot-api"
-import { Identity, IdentityInfo } from "@/types/Identity"
+import { Identity, IdentityInfo, IdentityVerificationStatus } from "@/types/Identity"
 
 interface ContactInformationProps {
   identity: Identity
@@ -88,17 +88,13 @@ export function ContactInformation({ identity }: ContactInformationProps) {
   
   const { getFieldStatus, setWebSocketParams } = useVerification()
   useEffect(() => {
-    setWebSocketParams({ network, address })
-  }, [network, address, setWebSocketParams])
-
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+    setWebSocketParams({ network, address, identityStatus: identity?.status ?? IdentityVerificationStatus.Unknown })
+  }, [network, address, identity?.status, setWebSocketParams])
 
   const copyToClipboard = (text: string, fieldLabel: string) => {
     if (!text) return
     navigator.clipboard.writeText(text)
-    setCopiedField(fieldLabel)
     toast.success(`${fieldLabel} copied!`)
-    setTimeout(() => setCopiedField(null), 2000)
   }
 
   const getStatusStyles = (status: string | undefined) => {
@@ -123,7 +119,7 @@ export function ContactInformation({ identity }: ContactInformationProps) {
       <div className="text-center py-8 text-gray-500">
         <Mail className="w-12 h-12 mx-auto mb-4 opacity-30" />
         <p className="text-md font-medium">No contact information provided.</p>
-        {info.isOwninfo && <p className="mt-2 text-xs">Add details to make your info more discoverable.</p>}
+        {(info as any).isOwnProfile && <p className="mt-2 text-xs">Add details to make your info more discoverable.</p>}
       </div>
     )
   }

@@ -11,8 +11,8 @@ export function useFieldVerification(fieldKey: string, isVerifiable: boolean) {
   const [autoCopied, setAutoCopied] = useState(false)
   const lastValueRef = useRef<string>("")
 
-  const fieldValue = String(draftSnap.draft[fieldKey as keyof typeof draftSnap.draft] || "")
-  const isVerified = draftSnap.verifications[fieldKey]?.isVerified
+  const fieldValue = String((draftSnap.draft as any)[fieldKey] || "")
+  const isVerified = (draftSnap.verifications as any)[fieldKey]?.isVerified
   const challenge = challenges[fieldKey]
 
   // Sync verification status from context to store

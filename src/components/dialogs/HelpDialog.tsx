@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from "react";
 
 import { Button } from "@/components/ui/button";
-import { HelpCarousel } from "~/help/helpCarousel";
+import { HelpCarousel } from "@/help/helpCarousel";
 
 import { GenericDialog } from "./GenericDialog";
 

@@ -54,7 +54,7 @@ export const ProfileContent = memo(function ProfileContent({
   const [checkingField, setCheckingField] = useState<string | null>(null)
 
   // Verification context
-  const { challenges, confirmVerification, verifications } = useVerification()
+  const { challenges, confirmVerification } = useVerification()
   const { registrarIndex } = usePolkadotApi()
   const { registrarInfo } = useRegistrarIdentity(registrarIndex)
 
@@ -96,7 +96,7 @@ export const ProfileContent = memo(function ProfileContent({
             value: challenge.accountName || config.getValue(),
             code: challenge.code,
             status: challenge.status,
-            contactLink: contactLinks[field as keyof typeof contactLinks],
+            contactLink: contactLinks[field as keyof typeof contactLinks] ?? undefined,
           })
         }
       }

@@ -6,7 +6,7 @@ import { useRegistrarIdentity } from "@/hooks/useRegistrarIdentity"
 
 // Component to display registrar info with fetched identity
 function RegistrarBadge({ registrarIndex, judgement }: { registrarIndex: number; judgement: string }) {
-  const { registrarInfo, isLoading, error } = useRegistrarIdentity(registrarIndex);
+  const { registrarInfo, isLoading } = useRegistrarIdentity(registrarIndex);
   const isVerified = judgement === "Reasonable" || judgement === "KnownGood";
   const isPending = judgement === "FeePaid";
 
@@ -108,7 +108,6 @@ export function ProfileDetailsSection({
   displayIdentity,
   identity,
   timeline,
-  isDraftMode,
   isOwnProfile,
   isVerified,
   onMessageClick

@@ -21,7 +21,7 @@ let globalSyncStarted = false;
 function scoredIdentityToProfile(identity: ScoredIdentity): FullProfile {
   return {
     wallet_id: identity.address,
-    network: identity.network,
+    network: identity.network as any,
     display: identity.display || undefined,
     legal: identity.legal || undefined,
     web: identity.web || undefined,

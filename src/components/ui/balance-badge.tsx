@@ -4,7 +4,7 @@ import { SS58String } from "polkadot-api";
 import { Badge } from "./badge";
 
 // Component to display individual account balance
-export const AccountBalanceBadge = ({ address, chainId }: { address: SS58String; chainId: string }) => {
+export const AccountBalanceBadge = ({ address, chainId: _chainId }: { address: SS58String; chainId: string }) => {
   const { formatAmount, typedApi } = usePolkadotApi();
 
   const balance = useSystemAccountData(address, typedApi).balance;

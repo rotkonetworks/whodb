@@ -4,12 +4,11 @@ import { User, Mail, Globe, MessageSquare, Github, Key, Twitter, CheckCircle, Lo
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSnapshot } from "valtio"
-import { identityDraftStore, initializeDraft, updateDraftField, isDraftReadyToSubmit, markFieldVerified, isVerificationValid } from "@/store/IdentityDraftStore"
+import { identityDraftStore, initializeDraft, updateDraftField, isDraftReadyToSubmit, markFieldVerified } from "@/store/IdentityDraftStore"
 import { useVerification } from "@/contexts/verification-context"
 import { useRegistrarIdentity } from "@/hooks/useRegistrarIdentity"
 import { generateContactLinks } from "@/utils/registrar-contacts"
 import { VerificationDialog } from "@/components/dialogs/VerificationDialog"
-import { toast } from "sonner"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 
 interface InlineIdentityFormProps {
@@ -26,7 +25,7 @@ export function InlineIdentityForm({
   isEditMode
 }: InlineIdentityFormProps) {
   const snap = useSnapshot(identityDraftStore)
-  const { startVerification, confirmVerification, getFieldStatus, challenges } = useVerification()
+  const { startVerification, getFieldStatus, challenges } = useVerification()
   const { registrarIndex } = usePolkadotApi()
   const { registrarInfo } = useRegistrarIdentity(registrarIndex)
 
@@ -39,7 +38,7 @@ export function InlineIdentityForm({
     web: "",
   })
 
-  const [verifyingField, setVerifyingField] = useState<VerifiableField | null>(null)
+  const [_verifyingField, setVerifyingField] = useState<VerifiableField | null>(null)
   const [autoRequestedFields, setAutoRequestedFields] = useState<Set<VerifiableField>>(new Set())
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false)
   const [selectedField, setSelectedField] = useState<VerifiableField | null>(null)

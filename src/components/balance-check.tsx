@@ -2,13 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNetwork } from "@/contexts/network-context";
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext";
-import { useWallet } from "@/contexts/wallet-context"; // Import wallet context
 import { useFormatAmount } from "@/hooks/useFormatAmount";
 import { IdentityVerificationStatus } from "@/types/Identity";
 import BigNumber from "bignumber.js";
 import { AlertCircle, ArrowLeftRight, CheckCircle, Coins, Loader2, Users, Wallet, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { SponsorRequestModal } from "./sponsor-request-modal"; // Import sponsor request modal
 import { TeleporterDialog } from "./dialogs/teleportDialog"; // Import the teleporter dialog
 import { PaseoFaucetDialog } from "./dialogs/PaseoFaucetDialog";
 import { CopyButton } from "./ui/copy-button";
@@ -25,20 +23,14 @@ export function BalanceCheck({
 }: BalanceCheckProps) {
   const { network, networkDisplayName } = useNetwork()
   const [hasChecked, setHasChecked] = useState(false)
-  const [showChipInModal, setShowChipInModal] = useState(false) // State for modal
   const [showTeleportDialog, setShowTeleportDialog] = useState(false) // State for teleport dialog
   const [showPaseoFaucet, setShowPaseoFaucet] = useState(false) // State for Paseo faucet dialog
-  const { address: walletAddress } = useWallet() // Get wallet address from context
-
   const { chainStore, accountStore, isTxBusy, balance, identity, typedApi, isConnected, error, isConnecting } = usePolkadotApi()
 
   // Use passed balance or fall back to context balance
   const address = accountStore.encodedAddress
   const isLoading = (balance === null || balance === undefined || !typedApi || !address || !isConnected) && !error
   const hasConnectionError = !!error
-  const [isRequestingTokens, setIsRequestingTokens] = useState(false)
-
-
   useEffect(() => {
     if (address && !hasChecked) {
       // TODO: Add proper balance check implementation
@@ -75,8 +67,6 @@ export function BalanceCheck({
   }
 
   const networkSymbol = CHAINS[network]?.symbol
-
-  const amountNeededForChipIn = requiredBalanceFloat - balanceFloat > 0 ? requiredBalanceFloat - balanceFloat : 0
 
   const fauceturl = import.meta.env[`VITE_APP_${(chainStore.id as string).split("_")[0].toUpperCase()}_FAUCET_URL`]
 
@@ -188,7 +178,7 @@ export function BalanceCheck({
 
           {!isLoading && (
             <>
-              {identity.status >= IdentityVerificationStatus.IdentitySet ? (
+              {identity && identity.status >= IdentityVerificationStatus.IdentitySet ? (
                 <div className="space-y-4">
                   <div className="flex items-center p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-md">
                     <AlertCircle className="w-5 h-5 text-yellow-400 mr-2" />
@@ -212,16 +202,6 @@ export function BalanceCheck({
                     </div>
                     <div className="p-4 bg-gray-700/30 rounded-md">
                       <p className="text-gray-300 text-sm">You can proceed to registration.</p>
-                    </div>
-                    <Button onClick={handleProceed} className="w-full">
-                      Continue to Registration
-                    </Button>
-                  </div>
-                ) : hasSufficientBalance ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center p-3 bg-green-900/20 border border-green-500/30 rounded-md">
-                      <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
-                      <span className="text-green-400 font-medium">Sufficient balance for registration</span>
                     </div>
                     <Button onClick={handleProceed} className="w-full">
                       Continue to Registration
@@ -298,7 +278,7 @@ export function BalanceCheck({
                       */}
                       {canRequestChipIn && (
                         <Button
-                          onClick={() => setShowChipInModal(true)}
+                          onClick={() => { /* TODO: setShowChipInModal(true) when feature is ready */ }}
                           className="w-full"
                           variant="outline"
                           disabled={true}

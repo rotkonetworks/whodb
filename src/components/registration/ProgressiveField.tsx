@@ -74,7 +74,7 @@ export function ProgressiveField({
         />
 
         <FieldInstructions
-          fieldKey={fieldKey}
+          fieldKey={fieldKey as string}
           isVerifiable={isVerifiable}
           hasValue={Boolean(value)}
           hasChallenge={hasChallenge}

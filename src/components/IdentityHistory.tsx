@@ -1,5 +1,5 @@
 import { memo, useMemo, useEffect } from 'react'
-import { useIdentityEvents, IdentityEvent } from '@/hooks/useIdentityEvents'
+import { useIdentityEvents } from '@/hooks/useIdentityEvents'
 import { useVerification } from '@/contexts/verification-context'
 import { History, ExternalLink, Loader2, AlertCircle, CheckCircle, XCircle, UserPlus, UserMinus, FileEdit, Scale } from 'lucide-react'
 

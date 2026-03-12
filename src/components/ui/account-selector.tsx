@@ -73,7 +73,7 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
                   <div className="w-10 h-10 flex-shrink-0">
                     {account.address ? (
                       <PolkadotIdenticon
-                        value={account.address}
+                        address={account.address}
                         size={40}
                       />
                     ) : (

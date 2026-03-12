@@ -7,7 +7,7 @@ import { Lock, AlertCircle, Send, Trash2, X } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useRemailer } from "@/hooks/websocket/remailer"
 import { encryptMessage } from "@/utils/pgp"
-import { sendRemailerFeeTransaction, getRemailerFee, formatTokenAmount } from "@/utils/remailer-transaction"
+import { getRemailerFee, formatTokenAmount } from "@/utils/remailer-transaction"
 import { useAccount } from "@/contexts/wallet-context"
 import { SS58String } from "polkadot-api"
 import { logger } from "@/utils/logger"
@@ -46,7 +46,7 @@ export function RemailerDialog({
   const [message, setMessage] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [verificationError, setVerificationError] = useState<string | null>(null)
-  const { address: senderAddress, signMessage } = useAccount()
+  const { address: senderAddress } = useAccount()
   const [senderIdentity, setSenderIdentity] = useState<any>(null)
 
   // WebSocket for PGP key fetching
@@ -56,7 +56,6 @@ export function RemailerDialog({
 
   const {
     messages: remailerMessages,
-    loading: remailerLoading,
     error: remailerError,
     sendMessage: sendRemailerMessage,
     deleteMessage: deleteRemailerMessage,
@@ -100,7 +99,7 @@ export function RemailerDialog({
         const { getPapiClient } = await import('@/lib/papi-client')
         const client = await getPapiClient(network, false)
         const descriptors = await import('@polkadot-api/descriptors')
-        const typedApi = client.getTypedApi(descriptors[network])
+        const typedApi: any = client.getTypedApi((descriptors as any)[network])
 
         // Check if this network has Identity pallet (relay chains) or People pallet (people chains)
         let identityData = null

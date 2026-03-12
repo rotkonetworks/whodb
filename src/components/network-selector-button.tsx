@@ -29,7 +29,7 @@ export function NetworkSelectorButton() {
     // If on profile page, update the network in the URL path
     const match = location.pathname.match(/^\/profile\/([^\/]+)\/(.+)$/);
     if (match) {
-      const [, currentNetwork, address] = match;
+      const [, , address] = match;
       navigate(`/profile/${baseNetworkId}/${address}`);
     } else if (location.pathname.startsWith('/search')) {
       // On search page, update query param

@@ -76,7 +76,7 @@ export function AccountHierarchy({ profile, isOwnProfile }: AccountHierarchyProp
                       <Edit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </Button>
                   )}
-                  <Link href={`/profile/${account.id}`} passHref>
+                  <Link to={`/profile/${account.id}`}>
                     <Button
                       variant="ghost"
                       size="icon"

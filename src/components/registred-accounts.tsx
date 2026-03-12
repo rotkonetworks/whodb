@@ -1,10 +1,10 @@
 import React from 'react';
-import { CheckCircle, Fingerprint, GitMerge, Twitter, Calendar } from 'lucide-react';
-import { Profile, ProfileResults, useSearchContext } from "@/contexts/web-socket-provider"
-import { ArrowLeft, Mail, Wallet, Shield, Globe, Github,  AtSign } from "lucide-react"
+import { Fingerprint } from 'lucide-react';
+import { FullProfile } from "@/types/profile"
+import { Mail, Wallet, Shield, Globe, Github, AtSign } from "lucide-react"
 import { SOCIAL_ICONS } from '@/assets/icons';
 
-const RegistredAccounts: React.FC<Profile> = ({ profile }) => {
+const RegistredAccounts: React.FC<{ profile: FullProfile }> = ({ profile }) => {
 
   return (
     <div className="mt-8 mt-8 grid grid-cols-1 md:grid-cols-2 gap-3">

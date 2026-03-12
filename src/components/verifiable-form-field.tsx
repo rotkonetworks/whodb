@@ -119,7 +119,7 @@ export function VerifiableFormField({
     // For other verification methods, just trigger the check
     // Challenges are automatically provided by WebSocket
     console.log(`🔵 Confirming verification for ${fieldId}`);
-    await confirmVerification(fieldId, {})
+    await confirmVerification(fieldId, undefined as never)
   }
 
   const copyToClipboard = (text: string, message = "Copied to clipboard!") => {
@@ -321,10 +321,10 @@ export function VerifiableFormField({
             </>
           )}
           {verificationInstructions.method === "challenge-url" && fieldId === "github"
-            && challengeOrCode && identity.info?.github && (
+            && challengeOrCode && identity?.info?.github && (
               <GitHubVerification
                 url={challengeOrCode}
-                expectedUsername={identity.info.github}
+                expectedUsername={identity?.info?.github}
                 onVerify={(isVerified) => {
                   if (isVerified) {
                     toast.success("GitHub account successfully verified!")

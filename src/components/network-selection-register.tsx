@@ -6,7 +6,7 @@ import { Check } from "lucide-react"
 interface NetworkOption {
   id: string
   name: string
-  description: string
+  description?: string
   icon: React.ReactNode
   color: string
   badge: string
@@ -54,7 +54,7 @@ export const NetworkSelection: React.FC<NetworkSelectionProps> = ({
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <div className="w-6 h-6 flex-shrink-0">
                     {network.icon && React.isValidElement(network.icon)
-                      ? React.cloneElement(network.icon, {
+                      ? React.cloneElement(network.icon as React.ReactElement<any>, {
                           className: "w-full h-full",
                         })
                       : network.icon || <div className="w-full h-full bg-gray-600 rounded-full" />}
