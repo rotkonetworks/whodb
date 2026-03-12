@@ -71,7 +71,7 @@ async function buildAccountHierarchy(
           currentAddress,
           allNodes,
           maxDepth: maxDepth - 1
-        });
+        }) ?? undefined;
 
         if (node.super) {
           allNodes[superAccount.address] = node.super;
@@ -130,7 +130,7 @@ async function buildAccountHierarchy(
   } catch (error) {
     console.error(`Error fetching subaccounts for ${address}:`, error);
   }
-  node.name = node.name || (await fetchIdentity(api, address)).info?.display;
+  node.name = node.name || (await fetchIdentity(api, address))?.info?.display;
 
   return node;
 }
@@ -220,7 +220,7 @@ export const useAccountsTree = ({
       }
     } catch (err) {
       console.error("Error fetching account hierarchy:", err);
-      setError(err instanceof Error ? err : new Error(String(err), { cause: err }));
+      setError(err instanceof Error ? err : new Error(String(err)));
       setAccountTree(null);
     } finally {
       setLoading(false);

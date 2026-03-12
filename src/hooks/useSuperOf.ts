@@ -38,11 +38,11 @@ export function useSuperOf(address: SS58String | undefined, chainId: string | nu
         throw new Error(`No descriptor for chain: ${chainId}`)
       }
 
-      const typedApi = client.getTypedApi(descriptor)
+      const typedApi = client.getTypedApi(descriptor as any)
 
       // Fetch superOf (parent account)
       try {
-        const superOfData = await typedApi.query.Identity.SuperOf.getValue(address)
+        const superOfData = await (typedApi as any).query.Identity.SuperOf.getValue(address)
         if (superOfData) {
           const [parentAddress, nameData] = superOfData
           let name: string | undefined
@@ -59,7 +59,7 @@ export function useSuperOf(address: SS58String | undefined, chainId: string | nu
 
       // Fetch subsOf (sub accounts)
       try {
-        const subsOfData = await typedApi.query.Identity.SubsOf.getValue(address)
+        const subsOfData = await (typedApi as any).query.Identity.SubsOf.getValue(address)
         if (subsOfData && subsOfData[1] && subsOfData[1].length > 0) {
           const [deposit, subAddresses] = subsOfData
 
@@ -67,7 +67,7 @@ export function useSuperOf(address: SS58String | undefined, chainId: string | nu
           const subsWithNames = await Promise.all(
             subAddresses.map(async (subAddress: SS58String) => {
               try {
-                const subSuperOf = await typedApi.query.Identity.SuperOf.getValue(subAddress)
+                const subSuperOf = await (typedApi as any).query.Identity.SuperOf.getValue(subAddress)
                 if (subSuperOf) {
                   const [, nameData] = subSuperOf
                   let name: string | undefined

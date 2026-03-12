@@ -43,7 +43,7 @@ export const useSystemAccountData = (address?: SS58String, typedApi?: ApiPromise
 
         if (!mounted) return;
 
-        subscription.current = await typedApi.query.system.account(address, (result) => {
+        subscription.current = await typedApi.query.system.account(address, (result: any) => {
           if (!mounted) return;
 
           const free = BigNumber(result.data.free.toString());

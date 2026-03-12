@@ -6,7 +6,7 @@ import {
   getCacheStats,
   clearCache,
   CachedIdentity,
-  getCachedIdentity,
+  getCachedIdentity as _getCachedIdentity,
   ScoredIdentity,
 } from '@/lib/identity-cache';
 import { SS58String } from 'polkadot-api';

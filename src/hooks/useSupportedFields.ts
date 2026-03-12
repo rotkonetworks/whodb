@@ -1,7 +1,7 @@
 import { ApiPromise } from "@polkadot/api";
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiStorage } from "@/types/api";
+// import { ApiStorage } from "@/types/api";
 
 // Bitfield for different identity fields
 const IdentityField = {
@@ -18,7 +18,7 @@ const IdentityField = {
 } as const;
 
 export function useSupportedFields({ typedApi, registrarIndex, }: {
-  typedApi: ApiPromise,
+  typedApi: ApiPromise | null | undefined,
   registrarIndex?: number,
 }) {
   const [supportedFields, setSupportedFields] = useState<string[]>([]);

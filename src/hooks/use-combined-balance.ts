@@ -44,7 +44,7 @@ export const useCombinedBalance = (
       try {
         peopleSubscription.current = await peopleChainApi.query.system.account(
           address,
-          (result) => {
+          (result: any) => {
             const free = BigNumber(result.data.free.toString());
             const frozen = BigNumber(result.data.frozen.toString());
             const reserved = BigNumber(result.data.reserved.toString());
@@ -83,7 +83,7 @@ export const useCombinedBalance = (
 
         assetHubSubscription.current = await assetHubApi.query.system.account(
           address,
-          (result) => {
+          (result: any) => {
             const free = BigNumber(result.data.free.toString());
             const frozen = BigNumber(result.data.frozen.toString());
             const reserved = BigNumber(result.data.reserved.toString());

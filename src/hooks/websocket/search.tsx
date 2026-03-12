@@ -4,6 +4,7 @@ import { TimelineEventRecord } from '@/types/timeline';
 import { FullProfile } from '@/types/profile';
 import { CHAINS, sortByNetworkPriority } from '@/polkadot-api/chain-config';
 import { logger } from '@/utils/logger';
+import { IdentityInfo } from '@/types/Identity';
 
 interface SearchRecord {
   wallet_id: string;
@@ -59,7 +60,7 @@ export const SEARCH_OUTPUT_FIELDS: SearchOutputFields = {
   //image: 'Image'  // TODO Add support for image when API makes it available.
 } as const;
 
-type SearchFilterCriteria = Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>;
+// type SearchFilterCriteria = Record<keyof SearchSupportedFields | 'wallet_id' | 'result_size', string>;
 export const SEARCH_FILTER_CRITERIA_KEYS = {
   ...SEARCH_SUPPORTED_FIELDS,
   wallet_id: 'AccountId32',
@@ -226,7 +227,7 @@ export const useSearchWebSocket = (
 
       logger.log('Sending search message:', JSON.stringify(searchMessage));
 
-      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(searchMessage);
+      const response = await webSocketInstance.sendMessage<SearchResults | ErrorResponse>(searchMessage as any);
 
       if ((response as ErrorResponse).type === 'error') {
         const errorResponse = response as ErrorResponse;

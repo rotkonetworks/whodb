@@ -1,7 +1,7 @@
 import { SS58String } from "polkadot-api";
 import { useEffect, useMemo, useState } from "react";
 
-import { Network } from "@/contexts/network-context";
+// import { Network } from "@/contexts/network-context";
 import { ApiPromise } from "@polkadot/api";
 
 /**
@@ -21,8 +21,8 @@ export interface ChainConstants {
 }
 
 export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
-  typedApi: ApiPromise;
-  chainId: Network;
+  typedApi: ApiPromise | null | undefined;
+  chainId: string;
   address: SS58String;
   handlers: Record<string, {
     onEvent: (data: object) => void;
@@ -38,9 +38,9 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
         const fetchConstants = async (retryCount = 0): Promise<void> => {
           try {
             const constants = {
-              byteDeposit: await typedApi.consts.identity.byteDeposit.toNumber(),
-              basicDeposit: await typedApi.consts.identity.basicDeposit.toNumber(),
-              existentialDeposit: await typedApi.consts.balances.existentialDeposit.toNumber(),
+              byteDeposit: await (typedApi.consts.identity.byteDeposit as any).toNumber(),
+              basicDeposit: await (typedApi.consts.identity.basicDeposit as any).toNumber(),
+              existentialDeposit: await (typedApi.consts.balances.existentialDeposit as any).toNumber(),
             }
 
             // Validate all constants are present
@@ -76,7 +76,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
   )
 
   useEffect(() => {
-    let systemEventsSub = null;
+    let systemEventsSub: any = null;
 
     const cleanUp = () => {
       systemEventsSub?.unsubscribe?.();
@@ -87,7 +87,7 @@ export const useChainRealTimeInfo = ({ typedApi, address, handlers }: {
     }
 
     (async () => {
-      systemEventsSub = await typedApi.query.system.events((events) => {
+      systemEventsSub = await typedApi.query.system.events((events: any) => {
         events
           .filter(({ event }: any) => {
             // Get the section (pallet) and method from the event

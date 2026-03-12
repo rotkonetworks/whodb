@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js";
+// @ts-ignore
 import _ from "lodash";
 import { SS58String, Binary } from "polkadot-api";
 import { getPublicKey } from "@/utils/wallets-accounts";
@@ -49,7 +50,7 @@ export function useXcmParameters({
   const getParachainId = useCallback(async (typedApi: ApiPromise) => {
     if (typedApi) {
       try {
-        const paraId = await typedApi.consts.parachainSystem.selfParaId.toNumber();
+        const paraId = await (typedApi.consts.parachainSystem.selfParaId as any).toNumber();
         return paraId;
       } catch (error) {
         console.error("Error getting parachain ID", error);
@@ -72,9 +73,9 @@ export function useXcmParameters({
 
   // Update total transaction cost based on estimated costs
   useEffect(() => {
-    const totalCost = Object.values(estimatedCosts)
+    const totalCost = (Object.values(estimatedCosts) as any[])
       .reduce(
-        (total: BigNumber, current: BigNumber) => BigNumber(total).plus(BigNumber(current.toString())),
+        (total: BigNumber, current: any) => BigNumber(total).plus(BigNumber(current.toString())),
         BigNumber(0)
       ) as BigNumber;
     xcmParams.txTotalCost = totalCost.times(1.1);

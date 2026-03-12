@@ -62,13 +62,13 @@ export const useIdentity = (
         const descriptors = await import("@polkadot-api/descriptors");
 
         const client = await getPapiClient(chainId, false);
-        const descriptor = descriptors[chainId];
+        const descriptor = (descriptors as any)[chainId];
 
         if (!descriptor) {
           throw new Error(`No descriptor for chain: ${chainId}`);
         }
 
-        const typedApi = client.getTypedApi(descriptor);
+        const typedApi: any = client.getTypedApi(descriptor);
 
         // Use .getValue() method like in papi-console
         const identityData = await typedApi.query.Identity.IdentityOf.getValue(address);
@@ -100,9 +100,9 @@ export const useIdentity = (
           discord: readData(identityData.info.discord),
           image: readData(identityData.info.image),
           pgpFingerprint: identityData.info.pgp_fingerprint
-            ? Array.from(identityData.info.pgp_fingerprint).map(b => b.toString(16).padStart(2, '0')).join('')
+            ? Array.from(identityData.info.pgp_fingerprint).map((b: any) => b.toString(16).padStart(2, '0')).join('')
             : null,
-          judgements: identityData.judgements.map(([index, judgement]) => ({
+          judgements: identityData.judgements.map(([index, judgement]: [any, any]) => ({
             registrarIndex: index,
             judgement: judgement.type,
           })),

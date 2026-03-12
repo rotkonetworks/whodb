@@ -15,13 +15,13 @@ export function useUrlParams() {
     : {};
 
   const updateUrlParams = useCallback((params: UrlParamsArgs) => {
-    const newParams = { ...query, ...params };
+    const newParams: Record<string, string | undefined> = { ...Object.fromEntries(query.entries()), ...params };
     Object.keys(newParams).forEach((key) => {
       if (newParams[key] === undefined) {
         delete newParams[key];
       }
     });
-    setQuery(newParams);
+    setQuery(newParams as any);
     console.debug({ queryString: newParams, location });
   }, [location, query, setQuery]);
 

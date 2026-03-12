@@ -55,13 +55,13 @@ export function useRegistrarIdentity(registrarIndex?: number) {
         const descriptors = await import("@polkadot-api/descriptors");
 
         const client = await getPapiClient(peopleChainId, false);
-        const descriptor = descriptors[peopleChainId];
+        const descriptor = (descriptors as any)[peopleChainId];
 
         if (!descriptor) {
           throw new Error(`No descriptor for chain: ${peopleChainId}`);
         }
 
-        const typedApi = client.getTypedApi(descriptor);
+        const typedApi: any = client.getTypedApi(descriptor);
 
         // Fetch registrars list
         const registrars = await typedApi.query.Identity.Registrars.getValue();

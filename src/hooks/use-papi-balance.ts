@@ -36,13 +36,13 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
 
         // Get the typed API with descriptors
         const descriptors = await import("@polkadot-api/descriptors")
-        const typedApi = client.getTypedApi(descriptors[chainId])
+        const typedApi: any = client.getTypedApi((descriptors as any)[chainId])
 
         if (!mounted) return
 
         // Subscribe to system.account for real-time updates
         subscription = typedApi.query.System.Account.watchValue(address).subscribe({
-          next: (accountInfo) => {
+          next: (accountInfo: any) => {
             if (!mounted) return
 
             const free = BigNumber(accountInfo.data.free.toString())
@@ -57,7 +57,7 @@ export const usePapiBalance = (address?: SS58String, chainId?: string) => {
             setIsLoading(false)
             setError(null)
           },
-          error: (err) => {
+          error: (err: any) => {
             setError(err.message || "Failed to load balance")
             setIsLoading(false)
           }
