@@ -73,14 +73,14 @@ export interface PolkadotWalletProviderProps {
   autoConnect?: boolean;
 }
 
-export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", autoConnect = true }: PolkadotWalletProviderProps) {
+export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", autoConnect: _autoConnect = true }: PolkadotWalletProviderProps) {
   const [extensions, setExtensions] = useState<InjectedExtension[]>([]);
   const [accounts, setAccounts] = useState<ExtendedAccountData[]>([]);
   useTriggerLog(accounts, "PolkadotWalletProvider accounts");
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [_isConnected, _setIsConnected] = useState(false);
 
   const allAccountsSubscription = useRef<(() => void) | null>(null);
 

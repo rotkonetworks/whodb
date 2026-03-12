@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
-import { SS58String } from "polkadot-api";
+import type { SS58String as _SS58String } from "polkadot-api";
 
 // Extend Window interface to include ethereum
 declare global {

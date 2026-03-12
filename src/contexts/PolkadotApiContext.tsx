@@ -25,8 +25,8 @@ import { Network } from "./network-context";
 import { accountStore as _accountStore } from "@/store/AccountStore";
 import { chainStore as _chainStore, ChainInfo } from "@/store/ChainStore";
 
-import { useSystemAccountData } from "@/hooks/use-system-account-data";
-import { useCombinedBalance } from "@/hooks/use-combined-balance";
+import { useSystemAccountData as _useSystemAccountData } from "@/hooks/use-system-account-data";
+import { useCombinedBalance as _useCombinedBalance } from "@/hooks/use-combined-balance";
 import { usePapiBalance } from "@/hooks/use-papi-balance";
 import { CHAINS, cleanupAllConnections, cleanupConnection, createChainClient, getTypedApi } from "@/polkadot-api/chain-config";
 import { ChallengeStore as _challengeStore, ChallengeStore } from "@/store/challengesStore";
@@ -60,7 +60,7 @@ interface PolkadotApiContextType {
 
   // APIs
   typedApi: ApiPromise | undefined;
-  fromTypedApi: ApiPromise | null;
+  fromTypedApi: ApiPromise | null | undefined;
 
   // URL params
   urlParams: UrlParamsArgs;
@@ -83,7 +83,7 @@ interface PolkadotApiContextType {
   identityFormRef: React.RefObject<IdentityFormRef | null>;
   registrarIndex: number;
   supportedFields: string[];
-  identity: Identity;
+  identity: Identity | null;
   fetchIdAndJudgement: () => Promise<Identity | null>;
   prepareClearIdentityTx: () => any;
   onIdentityClear: () => Promise<void>;
@@ -152,6 +152,13 @@ interface PolkadotApiContextType {
 
   connect: (network: Network) => void;
   isConnected: boolean;
+  isConnecting: boolean;
+  error: string | null;
+  client: any;
+  currentChain: any;
+  chainInfo: any;
+  disconnect: () => void;
+  switchChain: (chainId: keyof typeof CHAINS) => Promise<void>;
 }
 
 export const PolkadotApiContext = createContext<PolkadotApiContextType | null>(null);
@@ -208,7 +215,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     connectedWallets,
     disconnectAllWallets
   } = useWalletAccounts({
-    chainSs58Format: chainStore.ss58Format
+    chainSs58Format: chainStore.ss58Format ?? 0
   });
 
   const { getSignerForAddress } = usePolkadotWallet();
@@ -253,7 +260,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     if (accountData) {
       // Clear accountStore first to ensure props missing in accountData aren't kept
       Object.keys(accountStore).forEach(key => {
-        delete accountStore[key];
+        delete (accountStore as any)[key];
       });
       Object.assign(accountStore, accountData);
 
@@ -299,7 +306,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     status: identityHookResult.isVerified
       ? IdentityVerificationStatus.IdentityVerified
       : identityHookResult.identity ? IdentityVerificationStatus.IdentitySet : IdentityVerificationStatus.NoIdentity,
-  } as Identity : null;
+  } as unknown as Identity : null;
 
   // Stub functions for compatibility (these were from old implementation)
   const fetchIdAndJudgement = async () => identity;
@@ -323,8 +330,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           chainProperties = {
             ...chainProperties,
             ss58Format: configuredChain?.ss58Format ?? Number(chainProperties.ss58Format || 0),
-            tokenDecimals: Number(chainProperties.tokenDecimals[0] || 0),
-            tokenSymbol: chainProperties.tokenSymbol[0] || '',
+            tokenDecimals: Number((chainProperties.tokenDecimals as any)?.[0] || 0),
+            tokenSymbol: (chainProperties.tokenSymbol as any)?.[0] || '',
           }
         }
         logger.log({ id, chainProperties })
@@ -340,7 +347,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
           name: CHAINS[relayId as keyof typeof CHAINS].name,
           parachains: Object.entries(CHAINS)
             .filter(([key]) => key.startsWith(relayId) && key !== relayId)
-            .map(([key, value]) => ({ id: key, name: value.name, paraId: value.paraId }))
+            .map(([key, value]) => ({ id: key, name: value.name, paraId: (value as any).paraId }))
           ,
         },
         ...chainProperties,
@@ -352,7 +359,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
 
   const onChainSelect = useCallback((chainId: string | number | symbol) => {
     updateUrlParams({ ...urlParams, chain: chainId as string })
-    chainStore.id = chainId
+    chainStore.id = chainId as string
   }, [chainStore, updateUrlParams, urlParams])
 
   const eventHandlers = useMemo<Record<string, {
@@ -399,8 +406,8 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
   //#endregion challenges
 
   const formatAmount = useFormatAmount({
-    tokenDecimals: chainStore.tokenDecimals,
-    symbol: chainStore.tokenSymbol,
+    tokenDecimals: chainStore.tokenDecimals ?? 10,
+    symbol: chainStore.tokenSymbol ?? "",
     decimals: 2
   });
 
@@ -432,7 +439,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
     const { call, name } = params;
     let api = params.api || null;
 
-    logger.log({ call: call.toHuman(), signSubmitAndWatchParams: params })
+    logger.log({ call: call?.toHuman(), signSubmitAndWatchParams: params })
 
     if (!api) {
       api = typedApi
@@ -489,7 +496,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
       return;
     }
 
-    let txHash = call.hash.toHex();
+    let txHash = call!.hash.toHex();
     recentNotifsIds.current = [...recentNotifsIds.current, txHash]
       .slice(-10); // Keep only the last 10 hashes
     let unsubscribe: (() => void) | null = null;
@@ -602,7 +609,7 @@ export const PolkadotApiProvider = ({ children }: PolkadotApiProviderProps) => {
         position: "bottom-right"
       });
 
-      unsubscribe = await call.signAndSend(signerAddress, {
+      unsubscribe = await call!.signAndSend(signerAddress, {
         signer: signer,
         // Use immortal era (era: 0) to prevent "Transaction is outdated" errors
         // This ensures the transaction remains valid regardless of how long user takes to sign

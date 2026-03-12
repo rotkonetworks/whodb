@@ -1,9 +1,9 @@
 import { useTriggerLog } from "@/hooks/use-trigger-log";
-import { SearchOptions, useSearchWebSocket } from "@/hooks/websocket/search";
+import { useSearchWebSocket } from "@/hooks/websocket/search";
 import { useWebSocket, WebSocketHookReturn } from "@/hooks/websocket";
-import { createContext, useCallback, useContext, useState, useRef } from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 import { FullProfile } from "@/types/profile";
-import { searchCache, cachedSearch } from "@/utils/searchCache";
+import { cachedSearch } from "@/utils/searchCache";
 
 const WebSocketContext = createContext<WebSocketHookReturn | undefined>(undefined);
 
@@ -37,7 +37,7 @@ export type ProfileResults = Array<FullProfile>;
 
 const SearchContext = createContext<{
   webSocket: WebSocketHookReturn | undefined;
-  search: (query: string, limit?: number, options?: SearchOptions) => Promise<ProfileResults>;
+  search: (query: string, limit?: number, options?: any) => Promise<ProfileResults>;
   results: ProfileResults | null;
 }>({
   webSocket: undefined,

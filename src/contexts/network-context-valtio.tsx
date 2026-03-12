@@ -69,5 +69,5 @@ export function useNetworkValtio() {
  */
 export function useNetworkSelector<T>(selector: (state: typeof networkStore) => T): T {
   const snap = useSnapshot(networkStore);
-  return selector(snap);
+  return selector(snap as typeof networkStore);
 }

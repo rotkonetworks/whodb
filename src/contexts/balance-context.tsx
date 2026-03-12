@@ -19,7 +19,7 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
   const { network } = useNetwork()
 
-  const checkBalance = async (address: string) => {
+  const checkBalance = async (_address: string) => {
     setIsLoading(true)
 
     // Simulate websocket connection and balance check
@@ -35,7 +35,7 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
       // Usually higher balances on mainnet
       const randomBalance = Math.random() * 10 + 5
       mockBalance = randomBalance.toFixed(10)
-    } else if (network === "kusama") {
+    } else if ((network as string) === "kusama") {
       // Medium balances on Kusama
       const randomBalance = Math.random() * 5 + 1
       mockBalance = randomBalance.toFixed(10)
@@ -45,7 +45,7 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }
 
-  const requestTokens = async (address: string) => {
+  const requestTokens = async (_address: string) => {
     setIsRequestingTokens(true)
 
     // Simulate token distribution

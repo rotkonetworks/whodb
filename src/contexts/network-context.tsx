@@ -1,4 +1,4 @@
-import { CHAINS, getPeopleChain } from "@/polkadot-api/chain-config"
+import { CHAINS, getPeopleChain, type ChainConfig } from "@/polkadot-api/chain-config"
 import type React from "react"
 import type { ChainInfo } from "@/store/ChainStore"
 import { useParams, useLocation } from "react-router-dom"
@@ -22,8 +22,8 @@ const DEFAULT_NETWORK: Network = (import.meta.env.VITE_APP_DEFAULT_CHAIN || 'pas
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const params = useParams<{ network?: string }>();
-  const location = useLocation();
-  const networks = CHAINS;
+  useLocation(); // Required for route reactivity
+  const networks = CHAINS as Record<string, ChainConfig>;
 
   // Derive network from URL path, not from state
   const network = useMemo(() => {
@@ -63,7 +63,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
         id: key,
         name: networks[key]?.name || "",
       }))
-  } : null;
+  } : undefined;
 
   return (
     <NetworkContext.Provider value={{
@@ -73,7 +73,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       isEncrypted,
       isFree,
       isViewOnly,
-      id: networks[network]?.id,
+      id: networks[network]?.id || "",
       name: networks[network]?.name || "",
       ss58Format: networks[network]?.ss58Format,
       tokenDecimals: networks[network]?.tokenDecimals,
