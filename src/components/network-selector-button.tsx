@@ -1,4 +1,4 @@
-import { Globe, ChevronDown, CheckCircle } from "lucide-react"
+import { Globe, ChevronDown, CheckCircle, ExternalLink } from "lucide-react"
 import { useNetwork } from "@/contexts/network-context"
 import { Button } from "@/components/ui/button"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -12,9 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const NETWORKS = [
-  { id: 'paseo', name: 'Paseo', description: 'Testnet' },
-  { id: 'polkadot', name: 'Polkadot', description: 'Mainnet' },
-  { id: 'kusama', name: 'Kusama', description: 'Mainnet' },
+  { id: 'paseo', name: 'Paseo', description: 'Testnet — register with us' },
+  { id: 'polkadot', name: 'Polkadot', description: 'Mainnet — browse only' },
 ] as const
 
 export function NetworkSelectorButton() {
@@ -22,22 +21,15 @@ export function NetworkSelectorButton() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Get the base network name (remove _people suffix) for comparison
   const baseNetwork = network?.replace('_people', '')
 
   const handleNetworkSelect = (baseNetworkId: string) => {
-    // If on profile page, update the network in the URL path
     const match = location.pathname.match(/^\/profile\/([^\/]+)\/(.+)$/);
     if (match) {
       const [, , address] = match;
       navigate(`/profile/${baseNetworkId}/${address}`);
     } else if (location.pathname.startsWith('/search')) {
-      // On search page, update query param
       navigate(`/search?network=${baseNetworkId}`);
-    } else {
-      // Otherwise stay on current page - network doesn't matter on landing
-      // The network will be used when navigating to profile/search pages
-      return;
     }
   }
 
@@ -54,7 +46,7 @@ export function NetworkSelectorButton() {
           <ChevronDown className="w-3 h-3" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 bg-gray-800 border-gray-700">
+      <DropdownMenuContent align="end" className="w-64 bg-gray-800 border-gray-700">
         <DropdownMenuLabel className="text-gray-400 text-xs uppercase tracking-wide">
           Select Network
         </DropdownMenuLabel>
@@ -76,6 +68,19 @@ export function NetworkSelectorButton() {
             </div>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator className="bg-gray-700" />
+        <div className="px-3 py-2.5 text-xs text-gray-500">
+          For Polkadot & Kusama registration use{" "}
+          <a
+            href="https://dotid.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-pink-400 hover:text-pink-300 inline-flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            dotid.app <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )

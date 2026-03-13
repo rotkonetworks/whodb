@@ -516,8 +516,16 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Profile Content - Inline Editable */}
-        {/* Pass raw identity (not displayIdentity) so ProfileContent can initialize draft correctly */}
+        {/* Notice for networks where we're not yet a registrar */}
+        {isOwnProfile && network !== 'paseo' && (
+          <div className="mb-4 px-3 py-2.5 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-300/90">
+            We're not yet a registrar on {network.replace('_people', '').replace('_', ' ')}. For mainnet registration use{" "}
+            <a href="https://dotid.app/" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-200">dotid.app</a>
+            , or test with us on{" "}
+            <button onClick={() => navigate(`/profile/paseo/${address}`)} className="underline hover:text-yellow-200">Paseo</button>.
+          </div>
+        )}
+
         <ProfileContent
           identity={identity}
           address={chainSpecificAddress as SS58String}

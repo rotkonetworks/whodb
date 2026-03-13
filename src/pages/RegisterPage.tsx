@@ -24,7 +24,7 @@ import { useUser } from "@/contexts/user-context"; // For fetching profile to ed
 import { FieldVerification, useVerification } from "@/contexts/verification-context"
 import { usePolkadotWallet } from "@/contexts/PolkadotWalletContext"
 import { useUrlParams } from "@/hooks/useUrlParams"
-import { CHAINS, getEcosystemName, type ChainConfig } from "@/polkadot-api/chain-config"
+import { CHAINS, type ChainConfig } from "@/polkadot-api/chain-config"
 import { chainStore as _chainStore } from "@/store/ChainStore"
 import { ChallengeStatus } from "@/store/challengesStore"
 import { DialogMode, OpenTxDialogArgs } from "@/types"
@@ -977,28 +977,27 @@ export default function RegisterPage() {
           {isViewOnly && (
             <div className="py-12 text-center">
               <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">Registrar Not Available</h3>
+              <h3 className="text-lg font-medium text-white mb-2">Not yet available on {networkDisplayName}</h3>
               <p className="text-gray-400 text-sm mb-4">
-                We are not operating as a registrar on {networkDisplayName} yet.
+                We're not yet a registrar on {networkDisplayName}. For mainnet identity registration use{" "}
+                <a href="https://dotid.app/" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 underline">dotid.app</a>.
               </p>
-              <p className="text-gray-500 text-xs mb-4">
-                You can still browse profiles and edit your on-chain identity, but automatic verification is not available.
+              <p className="text-gray-500 text-xs mb-6">
+                Want to try us out? Register on Paseo testnet for free.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  variant="default"
+                  onClick={() => navigate('/register?network=paseo')}
+                >
+                  Register on Paseo
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/search')}
                 >
                   Browse Profiles
                 </Button>
-                {accountStore.address && (
-                  <Button
-                    variant="default"
-                    onClick={() => navigate(`/profile/${getEcosystemName(network || 'paseo')}/${accountStore.address}`)}
-                  >
-                    View My Profile
-                  </Button>
-                )}
               </div>
             </div>
           )}
