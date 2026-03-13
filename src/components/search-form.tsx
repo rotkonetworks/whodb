@@ -6,7 +6,7 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { useLocalIdentitySearch } from "@/hooks/useLocalIdentitySearch"
 import { FullProfile } from "@/types/profile"
 import { ScoredIdentity } from "@/lib/identity-cache"
-import { Search, User, Loader2, Sparkles, Database } from "lucide-react"
+import { Search, User, Loader2, Database } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
@@ -41,29 +41,27 @@ const SuggestionItem = memo<{
   index: number;
   isSelected: boolean;
   onClick: (profile: FullProfile) => void;
-}>(({ profile, index, isSelected, onClick }) => {
+}>(({ profile, isSelected, onClick }) => {
   return (
     <button
       onClick={() => onClick(profile)}
-      className={`search-suggestion-item w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-700 hover:scale-100 transition-colors ${isSelected ? "bg-gray-700" : ""} ${index === 0 ? "rounded-t-lg" : ""} border-b border-gray-700`}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-gray-700/50 last:border-b-0 ${isSelected ? "bg-gray-700" : "hover:bg-gray-700/50"}`}
     >
       <img
         src={profile.image || "/placeholder.svg"}
-        alt={profile.display || "User"}
-        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+        alt=""
+        className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gray-800"
         draggable="false"
       />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center">
-          <p className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-white"}`}>
-            {profile.display || "Anonymous"}
-          </p>
-        </div>
-        <p className={`text-xs truncate ${isSelected ? "text-gray-300" : "text-gray-400"}`}>
+        <p className="text-sm font-medium truncate text-white">
+          {profile.display || "Anonymous"}
+        </p>
+        <p className="text-xs truncate text-gray-400">
           {profile.email || profile.wallet_id.slice(0, 8) + "..."}
         </p>
       </div>
-      <User className={`w-4 h-4 flex-shrink-0 ${isSelected ? "text-gray-300" : "text-gray-400"}`} />
+      <User className="w-4 h-4 flex-shrink-0 text-gray-500" />
     </button>
   );
 }, (prev, next) => {
@@ -87,10 +85,7 @@ export default function SearchForm() {
   useTriggerLog(suggestions, "suggestions")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [enablePredictive, setEnablePredictive] = useState(() => {
-    const saved = localStorage.getItem('enablePredictiveSearch')
-    return saved !== null ? saved === 'true' : true
-  })
+  const enablePredictive = true
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
@@ -130,11 +125,6 @@ export default function SearchForm() {
       setQuery(urlParams.q)
     }
   }, [urlParams])
-
-  // Save preference to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('enablePredictiveSearch', String(enablePredictive))
-  }, [enablePredictive])
 
   useEffect(() => {
     if (!enablePredictive) {
@@ -295,7 +285,7 @@ export default function SearchForm() {
             onBlur={handleBlur}
             onFocus={() => enablePredictive && debouncedQuery.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
             placeholder="Search identities..."
-            className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-20 md:pr-28 rounded-full bg-gray-800 border border-gray-700 focus:border-pink-500 focus:outline-none text-white placeholder-gray-400 transition-colors text-sm md:text-base"
+            className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-10 rounded-full bg-gray-800 border border-gray-700 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none text-white placeholder-gray-400 transition-all text-sm md:text-base"
             aria-label="Search query"
             disabled={isSubmitting}
             autoComplete="off"
@@ -306,39 +296,24 @@ export default function SearchForm() {
             <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
           )}
 
-          <div className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setEnablePredictive(!enablePredictive)}
-              className={`p-1 rounded-full transition-colors ${
-                enablePredictive
-                  ? 'text-pink-400 hover:bg-pink-500/10'
-                  : 'text-gray-500 hover:bg-gray-700'
-              }`}
-              aria-label="Toggle predictive search"
-              title={enablePredictive ? "Disable predictive search" : "Enable predictive search"}
-            >
-              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </button>
-
+          {query.trim() && !isSearching && !isTyping && (
             <button
               type="submit"
-              disabled={!query.trim() || isSubmitting}
-              className="bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={isSubmitting}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
               aria-label="Submit search"
             >
-              <span className="md:hidden">Go</span>
-              <span className="hidden md:inline">Search</span>
+              <Search className="w-4 h-4" />
             </button>
-          </div>
+          )}
         </div>
       </form>
 
-      {/* Suggestions Dropdown - mobile responsive with memoized items */}
+      {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-2 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
         >
           {usingLocalFallback && (
             <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 bg-gray-700/30 border-b border-gray-700">

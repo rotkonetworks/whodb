@@ -1,6 +1,7 @@
-import { CheckCircle, AlertCircle, User, Copy, Check, Eye, Pencil, Settings, Shield, Users } from "lucide-react"
+import { motion } from "framer-motion"
+import { CheckCircle, AlertCircle, Check, Eye, Shield, Users } from "lucide-react"
 import { ProfileContent } from "@/components/ProfileContent"
-import { Link, useParams, Navigate, useNavigate } from "react-router-dom"
+import { useParams, Navigate, useNavigate } from "react-router-dom"
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import * as Avatar from "@radix-ui/react-avatar"
 import { useIdentity } from "@/hooks/useIdentity"
@@ -11,14 +12,13 @@ import { useAccount } from "@/contexts/wallet-context"
 import { usePolkadotApi } from "@/contexts/PolkadotApiContext"
 import { useVerification } from "@/contexts/verification-context"
 import { IdentityVerificationStatus } from "@/types/Identity"
-import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { useChat } from "@/contexts/ChatContext"
 import { useSnapshot, snapshot } from "valtio"
 import { identityDraftStore, markDraftSaved } from "@/store/IdentityDraftStore"
 import { toast } from "sonner"
 import { logger } from "@/utils/logger"
-import { settingsStore, toggleTransactionModal } from "@/store/SettingsStore"
+import { settingsStore } from "@/store/SettingsStore"
 import { actingAsStore, setActingAs } from "@/store/ActingAsStore"
 
 // Cache for decoded address public keys
@@ -53,8 +53,6 @@ export default function ProfilePage() {
   const draftSnap = useSnapshot(identityDraftStore);
   // Only subscribe to actingAs - read settingsStore directly in callbacks
   const actingAs = useSnapshot(actingAsStore);
-  // Minimal subscription for UI toggle state only
-  const showTxModal = useSnapshot(settingsStore).showTransactionModal;
   const { setWebSocketParams } = useVerification();
 
   // Cache address hex conversions to avoid recalculating
@@ -416,49 +414,14 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <PageHeader
-        backTo="/search"
-        rightActions={
-          <div className="flex items-center gap-1">
-            {isOwnProfile && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPreviewMode(!previewMode)}
-                  className={`p-2 ${previewMode ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
-                  title={previewMode ? "Edit mode" : "Preview as public"}
-                >
-                  {previewMode ? <Pencil className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleTransactionModal}
-                  className={`p-2 ${showTxModal ? 'text-pink-400' : 'text-gray-400'} hover:text-white`}
-                  title={showTxModal ? "Transaction modal: ON" : "Transaction modal: OFF"}
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-            {connectedAddress && !isOwnProfile && (
-              <Link to={`/profile/${network}/${connectedAddress}`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-400 hover:text-white p-2"
-                  title="My Profile"
-                >
-                  <User className="w-4 h-4" />
-                </Button>
-              </Link>
-            )}
-          </div>
-        }
-      />
+      <PageHeader backTo="/search" />
 
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
+      <motion.div
+        className="container mx-auto px-4 py-6 max-w-2xl"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         {/* Acting As Selector - shown when connected and viewing own profile */}
         {connectedAddress && isOwnProfile && !previewMode && (
           <div className="mb-4 space-y-2">
@@ -517,8 +480,14 @@ export default function ProfilePage() {
               {isVerified && (
                 <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
               )}
-              {isOwnProfile && !previewMode && !isActingAsMode && (
-                <span className="text-xs bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded">You</span>
+              {isOwnProfile && !isActingAsMode && (
+                <button
+                  onClick={() => setPreviewMode(!previewMode)}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors ${previewMode ? 'bg-gray-700 text-gray-300' : 'bg-pink-500/20 text-pink-300'}`}
+                  title={previewMode ? "Back to edit mode" : "Preview as others see it"}
+                >
+                  {previewMode ? <><Eye className="w-3 h-3 inline mr-1" />Preview</> : "You"}
+                </button>
               )}
               {isActingAsMode && actingAs.isProxy && (
                 <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded flex items-center gap-1">
@@ -534,22 +503,16 @@ export default function ProfilePage() {
             <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
               {network.replace('_people', '').replace('_', ' ')}
             </div>
-            <div className="flex items-center gap-2">
-              <code className="text-xs text-gray-400 font-mono truncate">
-                {address?.slice(0, 8)}...{address?.slice(-6)}
-              </code>
-              <button
-                onClick={() => copyToClipboard(address!, 'address')}
-                className="p-1 text-gray-500 hover:text-white transition-colors"
-                title="Copy address"
-              >
-                {copiedField === 'address' ? (
-                  <Check className="w-3 h-3 text-green-400" />
-                ) : (
-                  <Copy className="w-3 h-3" />
-                )}
-              </button>
-            </div>
+            <button
+              onClick={() => copyToClipboard(address!, 'address')}
+              className="flex items-center gap-1.5 text-xs text-gray-400 font-mono hover:text-gray-300 transition-colors"
+              title="Copy address"
+            >
+              {address?.slice(0, 8)}...{address?.slice(-6)}
+              {copiedField === 'address' && (
+                <Check className="w-3 h-3 text-green-400" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -567,16 +530,7 @@ export default function ProfilePage() {
           isSaving={isSaving}
         />
 
-        {/* Preview mode indicator */}
-        {previewMode && (
-          <div className="mt-4 p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg text-center">
-            <span className="text-pink-300 text-sm">
-              <Eye className="w-4 h-4 inline mr-2" />
-              Preview mode — This is how others see your profile
-            </span>
-          </div>
-        )}
-      </div>
+      </motion.div>
 
       {/* Transaction Progress Modal */}
       <TransactionProgressModal

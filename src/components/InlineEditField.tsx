@@ -65,6 +65,11 @@ export const InlineEditField = memo(function InlineEditField({
   const displayValue = value || placeholder
   const isEmpty = !value
 
+  // For non-editable views, don't render empty fields
+  if (!editable && isEmpty) {
+    return null
+  }
+
   if (isEditing && editable) {
     return (
       <div className={cn("group flex items-center gap-3 py-2", className)}>

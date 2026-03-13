@@ -1,10 +1,10 @@
 import { useEffect, useState, memo, useMemo, useCallback, useRef } from "react"
+import { motion } from "framer-motion"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { User, Globe, CheckCircle, Search, AlertCircle, RefreshCw, Database } from "lucide-react"
+import { CheckCircle, Search, AlertCircle, RefreshCw, Database } from "lucide-react"
 import { SearchResultSkeleton } from "@/components/ui/profile-skeleton"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Link } from "react-router-dom"
 import { useSearchContext } from "@/contexts/web-socket-provider"
 import { useLocalIdentitySearch } from "@/hooks/useLocalIdentitySearch"
 import { FullProfile } from "@/types/profile"
@@ -13,7 +13,6 @@ import * as Avatar from "@radix-ui/react-avatar"
 import { constructSearchObject } from "@/lib/utils"
 import { CHAINS, getEcosystemName, getChainKeyFromNetwork } from "@/polkadot-api/chain-config"
 import { encodeAddress, decodeAddress } from "@polkadot/util-crypto"
-import { useAccount } from "@/contexts/wallet-context"
 
 // Convert local cached identity to FullProfile format
 function scoredIdentityToProfile(identity: ScoredIdentity): FullProfile {
@@ -38,8 +37,6 @@ const SearchResultItem = memo<{
   profile: FullProfile;
   onViewProfile: (network: string, address: string) => void;
 }>(({ profile, onViewProfile }) => {
-  const [copied, setCopied] = useState<string | null>(null);
-
   const isVerified = useMemo(
     () => profile.timeline?.some((event) => event.event === "verified"),
     [profile.timeline]
@@ -47,7 +44,6 @@ const SearchResultItem = memo<{
 
   const formattedAddress = useMemo(() => {
     try {
-      // Map backend network name to CHAINS key
       const chainKey = getChainKeyFromNetwork(profile.network)
       const chainConfig = chainKey ? CHAINS[chainKey] : null
       if (chainConfig?.ss58Format !== undefined) {
@@ -61,69 +57,38 @@ const SearchResultItem = memo<{
   }, [profile.wallet_id, profile.network])
 
   const networkDisplayName = useMemo(() => {
-    // Map backend network name to CHAINS key
     const chainKey = getChainKeyFromNetwork(profile.network)
     const chainConfig = chainKey ? CHAINS[chainKey] : null
-    if (chainConfig?.name) {
-      return chainConfig.name.replace(' People', '')
-    }
-    if (profile.network) {
-      return profile.network.charAt(0).toUpperCase() + profile.network.slice(1)
-    }
+    if (chainConfig?.name) return chainConfig.name.replace(' People', '')
+    if (profile.network) return profile.network.charAt(0).toUpperCase() + profile.network.slice(1)
     return 'Unknown'
   }, [profile.network])
 
-  const handleCopy = useCallback((e: React.MouseEvent, text: string, label: string) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 2000);
-  }, []);
-
   return (
     <div
-      className="bg-gray-800/20 p-6 border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
+      className="flex items-center gap-4 px-4 py-3 border-b border-gray-700/30 hover:bg-gray-800/40 transition-colors cursor-pointer"
       onClick={() => onViewProfile(profile.network, formattedAddress)}
     >
-      <div className="flex items-start gap-5">
-        <Avatar.Root className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-          <Avatar.Image
-            src={profile.image || undefined}
-            alt={profile.display}
-            className="w-full h-full object-cover"
-          />
-          <Avatar.Fallback className="w-full h-full bg-gray-700 flex items-center justify-center text-base font-medium text-gray-300">
-            {profile.display?.charAt(0)?.toUpperCase() || "?"}
-          </Avatar.Fallback>
-        </Avatar.Root>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-base font-medium text-white truncate">{profile.display}</h3>
-            {isVerified && (
-              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-            )}
-            <span className="text-xs text-gray-500 uppercase tracking-wide">{networkDisplayName}</span>
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={(e) => handleCopy(e, formattedAddress, 'address')}
-              className="font-mono text-xs truncate text-left hover:text-pink-400 transition-colors text-gray-400"
-              title="Click to copy address"
-            >
-              {formattedAddress}
-            </button>
-            {copied === 'address' && (
-              <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
-            )}
-          </div>
-          <div className="space-y-1 text-sm text-gray-400">
-            {profile.email && (
-              <div className="truncate">{profile.email}</div>
-            )}
-            {profile.web && (
-              <div className="truncate">{profile.web}</div>
-            )}
-          </div>
+      <Avatar.Root className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+        <Avatar.Image
+          src={profile.image || undefined}
+          alt={profile.display}
+          className="w-full h-full object-cover"
+        />
+        <Avatar.Fallback className="w-full h-full bg-gray-700 flex items-center justify-center text-sm font-medium text-gray-300">
+          {profile.display?.charAt(0)?.toUpperCase() || "?"}
+        </Avatar.Fallback>
+      </Avatar.Root>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-white truncate">{profile.display || "Anonymous"}</h3>
+          {isVerified && (
+            <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-gray-500 font-mono truncate">{formattedAddress.slice(0, 8)}...{formattedAddress.slice(-6)}</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-wide">{networkDisplayName}</span>
         </div>
       </div>
     </div>
@@ -142,7 +107,6 @@ SearchResultItem.displayName = "SearchResultItem";
 export default function SearchPage() {
   const { search } = useSearchContext()
   const { search: localSearch, cacheStats, isSyncing } = useLocalIdentitySearch()
-  const { address: connectedAddress } = useAccount()
   const [results, setResults] = useState<FullProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -157,8 +121,6 @@ export default function SearchPage() {
   isSyncingRef.current = isSyncing
 
   const query = searchParams.get('query') || '';
-  // const decodedString = atob(query);
-  const searchTxt = query;
   let searchJson = null;
 
   // Get query from decoded base64 url param
@@ -256,78 +218,34 @@ export default function SearchPage() {
     navigate(`/profile/${ecosystem}/${address}`);
   }, [navigate]);
 
-  const resultsLength = results?.length || 0
-
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <PageHeader
-        backTo="/"
-        showWallet={false}
-        showNetwork={false}
-        rightActions={
-          connectedAddress ? (
-            <Link to={`/profile/paseo/${connectedAddress}`}>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-pink-400 hover:bg-pink-500/10 hover:text-pink-300 transition-colors"
-              >
-                <User className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">My Profile</span>
-              </Button>
-            </Link>
-          ) : undefined
-        }
-      />
+      <PageHeader backTo="/" showWallet={false} showNetwork={false} />
 
-      <div className="border-b border-gray-800 bg-gray-900">
-        <div className="container mx-auto px-4 py-4">
-          <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
+      <div className="border-b border-gray-800">
+        <div className="container mx-auto px-4 py-3 max-w-2xl">
+          <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search identities..."
-              className="w-full h-10 md:h-12 px-4 pl-10 md:pl-12 pr-16 md:pr-20 rounded-md bg-gray-800 border border-gray-700 focus:border-pink-500 focus:outline-none text-white placeholder-gray-400 text-sm md:text-base"
+              className="w-full h-10 px-4 pl-10 pr-4 rounded-md bg-gray-800 border border-gray-700 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none text-white placeholder-gray-400 text-sm transition-all"
             />
-            <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
-            <button
-              type="submit"
-              className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium"
-            >
-              <span className="hidden md:inline">Search</span>
-            </button>
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           </form>
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-lg md:text-xl font-bold mb-2">{isLoading ? "Searching..." : `Results for "${searchTxt}"`}</h1>
-          <p className="text-gray-400 text-sm">
-            {!isLoading && `Found ${resultsLength} ${resultsLength === 1 ? "identity" : "identities"}`}
-          </p>
-        </div>
-
+      <main className="container mx-auto px-4 py-4 max-w-2xl">
         {/* Error state */}
         {searchError && !isLoading && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
-            <div className="flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-red-400 font-medium mb-1">Search failed</h3>
-                <p className="text-gray-400 text-sm mb-3">{searchError}</p>
-                <Button
-                  onClick={handleRetry}
-                  variant="outline"
-                  size="sm"
-                  className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Try again
-                </Button>
-              </div>
-            </div>
+          <div className="flex items-center gap-3 px-3 py-3 mb-4 rounded-md bg-red-500/10 border border-red-500/20 text-sm">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-gray-400 flex-1 truncate">{searchError}</span>
+            <Button onClick={handleRetry} variant="ghost" size="sm" className="text-red-400 hover:text-red-300 flex-shrink-0">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
           </div>
         )}
 
@@ -347,28 +265,44 @@ export default function SearchPage() {
                 </span>
               </div>
             )}
-            {results.map((profile) => (
-              <SearchResultItem
+            {results.map((profile, i) => (
+              <motion.div
                 key={profile.wallet_id}
-                profile={profile}
-                onViewProfile={handleViewProfile}
-              />
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15, delay: Math.min(i * 0.03, 0.3) }}
+              >
+                <SearchResultItem
+                  profile={profile}
+                  onViewProfile={handleViewProfile}
+                />
+              </motion.div>
             ))}
           </div>
         ) : !searchError && query ? (
-          <div className="text-center py-12">
-            <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No results found</h3>
-            <p className="text-gray-400">Try a different search term or check your spelling.</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="text-center py-16"
+          >
+            <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-1">No results found</h3>
+            <p className="text-gray-500 text-sm">Try a different search term</p>
+          </motion.div>
         ) : !searchError && (
-          <div className="text-center py-12">
-            <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Start searching</h3>
-            <p className="text-gray-400">Enter at least 3 characters to search for identities.</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="text-center py-16"
+          >
+            <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-1">Search identities</h3>
+            <p className="text-gray-500 text-sm">Enter at least 3 characters to begin</p>
+          </motion.div>
         )}
-      </main >
-    </div >
+      </main>
+    </div>
   )
 }
