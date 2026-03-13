@@ -362,10 +362,10 @@ export const useWebSocket = (config: WebSocketConfig): WebSocketHookReturn => {
           }, reconnectDelayMs);
         } else {
           setLoading(false);
-          connectionAttempts.current = 0;
           if (connectionAttempts.current >= maxReconnectAttempts) {
-            setError('Max reconnection attempts reached');
+            setError('Connection failed after retries');
           }
+          connectionAttempts.current = 0;
         }
       };
 
