@@ -1,4 +1,3 @@
-// vite.config.ts
 import { resolve } from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -19,7 +18,14 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       port: 3000,
-      host: true
+      host: true,
+      proxy: isDevelopment ? {
+        '/api': {
+          target: env.VITE_APP_HTTP_API_URL || 'http://localhost:3001',
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api/, ''),
+        },
+      } : undefined,
     },
     resolve: {
       alias: {
@@ -29,16 +35,19 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: isDevelopment,
-      minify: !isDevelopment ? "terser" : false,
-      terserOptions: {
-        compress: {
-          drop_console: !isDevelopment,
-          drop_debugger: !isDevelopment,
+      // Rolldown (Vite 8) handles minification natively - faster than terser
+      minify: !isDevelopment,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('node_modules/@polkadot/')) return 'polkadot-core'
+            if (id.includes('node_modules/polkadot-api')) return 'polkadot-papi'
+            if (id.includes('node_modules/@radix-ui/')) return 'radix'
+            if (id.includes('node_modules/react-dom')) return 'vendor'
+            if (id.includes('node_modules/react-router')) return 'vendor'
+            if (id.includes('node_modules/framer-motion')) return 'vendor'
+          },
         },
-        format: {
-          comments: isDevelopment,
-        },
-        mangle: !isDevelopment,
       },
     },
   }
