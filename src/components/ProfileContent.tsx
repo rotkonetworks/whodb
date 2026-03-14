@@ -34,7 +34,7 @@ interface ProfileContentProps {
   peopleChain: string | null
   isOwnProfile: boolean
   isVerified?: boolean
-  onMessageClick?: (type: 'email' | 'twitter' | 'matrix' | 'discord') => void
+  onMessageClick?: () => void
   onSave?: () => void
   isSaving?: boolean
 }
@@ -251,7 +251,7 @@ export const ProfileContent = memo(function ProfileContent({
           {!isOwnProfile && getValue("email") && (
             <div className="flex gap-1 pr-2">
               <button
-                onClick={() => onMessageClick?.("email")}
+                onClick={() => onMessageClick?.()}
                 className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors"
                 title="Send message"
               >
@@ -295,7 +295,7 @@ export const ProfileContent = memo(function ProfileContent({
           </div>
           {!isOwnProfile && getValue("twitter") && (
             <button
-              onClick={() => onMessageClick?.("twitter")}
+              onClick={() => onMessageClick?.()}
               className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors mr-2"
               title="Send message"
             >
@@ -327,7 +327,7 @@ export const ProfileContent = memo(function ProfileContent({
           </div>
           {!isOwnProfile && getValue("matrix") && (
             <button
-              onClick={() => onMessageClick?.("matrix")}
+              onClick={() => onMessageClick?.()}
               className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors mr-2"
               title="Send message"
             >
@@ -349,7 +349,7 @@ export const ProfileContent = memo(function ProfileContent({
           </div>
           {!isOwnProfile && getValue("discord") && (
             <button
-              onClick={() => onMessageClick?.("discord")}
+              onClick={() => onMessageClick?.()}
               className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors mr-2"
               title="Send message"
             >

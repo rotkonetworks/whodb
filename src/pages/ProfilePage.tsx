@@ -183,18 +183,13 @@ export default function ProfilePage() {
     setTimeout(() => setCopiedField(null), 2000);
   }, []);
 
-  const handleMessageClick = useCallback((type: 'email' | 'twitter' | 'matrix' | 'discord') => {
+  const handleMessageClick = useCallback(() => {
     openChat({
       recipientAddress: address!,
       recipientName: identity?.display || undefined,
-      recipientEmail: identity?.email || undefined,
-      recipientTwitter: identity?.twitter || undefined,
-      recipientMatrix: identity?.matrix || undefined,
-      recipientDiscord: identity?.discord || undefined,
       recipientPgpFingerprint: identity?.pgpFingerprint,
       recipientIsVerified: isVerified,
       network,
-      contactType: type,
     });
   }, [address, identity, isVerified, network, openChat]);
 

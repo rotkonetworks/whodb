@@ -4,14 +4,9 @@ export interface ChatConfig {
   id: string
   recipientAddress: string
   recipientName?: string
-  recipientEmail?: string
-  recipientTwitter?: string
-  recipientMatrix?: string
-  recipientDiscord?: string
   recipientPgpFingerprint?: string | null
   recipientIsVerified?: boolean
   network: string
-  contactType: 'email' | 'twitter' | 'matrix' | 'discord'
   isMinimized: boolean
 }
 
@@ -31,13 +26,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const openChat = useCallback((config: Omit<ChatConfig, 'id' | 'isMinimized'>) => {
     setOpenChats(prev => {
-      // Check if chat with same recipient and contact type already exists
       const existingIndex = prev.findIndex(
-        c => c.recipientAddress === config.recipientAddress && c.contactType === config.contactType
+        c => c.recipientAddress === config.recipientAddress
       )
 
       if (existingIndex !== -1) {
-        // Maximize existing chat and bring it to front
         const updated = [...prev]
         const existing = updated.splice(existingIndex, 1)[0]
         existing.isMinimized = false
@@ -45,18 +38,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return updated
       }
 
-      // Create new chat
-      const id = `${config.recipientAddress}-${config.contactType}-${Date.now()}`
+      const id = `${config.recipientAddress}-${Date.now()}`
       const newChat: ChatConfig = {
         ...config,
         id,
         isMinimized: false,
       }
 
-      // Limit to 3 open chats max, minimize oldest if adding more
       if (prev.length >= 3) {
         const updated = [...prev]
-        // Minimize the oldest non-minimized chat
         const toMinimize = updated.find(c => !c.isMinimized)
         if (toMinimize) {
           toMinimize.isMinimized = true

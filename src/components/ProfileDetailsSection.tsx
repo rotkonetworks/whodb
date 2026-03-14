@@ -101,7 +101,7 @@ interface ProfileDetailsSectionProps {
   isDraftMode: boolean
   isOwnProfile: boolean
   isVerified?: boolean
-  onMessageClick: (type: 'email' | 'twitter' | 'matrix' | 'discord') => void
+  onMessageClick: () => void
 }
 
 export function ProfileDetailsSection({
@@ -171,7 +171,7 @@ export function ProfileDetailsSection({
             </div>
             {!isOwnProfile && (
               <button
-                onClick={() => onMessageClick('email')}
+                onClick={() => onMessageClick()}
                 className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors flex-shrink-0"
                 title="Send message via remailer"
               >
@@ -223,7 +223,7 @@ export function ProfileDetailsSection({
               </div>
               {!isOwnProfile && (
                 <button
-                  onClick={() => onMessageClick('twitter')}
+                  onClick={() => onMessageClick()}
                   className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors flex-shrink-0"
                   title="Send message via remailer"
                 >
@@ -249,7 +249,7 @@ export function ProfileDetailsSection({
             </div>
             {!isOwnProfile && (
               <button
-                onClick={() => onMessageClick('matrix')}
+                onClick={() => onMessageClick()}
                 className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors flex-shrink-0"
                 title="Send message via remailer"
               >
@@ -290,7 +290,7 @@ export function ProfileDetailsSection({
             </div>
             {!isOwnProfile && (
               <button
-                onClick={() => onMessageClick('discord')}
+                onClick={() => onMessageClick()}
                 className="p-2 text-pink-400 hover:text-pink-300 hover:bg-gray-700/50 rounded transition-colors flex-shrink-0"
                 title="Send message via remailer"
               >
