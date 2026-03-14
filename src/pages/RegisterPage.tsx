@@ -1,11 +1,12 @@
-import { AlertCircle, CheckCircle, Loader2, UserCheck, WalletIcon } from "lucide-react"
+import { AlertCircle, ArrowLeftRight, CheckCircle, Loader2, UserCheck, WalletIcon, Zap } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { logger } from "@/utils/logger"
 
-import { BalanceCheck } from "@/components/balance-check"
 import ConfirmActionDialog from "@/components/dialogs/ConfirmActionDialog"
+import { TeleporterDialog } from "@/components/dialogs/teleportDialog"
+import { PaseoFaucetDialog } from "@/components/dialogs/PaseoFaucetDialog"
 import { IdentityVerificationForm } from "@/components/identity-verification-form"; // New verification form
 import { PageHeader } from "@/components/page-header"
 import { NetworkSelection } from "@/components/network-selection-register"
@@ -151,6 +152,10 @@ export default function RegisterPage() {
 
   const [hoveredAccount, setHoveredAccount] = useState<string | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<SS58String | null>(null)
+
+  // Funding dialog state
+  const [showTeleportDialog, setShowTeleportDialog] = useState(false)
+  const [showPaseoFaucet, setShowPaseoFaucet] = useState(false)
 
   // Transaction dialog state
   const [estimatedCosts, setEstimatedCosts] = useState<any>({})
@@ -842,21 +847,16 @@ export default function RegisterPage() {
       return
     }
 
-    if (hasEnoughBalance === true) {
-      // Go to completion step (7) if identity is fully verified
-      if (identity?.status === IdentityVerificationStatus.IdentityVerified) {
-        setCurrentStep(STEP_NUMBERS.complete)
-      }
-      // Go to verification step (6) if judgement has been requested and fee paid
-      else if (identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid || identity?.status === IdentityVerificationStatus.PendingJudgement) {
-        setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
-      } else {
-        // Stay in identity form step (5) for NoIdentity, IdentitySet, etc.
-        setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
-      }
-    } else if (hasEnoughBalance === false) {
-      setCurrentStep(STEP_NUMBERS.checkBalance)
-      return
+    // Go to completion step (7) if identity is fully verified
+    if (identity?.status === IdentityVerificationStatus.IdentityVerified) {
+      setCurrentStep(STEP_NUMBERS.complete)
+    }
+    // Go to verification step (6) if judgement has been requested and fee paid
+    else if (identity?.status === IdentityVerificationStatus.JudgementRequested || identity?.status === IdentityVerificationStatus.FeePaid || identity?.status === IdentityVerificationStatus.PendingJudgement) {
+      setCurrentStep(STEP_NUMBERS.reviewAndSubmit)
+    } else {
+      // Show identity form — balance warning shown inline when insufficient
+      setCurrentStep(STEP_NUMBERS.fillIdentityInfo)
     }
   }, [network, connectedWallets, accountStore.address, identity?.status, hasEnoughBalance])
 
@@ -1016,16 +1016,43 @@ export default function RegisterPage() {
               />
             )}
 
-            {currentStep === STEP_NUMBERS.checkBalance && (
-              <BalanceCheck
-                onSufficientBalance={handleNextStep}
-                minBalanceAmount={minBalanceAmount}
-                hasEnoughBalance={hasEnoughBalance}
-              />
-            )}
-
             {currentStep === STEP_NUMBERS.fillIdentityInfo && (
               <>
+                {/* Inline funding banner when balance is insufficient */}
+                {hasEnoughBalance === false && (
+                  <div className="mb-6 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-yellow-300 mb-3">
+                          You need funds on {networkDisplayName} to register. Fill out your identity below, then fund your account.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {network?.includes('paseo') ? (
+                            <Button
+                              size="sm"
+                              onClick={() => setShowPaseoFaucet(true)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Zap className="w-3.5 h-3.5 mr-1.5" />
+                              Get Free Tokens
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => setShowTeleportDialog(true)}
+                              disabled={isTxBusy}
+                            >
+                              <ArrowLeftRight className="w-3.5 h-3.5 mr-1.5" />
+                              Teleport from {chainStore.relay?.name || 'Relay Chain'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <SimpleIdentityForm
                   initialData={identityData}
                   onSubmit={() => { }}
@@ -1036,14 +1063,16 @@ export default function RegisterPage() {
                 />
                 <Button
                   onClick={onSetIdentity}
-                  disabled={!canProceedFromIdentityStep || isSubmittingIdentity}
+                  disabled={!canProceedFromIdentityStep || isSubmittingIdentity || hasEnoughBalance === false}
                   className="w-full mt-6"
                 >
                   {isSubmittingIdentity
                     ? "Submitting..."
-                    : (!identity || identity.status === IdentityVerificationStatus.NoIdentity)
-                      ? "Submit Identity"
-                      : "Update Identity"
+                    : hasEnoughBalance === false
+                      ? "Fund account to submit"
+                      : (!identity || identity.status === IdentityVerificationStatus.NoIdentity)
+                        ? "Submit Identity"
+                        : "Update Identity"
                   }
                 </Button>
               </>
@@ -1121,6 +1150,21 @@ export default function RegisterPage() {
           </div>}
         </div>
       </main>
+
+      <TeleporterDialog
+        isTxBusy={isTxBusy}
+        open={showTeleportDialog}
+        setOpen={setShowTeleportDialog}
+        teleportAmount={minBalanceAmount || new BigNumber(0)}
+      />
+
+      {accountStore.encodedAddress && (
+        <PaseoFaucetDialog
+          open={showPaseoFaucet}
+          onOpenChange={setShowPaseoFaucet}
+          address={accountStore.encodedAddress}
+        />
+      )}
     </div>
   </>
 }

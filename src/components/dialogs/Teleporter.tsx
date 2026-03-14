@@ -54,10 +54,6 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
   useEffect(() => {
     if (address) {
       setFromAddress(address)
-      console.log("🎯 Teleporter destination:", {
-        toAddress: address,
-        availableAccounts: accounts?.map(a => ({ name: a.name, address: a.encodedAddress }))
-      });
     }
   }, [address, accounts])
 
@@ -150,9 +146,7 @@ export default function Teleporter({ teleportAmount, setTeleportAmount, setOnTel
             <Input readOnly
               value={(() => {
                 const account = accounts?.find(({ encodedAddress }) => encodedAddress === toAddress);
-                const displayName = account?.name || toAddress || 'Unknown Account';
-                console.log("🔍 Destination lookup:", { toAddress, found: !!account, displayName });
-                return displayName;
+                return account?.name || toAddress || 'Unknown Account';
               })()}
               className="bg-gray-800 border-gray-600 text-gray-300"
             />
