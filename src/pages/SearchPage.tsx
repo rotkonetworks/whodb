@@ -101,9 +101,6 @@ const SearchResultItem = memo<{
 });
 SearchResultItem.displayName = "SearchResultItem";
 
-// TODO: fix loading animation
-// TODO: fix navigation (forward and backward page)
-// TODO: fix search suggestion
 export default function SearchPage() {
   const { search } = useSearchContext()
   const { search: localSearch, cacheStats, isSyncing } = useLocalIdentitySearch()
@@ -143,14 +140,13 @@ export default function SearchPage() {
       try {
         const localResults = await localSearch(searchText, undefined, limit);
         const profiles = localResults.map(scoredIdentityToProfile);
-        console.log('Local search results (trustless):', profiles.length);
         setResults(profiles);
         setUsingLocalFallback(true);
         if (profiles.length === 0) {
           setSearchError('No matching identities found in local cache.');
         }
       } catch (localErr) {
-        console.error('Local search failed:', localErr);
+        // Local search failed, show no results
         setSearchError('Local search failed');
         setResults([]);
       } finally {
@@ -163,10 +159,9 @@ export default function SearchPage() {
     setUsingLocalFallback(false);
     try {
       const searchResults = await search(searchQuery, limit);
-      console.log('WebSocket search results:', searchResults.length);
       setResults(searchResults);
     } catch (error) {
-      console.error('WebSocket search failed:', error);
+      // WebSocket search failed
       const errorMessage = error instanceof Error ? error.message : 'Search service unavailable';
       setSearchError(errorMessage + '. Sync identities from chain to enable local search.');
       setResults([]);
@@ -181,24 +176,17 @@ export default function SearchPage() {
     }
   };
 
-  // Initialize search query from URL on component mount
+  // Pre-fill search input from URL query
   useEffect(() => {
-    if (query && query !== searchQuery) {
-      setSearchQuery("");
+    if (query && !searchQuery) {
+      setSearchQuery(query);
     }
   }, [query]);
 
   useEffect(() => {
     if (query) {
-      try {
-        // Extract the enum and JSON object from searchData
-        fetchResults(searchJson, 20);
-      } catch (error) {
-        console.error('Failed to decode search data:', error);
-        fetchResults(searchJson, 20);
-      }
+      fetchResults(searchJson, 20);
     } else {
-      // Clear results when no query is present
       setResults([]);
     }
   }, [query])

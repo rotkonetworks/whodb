@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ReactNode } from "react"
 import { Logo } from "./logo"
 import { WalletConnectButton } from "./wallet-connect-button"
 import { NetworkSelectorButton } from "./network-selector-button"
+import { useAccount } from "@/contexts/wallet-context"
+import { useNetwork } from "@/contexts/network-context"
 
 interface PageHeaderProps {
   backTo?: string
@@ -23,6 +25,10 @@ export function PageHeader({
   showWallet = true,
   showNetwork = true,
 }: PageHeaderProps) {
+  const { address } = useAccount()
+  const { network } = useNetwork()
+  const ecosystem = network?.replace('_people', '') || 'paseo'
+
   return (
     <header className={`border-b border-gray-700/50 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-50 ${className}`}>
       <div className="container mx-auto px-4 py-3">
@@ -52,6 +58,13 @@ export function PageHeader({
           </div>
           <div className="flex items-center gap-2">
             {showNetwork && <NetworkSelectorButton />}
+            {address && (
+              <Link to={`/profile/${ecosystem}/${address}`}>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white p-2" title="My Profile">
+                  <User className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
             {showWallet && <WalletConnectButton />}
             {rightActions}
           </div>

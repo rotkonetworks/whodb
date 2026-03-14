@@ -113,7 +113,6 @@ export default function SearchForm() {
       Promise.all([
         syncNetwork('paseo_people').catch(() => 0),
         syncNetwork('polkadot_people').catch(() => 0),
-        syncNetwork('ksmcc3_people').catch(() => 0),
       ]).then((counts) => {
         console.log('[search-form] synced identities:', counts.reduce((a, b) => a + b, 0))
       })

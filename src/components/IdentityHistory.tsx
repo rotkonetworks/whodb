@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import { useIdentityEvents } from '@/hooks/useIdentityEvents'
-import { History, ExternalLink, Loader2, AlertCircle, CheckCircle, XCircle, UserPlus, UserMinus, FileEdit, Scale } from 'lucide-react'
+import { History, ExternalLink, Loader2, CheckCircle, XCircle, UserPlus, UserMinus, FileEdit, Scale } from 'lucide-react'
 
 interface IdentityHistoryProps {
   wallet: string
@@ -126,33 +126,8 @@ export const IdentityHistory = memo(function IdentityHistory({
     )
   }
 
-  if (error) {
-    return (
-      <div className="pt-4 border-t border-gray-700/50">
-        <div className="text-xs uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-2">
-          <History className="w-4 h-4" />
-          History
-        </div>
-        <div className="flex items-center gap-2 py-4 text-red-400 text-sm">
-          <AlertCircle className="w-4 h-4" />
-          Unable to load history
-        </div>
-      </div>
-    )
-  }
-
-  if (sortedEvents.length === 0) {
-    return (
-      <div className="pt-4 border-t border-gray-700/50">
-        <div className="text-xs uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-2">
-          <History className="w-4 h-4" />
-          History
-        </div>
-        <div className="py-4 text-gray-500 text-sm text-center">
-          No on-chain events recorded
-        </div>
-      </div>
-    )
+  if (error || sortedEvents.length === 0) {
+    return null
   }
 
   return (
