@@ -1,6 +1,4 @@
 import BigNumber from "bignumber.js";
-// @ts-ignore
-import _ from "lodash";
 import { SS58String, Binary } from "polkadot-api";
 import { getPublicKey } from "@/utils/wallets-accounts";
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react";

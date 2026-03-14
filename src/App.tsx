@@ -9,7 +9,7 @@ import { BalanceProvider } from '@/contexts/balance-context'
 import { ChatProvider } from '@/contexts/ChatContext'
 import { Toaster } from '@/components/ui/sonner'
 import { useModalAwareToasts } from '@/hooks/useModalAwareToasts'
-import { ChatWidgetContainer } from '@/components/chat'
+const ChatWidgetContainer = lazy(() => import('@/components/chat').then(m => ({ default: m.ChatWidgetContainer })))
 import { PolkadotWalletProvider } from './contexts/PolkadotWalletContext'
 import { EthereumWalletProvider } from './contexts/EthereumWalletContext'
 import { PolkadotApiProvider } from './contexts/PolkadotApiContext'
@@ -85,7 +85,7 @@ export default function App() {
                             <VerificationProvider>
                               <ChatProvider>
                                 <AnimatedRoutes />
-                                <ChatWidgetContainer />
+                                <Suspense fallback={null}><ChatWidgetContainer /></Suspense>
                               </ChatProvider>
                             </VerificationProvider>
                           </QueryClientProvider>

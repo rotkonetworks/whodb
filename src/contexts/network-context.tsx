@@ -53,20 +53,20 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const registrarIndex = networks[network]?.registrarIndex
   const isViewOnly = registrarIndex === undefined || isNaN(registrarIndex)
 
-  const relayId = network?.split("_")[0] || "";
-  const relay = network ? {
-    id: relayId,
-    name: networks[relayId]?.name || "",
-    parachains: Object.keys(networks)
-      .filter(key => key.startsWith(relayId))
-      .map(key => ({
-        id: key,
-        name: networks[key]?.name || "",
-      }))
-  } : undefined;
+  const value = useMemo(() => {
+    const relayId = network?.split("_")[0] || "";
+    const relay = network ? {
+      id: relayId,
+      name: networks[relayId]?.name || "",
+      parachains: Object.keys(networks)
+        .filter(key => key.startsWith(relayId))
+        .map(key => ({
+          id: key,
+          name: networks[key]?.name || "",
+        }))
+    } : undefined;
 
-  return (
-    <NetworkContext.Provider value={{
+    return {
       network,
       networkColor,
       networkDisplayName,
@@ -80,7 +80,11 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       tokenSymbol: networks[network]?.tokenSymbol,
       registrarIndex,
       relay,
-    }}>
+    }
+  }, [network, networkColor, networkDisplayName, isEncrypted, isFree, isViewOnly, registrarIndex])
+
+  return (
+    <NetworkContext.Provider value={value}>
       {children}
     </NetworkContext.Provider>
   )

@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { createContext, useContext, useState } from "react"
+import { createContext, useCallback, useContext, useMemo, useState } from "react"
 import { useNetwork } from "@/contexts/network-context"
 
 interface BalanceContextType {
@@ -19,7 +19,7 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
   const [isRequestingTokens, setIsRequestingTokens] = useState(false)
   const { network } = useNetwork()
 
-  const checkBalance = async (_address: string) => {
+  const checkBalance = useCallback(async (_address: string) => {
     setIsLoading(true)
 
     // Simulate websocket connection and balance check
@@ -43,9 +43,9 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
 
     setBalance(mockBalance)
     setIsLoading(false)
-  }
+  }, [network])
 
-  const requestTokens = async (_address: string) => {
+  const requestTokens = useCallback(async (_address: string) => {
     setIsRequestingTokens(true)
 
     // Simulate token distribution
@@ -58,10 +58,14 @@ export function BalanceProvider({ children }: { children: React.ReactNode }) {
 
     setIsRequestingTokens(false)
     return true
-  }
+  }, [balance])
+
+  const value = useMemo(() => ({
+    balance, isLoading, checkBalance, requestTokens, isRequestingTokens,
+  }), [balance, isLoading, checkBalance, requestTokens, isRequestingTokens])
 
   return (
-    <BalanceContext.Provider value={{ balance, isLoading, checkBalance, requestTokens, isRequestingTokens }}>
+    <BalanceContext.Provider value={value}>
       {children}
     </BalanceContext.Provider>
   )

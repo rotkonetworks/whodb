@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, ReactNode } from "react";
 import { web3Enable, web3AccountsSubscribe, web3FromAddress } from "@polkadot/extension-dapp";
 import { u8aToHex } from "@polkadot/util";
 import { decodeAddress, encodeAddress } from "@polkadot/keyring";
@@ -301,7 +301,7 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
     console.warn("Disconnect requested - browser extensions cannot be programmatically disconnected");
   }, []);
 
-  const value: PolkadotWalletContextType = {
+  const value = useMemo<PolkadotWalletContextType>(() => ({
     extensions,
     accounts,
     isLoading,
@@ -309,17 +309,13 @@ export function PolkadotWalletProvider({ children, appName = "Polkadot Wallet", 
     signMessage,
     getSignerForAddress,
     error,
-
-    // Additional functionality from useWalletAccounts
     getFormattedAccounts,
     getWalletAccount,
     connectedWallets: extensions,
     disconnectAllWallets,
-
-    // Lazy initialization
     initializeWallets,
     isInitialized,
-  };
+  }), [extensions, accounts, isLoading, signRaw, signMessage, getSignerForAddress, error, getFormattedAccounts, getWalletAccount, disconnectAllWallets, initializeWallets, isInitialized]);
 
   return (
     <PolkadotWalletContext.Provider value={value}>

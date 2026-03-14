@@ -1,7 +1,7 @@
 import { useTriggerLog } from "@/hooks/use-trigger-log";
 import { useSearchWebSocket } from "@/hooks/websocket/search";
 import { useWebSocket, WebSocketHookReturn } from "@/hooks/websocket";
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { FullProfile } from "@/types/profile";
 import { cachedSearch } from "@/utils/searchCache";
 
@@ -88,8 +88,10 @@ export const SearchProvider = ({ children }: {
     return filtered;
   }, [searchWebSocket]);
 
+  const value = useMemo(() => ({ webSocket, search, results }), [webSocket, search, results])
+
   return (
-    <SearchContext.Provider value={{ webSocket, search, results }}>
+    <SearchContext.Provider value={value}>
       {children}
     </SearchContext.Provider>
   );

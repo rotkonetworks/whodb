@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules/@radix-ui/')) return 'radix'
             if (id.includes('node_modules/react-dom')) return 'vendor'
             if (id.includes('node_modules/react-router')) return 'vendor'
-            if (id.includes('node_modules/framer-motion')) return 'vendor'
+            if (id.includes('node_modules/framer-motion')) return 'framer-motion'
           },
         },
       },

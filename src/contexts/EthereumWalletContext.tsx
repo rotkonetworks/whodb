@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from "react";
 import type { SS58String as _SS58String } from "polkadot-api";
 
 // Extend Window interface to include ethereum
@@ -160,7 +160,7 @@ export function EthereumWalletProvider({ children }: EthereumWalletProviderProps
     }
   }, []);
 
-  const value: EthereumWalletContextType = {
+  const value = useMemo<EthereumWalletContextType>(() => ({
     accounts,
     isLoading,
     error,
@@ -171,7 +171,7 @@ export function EthereumWalletProvider({ children }: EthereumWalletProviderProps
     selectAccount,
     disconnect,
     signMessage,
-  };
+  }), [accounts, isLoading, error, isMetaMaskInstalled, connectWallet, isInitialized, selectedAccount, selectAccount, disconnect, signMessage]);
 
   return (
     <EthereumWalletContext.Provider value={value}>

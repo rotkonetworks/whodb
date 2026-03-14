@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react"
 
 export interface ChatConfig {
   id: string
@@ -89,14 +89,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <ChatContext.Provider value={{
+    <ChatContext.Provider value={useMemo(() => ({
       openChats,
       openChat,
       closeChat,
       minimizeChat,
       maximizeChat,
       closeAllChats,
-    }}>
+    }), [openChats, openChat, closeChat, minimizeChat, maximizeChat, closeAllChats])}>
       {children}
     </ChatContext.Provider>
   )

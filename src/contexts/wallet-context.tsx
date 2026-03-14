@@ -1,5 +1,5 @@
 import type React from "react"
-import { createContext, useContext, useState, useCallback } from "react"
+import { createContext, useContext, useState, useCallback, useMemo } from "react"
 import { usePolkadotWallet, type ExtendedAccountData, type SignRawParams } from "../contexts/PolkadotWalletContext"
 import { SS58String } from "polkadot-api"
 
@@ -83,31 +83,22 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     return signature.signature
   }, [selectedAccount, signRaw])
 
-  const value: AccountContextType = {
-    // AccountData properties from selected account
+  const value = useMemo<AccountContextType>(() => ({
     name: selectedAccount?.name || null,
     address: selectedAccount?.address || null,
     encodedAddress: selectedAccount?.encodedAddress || null,
     disabled: selectedAccount?.disabled || false,
-
-    // Connection state
     isConnected: !!selectedAccount,
     isConnecting: isLoadingAccounts,
-
-    // Available accounts
     accounts,
     isLoadingAccounts,
     accountsError,
-
-    // Actions
     selectAccount,
     disconnect,
-
-    // Signing capabilities
     signRaw,
     signMessage,
     signTransaction,
-  }
+  }), [selectedAccount, isLoadingAccounts, accounts, accountsError, selectAccount, disconnect, signRaw, signMessage, signTransaction])
 
   return (
     <AccountContext.Provider value={value}>

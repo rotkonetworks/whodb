@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from "react"
 
 interface UserProfile {
   id: string
@@ -54,7 +54,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (address: string) => {
+  const login = useCallback(async (address: string) => {
     setIsLoading(true)
 
     // Mock alice's profile data
@@ -80,24 +80,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsLoggedIn(true)
     localStorage.setItem("userSession", JSON.stringify({ profile: aliceProfile }))
     setIsLoading(false)
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setIsLoggedIn(false)
     setUserProfile(null)
     localStorage.removeItem("userSession")
-  }
+  }, [])
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
+  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     if (userProfile) {
       const updatedProfile = { ...userProfile, ...updates }
       setUserProfile(updatedProfile)
       localStorage.setItem("userSession", JSON.stringify({ profile: updatedProfile }))
     }
-  }
+  }, [userProfile])
+
+  const value = useMemo(() => ({
+    isLoggedIn, userProfile, login, logout, isLoading, updateProfile,
+  }), [isLoggedIn, userProfile, login, logout, isLoading, updateProfile])
 
   return (
-    <UserContext.Provider value={{ isLoggedIn, userProfile, login, logout, isLoading, updateProfile }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   )
