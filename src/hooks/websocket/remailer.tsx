@@ -90,6 +90,7 @@ export const useRemailer = (): UseRemailerReturn => {
 
     try {
       const response = await wsSendMessage({
+        version: '1.1',
         type: 'remailer_fetch_messages',
         payload: { recipient_address: recipientAddress }
       })
@@ -114,6 +115,7 @@ export const useRemailer = (): UseRemailerReturn => {
 
     try {
       const response = await wsSendMessage({
+        version: '1.1',
         type: 'remailer_send_message',
         payload: params
       })
@@ -142,6 +144,7 @@ export const useRemailer = (): UseRemailerReturn => {
 
     try {
       const response = await wsSendMessage({
+        version: '1.1',
         type: 'remailer_delete_message',
         payload: { message_id: messageId }
       })

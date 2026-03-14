@@ -86,9 +86,12 @@ export const useChallengeWebSocket = (
     throw new Error('WebSocket instance is required');
   }
 
-  const network = useMemo(() => _network?.toLowerCase().split('_')[0], [_network]);
+  const network = useMemo(() => {
+    const raw = _network?.toLowerCase().split('_')[0]
+    return raw === 'ksmcc3' ? 'kusama' : raw
+  }, [_network]);
   const address = useMemo(() => _address, [_address]);
-  const cleanNetwork = network?.toLowerCase?.().split('_')[0];
+  const cleanNetwork = network;
 
   const [challengeState, setChallengeState] = useState<ResponseAccountState | null>(null);
   const [challenges, setChallenges] = useState<ChallengeStore>({});
@@ -148,7 +151,7 @@ export const useChallengeWebSocket = (
   // Send PGP verification
   const sendPGPVerification = useCallback(
     async (payload: VerifyPGPKeyMessage): Promise<void> => {
-      await webSocketInstance.sendMessage({ type: 'VerifyPGPKey', payload });
+      await webSocketInstance.sendMessage({ version: '1.1', type: 'VerifyPGPKey', payload });
     },
     [webSocketInstance]
   );
