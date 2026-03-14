@@ -12,11 +12,17 @@ export const whitelist = [
   "query.System.Account",
   "query.System.Events",
 
+  // PeopleIdentity queries (alternate pallet name)
+  "query.PeopleIdentity.IdentityOf",
+
   // Identity transactions
   "tx.Identity.set_identity",
   "tx.Identity.request_judgement",
   "tx.Identity.cancel_request",
   "tx.Identity.clear_identity",
+
+  // Balances transactions
+  "tx.Balances.transfer_keep_alive",
 
   // Utility transactions
   "tx.Utility.batch_all",
