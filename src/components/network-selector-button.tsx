@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const NETWORKS = [
-  { id: 'paseo', name: 'Paseo', description: 'Testnet — register with us' },
-  { id: 'polkadot', name: 'Polkadot', description: 'Mainnet — browse only' },
+  { id: 'paseo', name: 'Paseo', description: 'Testnet — register & verify with us' },
+  { id: 'polkadot', name: 'Polkadot', description: 'Mainnet — manage identity & subs' },
 ] as const
 
 export function NetworkSelectorButton() {

@@ -5,7 +5,7 @@ import { useParams, Navigate, useNavigate } from "react-router-dom"
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import * as Avatar from "@radix-ui/react-avatar"
 import { useIdentity } from "@/hooks/useIdentity"
-import { SS58String } from "polkadot-api"
+import { SS58String, Binary } from "polkadot-api"
 import { decodeAddress, encodeAddress } from "@polkadot/util-crypto"
 import { CHAINS, getPeopleChain as getEcosystemPeopleChain } from "@/polkadot-api/chain-config"
 import { useAccount } from "@/contexts/wallet-context"
@@ -26,6 +26,7 @@ type AddressCache = { address: string; hex: string } | null
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { ProfileSkeleton } from "@/components/ui/profile-skeleton"
 import { TransactionProgressModal, TxStatus } from "@/components/dialogs/TransactionProgressModal"
+import { AddSubAccountDialog } from "@/components/dialogs/AddSubAccountDialog"
 import { ActingAsSelector } from "@/components/ActingAsSelector"
 import { getTransactionType } from "@/utils/proxyWrapper"
 import { fromHexString } from "@/utils/binary"
@@ -49,6 +50,8 @@ export default function ProfilePage() {
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txHash, setTxHash] = useState<string | undefined>();
   const [txError, setTxError] = useState<string | undefined>();
+  const [addSubDialogOpen, setAddSubDialogOpen] = useState(false);
+  const [subAccountVersion, setSubAccountVersion] = useState(0);
   const { openChat } = useChat();
   const draftSnap = useSnapshot(identityDraftStore);
   // Only subscribe to actingAs - read settingsStore directly in callbacks
@@ -192,6 +195,20 @@ export default function ProfilePage() {
       network,
     });
   }, [address, identity, isVerified, network, openChat]);
+
+  const handleAddSubAccount = useCallback(async (subAddress: string, subName: string) => {
+    if (!typedApi) throw new Error("API not ready");
+
+    const sub = { type: "Id" as const, value: subAddress };
+    const data = subName
+      ? { type: `Raw${subName.length}` as const, value: Binary.fromText(subName) }
+      : { type: "None" as const };
+
+    const tx = (typedApi as any).tx.identity.addSub(sub, data);
+    await signSubmitAndWatch({ call: tx, name: "Add Sub-Account" });
+    setSubAccountVersion(v => v + 1);
+    toast.success("Sub-account added!");
+  }, [typedApi, signSubmitAndWatch]);
 
   const handleSave = useCallback(async () => {
     if (!typedApi || !connectedAddress) {
@@ -514,7 +531,7 @@ export default function ProfilePage() {
         {/* Notice for networks where we're not yet a registrar */}
         {isOwnProfile && network !== 'paseo' && (
           <div className="mb-4 px-3 py-2.5 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-300/90">
-            We're not yet a registrar on {network.replace('_people', '').replace('_', ' ')}. For mainnet registration use{" "}
+            You can edit your identity and manage sub-accounts here. For verification on {network.replace('_people', '').replace('_', ' ')} use{" "}
             <a href="https://dotid.app/" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-200">dotid.app</a>
             , or test with us on{" "}
             <button onClick={() => navigate(`/profile/paseo/${address}`)} className="underline hover:text-yellow-200">Paseo</button>.
@@ -530,6 +547,8 @@ export default function ProfilePage() {
           isVerified={isVerified}
           onMessageClick={handleMessageClick}
           onSave={handleSave}
+          onAddSubAccount={() => setAddSubDialogOpen(true)}
+          subAccountVersion={subAccountVersion}
           isSaving={isSaving}
         />
 
@@ -544,6 +563,12 @@ export default function ProfilePage() {
         error={txError}
         title="Save Identity"
         network={peopleChain || undefined}
+      />
+
+      <AddSubAccountDialog
+        open={addSubDialogOpen}
+        onOpenChange={setAddSubDialogOpen}
+        onSubmit={handleAddSubAccount}
       />
     </div>
   );

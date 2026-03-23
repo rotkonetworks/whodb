@@ -37,6 +37,8 @@ interface ProfileContentProps {
   onMessageClick?: () => void
   onSave?: () => void
   isSaving?: boolean
+  onAddSubAccount?: () => void
+  subAccountVersion?: number
 }
 
 export const ProfileContent = memo(function ProfileContent({
@@ -48,6 +50,8 @@ export const ProfileContent = memo(function ProfileContent({
   onMessageClick,
   onSave,
   isSaving = false,
+  onAddSubAccount,
+  subAccountVersion,
 }: ProfileContentProps) {
   const draftSnap = useSnapshot(identityDraftStore)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -535,10 +539,12 @@ export const ProfileContent = memo(function ProfileContent({
       {/* Account Relations */}
       <div className="pt-4 border-t border-gray-700/50">
         <AccountRelations
+          key={subAccountVersion}
           address={address}
           network={network}
           peopleChain={peopleChain}
           isOwnProfile={isOwnProfile}
+          onAddSubAccount={onAddSubAccount}
         />
       </div>
 

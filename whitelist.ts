@@ -17,6 +17,10 @@ export const whitelist = [
 
   // Identity transactions
   "tx.Identity.set_identity",
+  "tx.Identity.set_subs",
+  "tx.Identity.add_sub",
+  "tx.Identity.rename_sub",
+  "tx.Identity.remove_sub",
   "tx.Identity.request_judgement",
   "tx.Identity.cancel_request",
   "tx.Identity.clear_identity",
