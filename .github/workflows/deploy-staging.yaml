@@ -12,7 +12,7 @@ env:
   VITE_APP_REGISTRAR_INDEX__PEOPLE_PASEO: 1
   VITE_APP_AVAILABLE_CHAINS: polkadot_people,ksmcc3_people,paseo_people
   VITE_APP_DEFAULT_CHAIN: paseo_people
-  VITE_APP_CHALLENGES_API_URL: wss://api.w3reg.org
+  VITE_APP_CHALLENGES_API_URL: wss://api.whodb.org
   MODE: "staging"
 
 on:

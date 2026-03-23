@@ -72,7 +72,7 @@ SuggestionItem.displayName = "SuggestionItem";
 
 export default function SearchForm() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(() => sessionStorage.getItem('whodb_search') || "")
   // Fast debounce (100ms) for instant-feeling search like Google
   // Local IndexedDB search is fast enough to handle this
   const debouncedQuery = useDebounce(query, 100)
@@ -271,6 +271,7 @@ export default function SearchForm() {
             onChange={(e) => {
               const newValue = e.target.value
               setQuery(newValue)
+              sessionStorage.setItem('whodb_search', newValue)
               // Instant feedback: show typing indicator immediately (2+ chars for Google-like speed)
               if (enablePredictive && newValue.length >= 2) {
                 setIsTyping(true)
